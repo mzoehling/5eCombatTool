@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import './app.css'
 import { BattleControls } from './components/BattleControls'
+import { StatblockPanel } from './components/StatblockPanel'
 import { TrackerPane } from './components/TrackerPane'
 import { battleStore, useBattleState } from './store/battleStore'
 
 function App() {
   const [hydrated, setHydrated] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [pinnedId, setPinnedId] = useState<string | null>(null)
   const state = useBattleState()
+  const activeId = state.battle.activeCombatantId
 
   useEffect(() => {
     battleStore
@@ -15,6 +18,9 @@ function App() {
       .catch((err: unknown) => console.error('hydrate failed:', err))
       .finally(() => setHydrated(true))
   }, [])
+
+  // unpinned panel follows the turn: a turn change resets manual selection
+  useEffect(() => setSelectedId(null), [activeId])
 
   if (!hydrated) {
     return (
@@ -24,7 +30,8 @@ function App() {
     )
   }
 
-  const selected = state.combatants.find((c) => c.id === selectedId)
+  const shownId = pinnedId ?? selectedId ?? (state.battle.isRunning ? activeId : null)
+  const shown = state.combatants.find((c) => c.id === shownId)
 
   return (
     <div className="app">
@@ -33,13 +40,14 @@ function App() {
         <BattleControls />
       </header>
       <div className="panes">
-        <TrackerPane selectedId={selectedId} onSelect={setSelectedId} />
+        <TrackerPane selectedId={shown?.id ?? null} onSelect={setSelectedId} />
         <aside className="statblock-pane">
-          {selected ? (
-            <div className="statblock-placeholder">
-              <h2>{selected.name}</h2>
-              <p className="dim">Statblock panel arrives in the next build step.</p>
-            </div>
+          {shown ? (
+            <StatblockPanel
+              combatant={shown}
+              pinned={pinnedId === shown.id}
+              onTogglePin={() => setPinnedId(pinnedId === shown.id ? null : shown.id)}
+            />
           ) : (
             <p className="dim empty-hint">Select a combatant to see its statblock.</p>
           )}

@@ -490,6 +490,157 @@ label.check {
   color: var(--text-dim);
 }
 
+/* ---------- statblock panel ---------- */
+
+.sb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sb-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.sb-tabs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin: 0.6rem 0 0.8rem;
+}
+
+.sb-tabs button {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+.sb-meta {
+  font-style: italic;
+  color: var(--text-dim);
+  margin-top: 0;
+}
+
+.sb-statline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+  margin-bottom: 0.8rem;
+}
+
+.sb-abilities {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 0.8rem;
+}
+
+.sb-abilities th,
+.sb-abilities td {
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.4rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.sb-abilities thead th {
+  background: var(--bg-raised);
+}
+
+.sb-abilities tbody th {
+  text-align: left;
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 0.8rem;
+}
+
+.sb-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.8rem;
+  margin: 0;
+}
+
+.sb-details dt {
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.sb-details dd {
+  margin: 0;
+}
+
+.sb-section h3 {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.2rem;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.sb-entry {
+  margin-bottom: 0.7rem;
+}
+
+.sb-entry p {
+  display: inline;
+  margin: 0;
+}
+
+.sb-entry p + p {
+  display: block;
+  margin-top: 0.3rem;
+}
+
+/* ---------- limited uses ---------- */
+
+.uses-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.uses-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.use-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+}
+
+.use-name {
+  flex: 1;
+}
+
+.use-pips {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.pip {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  display: inline-block;
+}
+
+.pip.full {
+  background: var(--accent);
+}
+
+.use-count {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- footer ---------- */
 
 .app-footer {
