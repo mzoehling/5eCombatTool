@@ -14,7 +14,7 @@ import {
   type SpellcastingList,
   type Statblock,
   type StatblockEntry,
-} from '../types'
+} from '../types.ts'
 
 // ---------- raw schema (loose but typed) ----------
 

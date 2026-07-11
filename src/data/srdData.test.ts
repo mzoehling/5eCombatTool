@@ -1,0 +1,66 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import type { Item, Spell, Statblock } from '../types'
+
+const root = resolve(import.meta.dirname, '..', '..')
+const fixturesDir = resolve(root, 'fixtures')
+const dataDir = resolve(root, 'public', 'data')
+const hasFixtures = existsSync(resolve(fixturesDir, 'bestiary', 'bestiary-xmm.json'))
+
+function load<T>(path: string): T {
+  return JSON.parse(readFileSync(path, 'utf8')) as T
+}
+
+// Expected SRD 5.2 coverage. ±10% tolerance: upstream changes should be
+// noticed (test fails) without hard-failing on every small addition.
+const EXPECTED = { monsters: 331, spells: 339, items: 474, baseItems: 92 }
+
+function expectWithinTolerance(actual: number, expected: number, label: string) {
+  expect(actual, `${label}: ${actual} vs expected ${expected} ±10%`).toBeGreaterThanOrEqual(expected * 0.9)
+  expect(actual, `${label}: ${actual} vs expected ${expected} ±10%`).toBeLessThanOrEqual(expected * 1.1)
+}
+
+describe.skipIf(!hasFixtures)('srd52 coverage in upstream fixtures', () => {
+  it('matches the expected monster/spell/item counts (±10%)', () => {
+    const srd = (arr: { srd52?: boolean | string }[]) => arr.filter((e) => e.srd52).length
+    const monsters = load<{ monster: { srd52?: boolean }[] }>(resolve(fixturesDir, 'bestiary/bestiary-xmm.json'))
+    const spells = load<{ spell: { srd52?: boolean }[] }>(resolve(fixturesDir, 'spells/spells-xphb.json'))
+    const items = load<{ item: { srd52?: boolean }[] }>(resolve(fixturesDir, 'items.json'))
+    const base = load<{ baseitem: { srd52?: boolean }[] }>(resolve(fixturesDir, 'items-base.json'))
+
+    expectWithinTolerance(srd(monsters.monster), EXPECTED.monsters, 'monsters')
+    expectWithinTolerance(srd(spells.spell), EXPECTED.spells, 'spells')
+    expectWithinTolerance(srd(items.item), EXPECTED.items, 'items')
+    expectWithinTolerance(srd(base.baseitem), EXPECTED.baseItems, 'base items')
+  })
+})
+
+describe('committed SRD data (public/data)', () => {
+  it('exists and matches its meta counts', () => {
+    const meta = load<{ version: string; counts: typeof EXPECTED }>(resolve(dataDir, 'srd-meta.json'))
+    const monsters = load<Statblock[]>(resolve(dataDir, 'srd-monsters.json'))
+    const spells = load<Spell[]>(resolve(dataDir, 'srd-spells.json'))
+    const items = load<Item[]>(resolve(dataDir, 'srd-items.json'))
+
+    expect(meta.version).toMatch(/^[0-9a-f]{16}$/)
+    expect(monsters.length).toBe(meta.counts.monsters)
+    expect(spells.length).toBe(meta.counts.spells)
+    expect(items.length).toBe(meta.counts.items + meta.counts.baseItems)
+
+    expectWithinTolerance(monsters.length, EXPECTED.monsters, 'bundled monsters')
+    expectWithinTolerance(spells.length, EXPECTED.spells, 'bundled spells')
+  })
+
+  it('contains normalized statblocks with computed initiative', () => {
+    const monsters = load<Statblock[]>(resolve(dataDir, 'srd-monsters.json'))
+    const dragon = monsters.find((m) => m.name === 'Adult Red Dragon')
+    expect(dragon).toBeDefined()
+    expect(dragon!.initiativeBonus).toBe(12)
+    expect(dragon!.hp.average).toBe(256)
+    for (const m of monsters) {
+      expect(typeof m.initiativeBonus, m.name).toBe('number')
+      expect(m.hp.average, m.name).toBeGreaterThanOrEqual(0)
+    }
+  })
+})
