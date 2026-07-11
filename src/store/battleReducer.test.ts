@@ -1,0 +1,177 @@
+import { describe, expect, it } from 'vitest'
+import type { Combatant } from '../types'
+import {
+  battleReducer,
+  initialState,
+  sortedCombatants,
+  turnOrder,
+  type BattleAction,
+  type BattleState,
+} from './battleReducer'
+
+function makeCombatant(overrides: Partial<Combatant>): Combatant {
+  return {
+    id: 'x',
+    name: 'X',
+    hp: 10,
+    maxHp: 10,
+    tempHp: 0,
+    armorClass: 12,
+    initiative: null,
+    initiativeBonus: 0,
+    sortIndex: 0,
+    isActive: true,
+    isPC: false,
+    hiddenFromPlayers: false,
+    conditions: [],
+    limits: [],
+    ...overrides,
+  }
+}
+
+function stateWith(combatants: Combatant[], battle = initialState.battle): BattleState {
+  return { ...initialState, combatants, battle }
+}
+
+function dispatchAll(state: BattleState, ...actions: BattleAction[]): BattleState {
+  return actions.reduce(battleReducer, state)
+}
+
+describe('sorting', () => {
+  it('sorts by initiative desc, ties by sortIndex, unrolled last', () => {
+    const s = [
+      makeCombatant({ id: 'a', initiative: 12, sortIndex: 5 }),
+      makeCombatant({ id: 'b', initiative: 20, sortIndex: 1 }),
+      makeCombatant({ id: 'c', initiative: 12, sortIndex: 2 }),
+      makeCombatant({ id: 'd', initiative: null }),
+    ]
+    expect(sortedCombatants(s).map((c) => c.id)).toEqual(['b', 'c', 'a', 'd'])
+  })
+
+  it('reorders a tie via the reorder action', () => {
+    const state = stateWith([
+      makeCombatant({ id: 'a', initiative: 12, sortIndex: 0 }),
+      makeCombatant({ id: 'b', initiative: 12, sortIndex: 1 }),
+      makeCombatant({ id: 'c', initiative: 12, sortIndex: 2 }),
+    ])
+    const next = battleReducer(state, { type: 'reorder', id: 'c', beforeId: 'a' })
+    expect(sortedCombatants(next.combatants).map((c) => c.id)).toEqual(['c', 'a', 'b'])
+  })
+})
+
+describe('damage and healing', () => {
+  it('temp HP absorbs damage first', () => {
+    const state = stateWith([makeCombatant({ id: 'a', hp: 10, tempHp: 5 })])
+    const next = battleReducer(state, { type: 'applyDamage', ids: ['a'], amount: 8 })
+    expect(next.combatants[0].tempHp).toBe(0)
+    expect(next.combatants[0].hp).toBe(7)
+  })
+
+  it('damage never drops below 0, healing never exceeds max', () => {
+    const state = stateWith([makeCombatant({ id: 'a', hp: 3, maxHp: 10 })])
+    const dead = battleReducer(state, { type: 'applyDamage', ids: ['a'], amount: 99 })
+    expect(dead.combatants[0].hp).toBe(0)
+    const healed = battleReducer(state, { type: 'applyHealing', ids: ['a'], amount: 99 })
+    expect(healed.combatants[0].hp).toBe(10)
+  })
+
+  it('applies AoE damage per target with individual temp HP', () => {
+    const state = stateWith([
+      makeCombatant({ id: 'a', hp: 20, tempHp: 10 }),
+      makeCombatant({ id: 'b', hp: 20, tempHp: 0 }),
+    ])
+    const next = battleReducer(state, { type: 'applyDamage', ids: ['a', 'b'], amount: 12 })
+    expect(next.combatants[0]).toMatchObject({ tempHp: 0, hp: 18 })
+    expect(next.combatants[1]).toMatchObject({ tempHp: 0, hp: 8 })
+  })
+})
+
+describe('initiative rolling', () => {
+  it('adds the initiative bonus to rolled values', () => {
+    const state = stateWith([makeCombatant({ id: 'a', initiativeBonus: 3 })])
+    const next = battleReducer(state, { type: 'rollInitiative', ids: ['a'], rolls: [15] })
+    expect(next.combatants[0].initiative).toBe(18)
+  })
+})
+
+describe('battle flow', () => {
+  const three = [
+    makeCombatant({ id: 'a', initiative: 20, sortIndex: 0 }),
+    makeCombatant({ id: 'b', initiative: 15, sortIndex: 1 }),
+    makeCombatant({ id: 'c', initiative: 10, sortIndex: 2 }),
+  ]
+
+  it('start → next → wraps with round increment; back decrements', () => {
+    let state = dispatchAll(stateWith(three), { type: 'startBattle' })
+    expect(state.battle.activeCombatantId).toBe('a')
+    expect(state.battle.round).toBe(1)
+
+    state = dispatchAll(state, { type: 'nextTurn' }, { type: 'nextTurn' }, { type: 'nextTurn' })
+    expect(state.battle.activeCombatantId).toBe('a')
+    expect(state.battle.round).toBe(2)
+
+    state = battleReducer(state, { type: 'prevTurn' })
+    expect(state.battle.activeCombatantId).toBe('c')
+    expect(state.battle.round).toBe(1)
+  })
+
+  it('skips combatants whose group is out of battle', () => {
+    const grouped = [
+      makeCombatant({ id: 'a', initiative: 20, sortIndex: 0 }),
+      makeCombatant({ id: 'b', initiative: 15, sortIndex: 1, groupId: 'reserve' }),
+      makeCombatant({ id: 'c', initiative: 10, sortIndex: 2 }),
+    ]
+    let state = stateWith(grouped)
+    state = dispatchAll(
+      state,
+      { type: 'addGroup', group: { id: 'reserve', name: 'Reserve', inBattle: false } },
+      { type: 'startBattle' },
+      { type: 'nextTurn' },
+    )
+    expect(state.battle.activeCombatantId).toBe('c')
+
+    state = battleReducer(state, { type: 'setGroupInBattle', id: 'reserve', inBattle: true })
+    expect(turnOrder(state).map((c) => c.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('decrements condition durations at the creature turn start and reports expiry', () => {
+    const conditioned = [
+      makeCombatant({
+        id: 'a',
+        initiative: 20,
+        conditions: [
+          { condition: 'Prone', remainingRounds: 1 },
+          { condition: 'Frightened', remainingRounds: 3 },
+          { condition: 'Charmed' },
+        ],
+      }),
+      makeCombatant({ id: 'b', initiative: 15 }),
+    ]
+    // battle starts: a's turn begins → Prone (1 round) expires, Frightened ticks to 2
+    let state = dispatchAll(stateWith(conditioned), { type: 'startBattle' })
+    const a = state.combatants.find((c) => c.id === 'a')!
+    expect(a.conditions.map((c) => `${c.condition}:${c.remainingRounds ?? '∞'}`)).toEqual([
+      'Frightened:2',
+      'Charmed:∞',
+    ])
+    expect(state.expiredConditions).toEqual([{ combatantName: 'X', condition: 'Prone' }])
+
+    // b's turn: nothing to tick, notice cleared
+    state = battleReducer(state, { type: 'nextTurn' })
+    expect(state.expiredConditions).toEqual([])
+  })
+})
+
+describe('limited use', () => {
+  it('consumes and restores within bounds', () => {
+    const state = stateWith([
+      makeCombatant({ id: 'a', limits: [{ id: 'l1', name: 'Breath', max: 1, used: 0 }] }),
+    ])
+    let next = battleReducer(state, { type: 'consumeLimit', id: 'a', limitId: 'l1', delta: 1 })
+    expect(next.combatants[0].limits[0].used).toBe(1)
+    next = battleReducer(next, { type: 'consumeLimit', id: 'a', limitId: 'l1', delta: 1 })
+    expect(next.combatants[0].limits[0].used).toBe(1)
+    next = battleReducer(next, { type: 'consumeLimit', id: 'a', limitId: 'l1', delta: -1 })
+    expect(next.combatants[0].limits[0].used).toBe(0)
+  })
+})
