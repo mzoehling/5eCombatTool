@@ -1,0 +1,114 @@
+/* Player View — optimized for distance viewing (shared TV / tablet). */
+
+.pv-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: clamp(0.5rem, 2vw, 2rem);
+  font-size: clamp(1rem, 2.6vw, 1.8rem);
+}
+
+.pv-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.4em;
+}
+
+.pv-header h1 {
+  margin: 0;
+  font-size: 1.4em;
+}
+
+.pv-round {
+  font-size: 1.3em;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.pv-status {
+  margin: 0.5em 0;
+  padding: 0.4em 0.8em;
+  background: var(--warn);
+  color: #10101a;
+  font-weight: 600;
+  border-radius: 0.4em;
+  text-align: center;
+}
+
+.pv-list {
+  list-style: none;
+  margin: 0.6em 0 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.pv-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.45em 0.5em;
+  border-radius: 0.5em;
+  border: 2px solid transparent;
+}
+
+.pv-list li.active {
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-panel));
+  border-color: var(--accent);
+}
+
+.pv-marker {
+  width: 1.2em;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.pv-name {
+  flex: 1;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  min-width: 0;
+}
+
+.pv-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em;
+}
+
+.pv-chip {
+  font-size: 0.55em;
+  background: var(--bg-raised);
+  color: var(--warn);
+  border-radius: 0.5em;
+  padding: 0.15em 0.5em;
+}
+
+.pv-health {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-health.pc {
+  color: var(--text);
+}
+
+.pv-temp {
+  color: var(--accent);
+  font-size: 0.8em;
+}
+
+.status-unharmed { color: var(--ok); }
+.status-injured { color: color-mix(in srgb, var(--ok) 50%, var(--warn)); }
+.status-bloodied { color: var(--warn); }
+.status-critical { color: var(--danger); }
+.status-down { color: var(--text-dim); text-decoration: line-through; }
+
+.pv-empty {
+  color: var(--text-dim);
+  justify-content: center;
+}

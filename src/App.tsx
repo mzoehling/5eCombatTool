@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import './app.css'
 import { BackupReminder } from './components/BackupReminder'
 import { BattleControls } from './components/BattleControls'
+import { HostControls, useLocalPlayerViewHost } from './features/playerView/HostControls'
 import { StatblockPanel } from './components/StatblockPanel'
 import { TrackerPane } from './components/TrackerPane'
 import { battleStore, useBattleState } from './store/battleStore'
@@ -10,8 +11,10 @@ function App() {
   const [hydrated, setHydrated] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [pinnedId, setPinnedId] = useState<string | null>(null)
+  const [showPlayerView, setShowPlayerView] = useState(false)
   const state = useBattleState()
   const activeId = state.battle.activeCombatantId
+  useLocalPlayerViewHost()
 
   useEffect(() => {
     battleStore
@@ -38,8 +41,18 @@ function App() {
     <div className="app">
       <header className="topbar">
         <h1 className="app-title">5e Combat Tool</h1>
+        <button
+          type="button"
+          className="ghost"
+          aria-label="Player View"
+          title="Player View"
+          onClick={() => setShowPlayerView(true)}
+        >
+          📺
+        </button>
         <BattleControls />
       </header>
+      {showPlayerView && <HostControls onClose={() => setShowPlayerView(false)} />}
       <BackupReminder />
       <div className="panes">
         <TrackerPane selectedId={shown?.id ?? null} onSelect={setSelectedId} />

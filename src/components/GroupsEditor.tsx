@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { newId } from '../lib/id'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { Modal } from './Modal'
 
@@ -10,7 +11,7 @@ export function GroupsEditor({ onClose }: { onClose: () => void }) {
   const add = () => {
     const trimmed = name.trim()
     if (!trimmed) return
-    dispatch({ type: 'addGroup', group: { id: crypto.randomUUID(), name: trimmed, inBattle: true } })
+    dispatch({ type: 'addGroup', group: { id: newId(), name: trimmed, inBattle: true } })
     setName('')
   }
 
