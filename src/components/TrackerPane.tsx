@@ -7,6 +7,8 @@ import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
 import { AddBlank } from './AddBlank'
 import { CombatantRow } from './CombatantRow'
+import { Compendium } from './Compendium'
+import { PacksManager } from './PacksManager'
 import { ConditionEditor } from './ConditionEditor'
 import { EditCombatant } from './EditCombatant'
 import { GroupsEditor } from './GroupsEditor'
@@ -19,7 +21,7 @@ interface TrackerPaneProps {
 export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
   const { dispatch } = battleStore
   const state = useBattleState()
-  const [modal, setModal] = useState<'add' | 'groups' | null>(null)
+  const [modal, setModal] = useState<'add' | 'groups' | 'compendium' | 'packs' | null>(null)
   const [conditionsFor, setConditionsFor] = useState<string | null>(null)
   const [editFor, setEditFor] = useState<string | null>(null)
   const [multiSelect, setMultiSelect] = useState(false)
@@ -88,11 +90,15 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
   return (
     <section className="tracker-pane">
       <div className="tracker-toolbar">
-        <button type="button" onClick={() => setModal('add')}>＋ Add</button>
+        <button type="button" className="primary" onClick={() => setModal('compendium')}>
+          📖 Compendium
+        </button>
+        <button type="button" onClick={() => setModal('add')}>＋ Blank</button>
         <button type="button" onClick={rollMissing} title="Roll initiative for monsters without a value">
           🎲 Roll missing
         </button>
         <button type="button" onClick={() => setModal('groups')}>Groups</button>
+        <button type="button" onClick={() => setModal('packs')}>Packs</button>
         <button
           type="button"
           className={multiSelect ? 'primary' : ''}
@@ -163,6 +169,8 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
 
       {modal === 'add' && <AddBlank onClose={() => setModal(null)} />}
       {modal === 'groups' && <GroupsEditor onClose={() => setModal(null)} />}
+      {modal === 'compendium' && <Compendium onClose={() => setModal(null)} />}
+      {modal === 'packs' && <PacksManager onClose={() => setModal(null)} />}
       {conditionsCombatant && <ConditionEditor combatant={conditionsCombatant} onClose={() => setConditionsFor(null)} />}
       {editCombatant && <EditCombatant combatant={editCombatant} onClose={() => setEditFor(null)} />}
     </section>
