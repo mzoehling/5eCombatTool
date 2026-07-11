@@ -60,11 +60,12 @@ export function projectSnapshot(state: BattleState): PlayerSnapshot {
       health: c.isPC
         ? { kind: 'pc', hp: c.hp, maxHp: c.maxHp, tempHp: c.tempHp }
         : { kind: 'npc', status: healthStatus(c.hp, c.maxHp) },
-      // note is a DM field — never transmitted
+      // note is a DM field — never transmitted; unset keys are omitted, not
+      // sent as undefined (the WebRTC wire format would turn them into null)
       conditions: c.conditions.map(({ condition, remainingRounds, level }) => ({
         condition,
-        remainingRounds,
-        level,
+        ...(remainingRounds !== undefined && { remainingRounds }),
+        ...(level !== undefined && { level }),
       })),
     }))
 

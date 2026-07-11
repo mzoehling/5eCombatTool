@@ -110,9 +110,17 @@ describe('projectSnapshot', () => {
     expect(json).not.toContain('tripped')
 
     // conditions with rounds ARE visible
-    expect(snapshot.participants[0].conditions).toEqual([{ condition: 'Prone', remainingRounds: 2, level: undefined }])
+    expect(snapshot.participants[0].conditions).toEqual([{ condition: 'Prone', remainingRounds: 2 }])
     expect(snapshot.round).toBe(3)
     expect(snapshot.activeId).toBe('a')
+  })
+
+  it('omits unset condition fields instead of sending undefined (binarypack turns undefined into null)', () => {
+    const snapshot = projectSnapshot(
+      stateWith([makeCombatant({ conditions: [{ condition: 'Frightened' }] })]),
+    )
+    const condition = snapshot.participants[0].conditions[0]
+    expect(Object.keys(condition)).toEqual(['condition'])
   })
 
   it('shows the forming order without a turn marker before the battle runs', () => {

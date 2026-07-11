@@ -52,7 +52,7 @@ export function ViewerApp({ code }: { code: string }) {
                   {p.conditions.map((c) => (
                     <span key={c.condition} className="pv-chip">
                       {c.condition === 'Exhaustion' ? `Exhaustion ${c.level ?? 1}` : c.condition}
-                      {c.remainingRounds !== undefined && ` (${c.remainingRounds})`}
+                      {c.remainingRounds != null && ` (${c.remainingRounds})`}
                     </span>
                   ))}
                 </span>
