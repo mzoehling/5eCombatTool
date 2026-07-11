@@ -1,4 +1,4 @@
-import { mdiMonitor } from '@mdi/js'
+import { mdiMonitor, mdiWeatherNight, mdiWeatherSunny } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import './app.css'
 import { Icon } from './components/Icon'
@@ -9,11 +9,25 @@ import { StatblockPanel } from './components/StatblockPanel'
 import { TrackerPane } from './components/TrackerPane'
 import { battleStore, useBattleState } from './store/battleStore'
 
+type Theme = 'dark' | 'light'
+
+const THEME_KEY = '5ect-theme'
+
+function useTheme(): [Theme, () => void] {
+  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark'))
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem(THEME_KEY, theme)
+  }, [theme])
+  return [theme, () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))]
+}
+
 function App() {
   const [hydrated, setHydrated] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [pinnedId, setPinnedId] = useState<string | null>(null)
   const [showPlayerView, setShowPlayerView] = useState(false)
+  const [theme, toggleTheme] = useTheme()
   const state = useBattleState()
   const activeId = state.battle.activeCombatantId
   useLocalPlayerViewHost()
@@ -43,6 +57,15 @@ function App() {
     <div className="app">
       <header className="topbar">
         <h1 className="app-title">5e Combat Tool</h1>
+        <button
+          type="button"
+          className="ghost"
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          onClick={toggleTheme}
+        >
+          <Icon path={theme === 'dark' ? mdiWeatherSunny : mdiWeatherNight} />
+        </button>
         <button
           type="button"
           className="ghost"

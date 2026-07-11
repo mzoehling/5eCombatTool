@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { mdiDiceD20, mdiDotsHorizontal, mdiDrag, mdiEyeOff, mdiFormatListChecks } from '@mdi/js'
+import { mdiDiceD20, mdiDotsHorizontal, mdiDrag, mdiEyeOff, mdiFormatListChecks, mdiShieldOutline } from '@mdi/js'
 import { battleStore } from '../store/battleStore'
 import { d20 } from '../lib/dice'
 import type { Combatant } from '../types'
@@ -165,6 +165,7 @@ export function CombatantRow({
       </div>
 
       <span className="ac-badge" title="Armor Class">
+        <Icon path={mdiShieldOutline} size={15} className="dim-icon" />
         {c.armorClass}
       </span>
 

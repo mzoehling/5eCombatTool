@@ -1,6 +1,6 @@
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { mdiBookOpenVariant, mdiPlus } from '@mdi/js'
+import { mdiBookOpenVariant, mdiDiceMultiple, mdiPlus } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import { evalArithmetic } from '../lib/arithmetic'
 import { battleStore, useBattleState } from '../store/battleStore'
@@ -11,6 +11,7 @@ import { Compendium } from './Compendium'
 import { HomebrewManager } from './HomebrewManager'
 import { PacksManager } from './PacksManager'
 import { ConditionEditor } from './ConditionEditor'
+import { DiceRoller } from './DiceRoller'
 import { EditCombatant } from './EditCombatant'
 import { GroupsEditor } from './GroupsEditor'
 import { Icon } from './Icon'
@@ -23,7 +24,7 @@ interface TrackerPaneProps {
 export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
   const { dispatch } = battleStore
   const state = useBattleState()
-  const [modal, setModal] = useState<'add' | 'groups' | 'compendium' | 'packs' | 'homebrew' | null>(null)
+  const [modal, setModal] = useState<'add' | 'groups' | 'compendium' | 'packs' | 'homebrew' | 'dice' | null>(null)
   const [conditionsFor, setConditionsFor] = useState<string | null>(null)
   const [editFor, setEditFor] = useState<string | null>(null)
   const [multiSelect, setMultiSelect] = useState(false)
@@ -92,6 +93,9 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
         </button>
         <button type="button" className="icon-label" onClick={() => setModal('add')}>
           <Icon path={mdiPlus} /> Blank
+        </button>
+        <button type="button" className="icon-label" onClick={() => setModal('dice')}>
+          <Icon path={mdiDiceMultiple} /> Dice Roller
         </button>
         <button type="button" onClick={() => setModal('groups')}>Groups</button>
         <button type="button" onClick={() => setModal('homebrew')}>Homebrew</button>
@@ -170,6 +174,7 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
       {modal === 'compendium' && <Compendium onClose={() => setModal(null)} />}
       {modal === 'packs' && <PacksManager onClose={() => setModal(null)} />}
       {modal === 'homebrew' && <HomebrewManager onClose={() => setModal(null)} />}
+      {modal === 'dice' && <DiceRoller onClose={() => setModal(null)} />}
       {conditionsCombatant && <ConditionEditor combatant={conditionsCombatant} onClose={() => setConditionsFor(null)} />}
       {editCombatant && <EditCombatant combatant={editCombatant} onClose={() => setEditFor(null)} />}
     </section>
