@@ -336,9 +336,12 @@ export function parseMonster(raw: RawMonster): Statblock {
   const damageImmune = parseDamageList(raw.immune)
   const conditionImmune = parseDamageList(raw.conditionImmune)
 
+  // gear entries are plain "name|source" references, not {@item} tags
   const gear = (raw.gear ?? []).map((g) => {
-    if (typeof g === 'string') return g
-    return g.quantity && g.quantity > 1 ? `${g.item ?? ''} (${g.quantity})` : (g.item ?? '')
+    const ref = typeof g === 'string' ? g : (g.item ?? '')
+    const name = ref.split('|')[0].replace(/\b\w/g, (c) => c.toUpperCase())
+    const quantity = typeof g === 'object' && g.quantity && g.quantity > 1 ? ` (${g.quantity})` : ''
+    return name + quantity
   })
 
   const legendary = parseNamedBlocks(raw.legendary)

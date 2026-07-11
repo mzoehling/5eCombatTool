@@ -83,6 +83,18 @@ describe.skipIf(!hasFixtures)('parseMonster (bestiary fixture)', () => {
     }
   })
 
+  it('renders gear as readable names without source references', () => {
+    const withGear = monsters.filter((m) => m.gear?.length)
+    expect(withGear.length).toBeGreaterThan(50)
+    for (const raw of withGear) {
+      for (const g of parseMonster(raw).gear) {
+        expect(g, raw.name).not.toContain('|')
+      }
+    }
+    const goblin = parseMonster(monsters.find((m) => m.name === 'Goblin Warrior')!)
+    expect(goblin.gear).toContain('Scimitar')
+  })
+
   it('computes initiative bonus fallback from DEX', () => {
     const noInit = monsters.find((m) => m.initiative === undefined && (m.dex ?? 10) >= 14)
     expect(noInit).toBeDefined()
