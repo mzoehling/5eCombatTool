@@ -1,3 +1,4 @@
+import { newId } from '../lib/id'
 import { detectLimitedUses } from '../lib/limitedUses'
 import type { Combatant, Statblock } from '../types'
 
@@ -11,7 +12,7 @@ export interface BlankCombatantInput {
 
 export function combatantFromStatblock(sb: Statblock, name = sb.name, isPC = false): Combatant {
   return {
-    id: crypto.randomUUID(),
+    id: newId(),
     name,
     hp: sb.hp.average,
     maxHp: sb.hp.average,
@@ -31,7 +32,7 @@ export function combatantFromStatblock(sb: Statblock, name = sb.name, isPC = fal
 
 export function blankCombatant(input: BlankCombatantInput): Combatant {
   return {
-    id: crypto.randomUUID(),
+    id: newId(),
     name: input.name,
     hp: input.maxHp,
     maxHp: input.maxHp,

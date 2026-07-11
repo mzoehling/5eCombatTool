@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { db } from '../db'
+import { newId } from '../lib/id'
 import {
   emptyForm,
   formToStatblock,
@@ -71,7 +72,7 @@ export function HomebrewEditor({ existing, kind, onClose }: HomebrewEditorProps)
 
   const save = async () => {
     if (!form.name.trim()) return
-    const id = existing?.id ?? `hb-${crypto.randomUUID()}`
+    const id = existing?.id ?? `hb-${newId()}`
     const now = Date.now()
     const entry: HomebrewEntry = {
       id,
