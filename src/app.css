@@ -241,6 +241,19 @@
   color: var(--accent);
 }
 
+.hp-delta {
+  width: 3.6rem;
+  text-align: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.25rem;
+}
+
+.hp-delta::placeholder {
+  color: var(--text-dim);
+}
+
 .ac-badge {
   min-width: 2.2rem;
   text-align: center;
@@ -300,6 +313,24 @@
   padding: 0.6rem 1rem;
   border-radius: 10px;
   z-index: 30;
+}
+
+/* ---------- icons ---------- */
+
+.icon {
+  display: inline-block;
+  vertical-align: -0.28em;
+  flex-shrink: 0;
+}
+
+.dim-icon {
+  color: var(--text-dim);
+}
+
+button.icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 /* ---------- buttons & forms ---------- */
@@ -437,6 +468,10 @@ label.check {
   flex: 1;
 }
 
+.inline-form input.group-color {
+  flex: 0 0 auto;
+}
+
 /* ---------- condition & group lists ---------- */
 
 .condition-list,
@@ -484,6 +519,29 @@ label.check {
   min-width: 2.6rem;
   text-align: center;
   font-size: 0.85rem;
+}
+
+.condition-heading {
+  font-size: 0.95rem;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.2rem;
+  margin: 1rem 0 0.4rem;
+}
+
+.group-color {
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.group-list label.check {
+  flex: 1;
 }
 
 .dim {

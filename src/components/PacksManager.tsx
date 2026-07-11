@@ -2,6 +2,8 @@ import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import { importPack, removePack } from '../data/packs'
+import { mdiDelete } from '@mdi/js'
+import { Icon } from './Icon'
 import { Modal } from './Modal'
 
 export function PacksManager({ onClose }: { onClose: () => void }) {
@@ -47,7 +49,7 @@ export function PacksManager({ onClose }: { onClose: () => void }) {
               aria-label={`Remove pack ${pack.name}`}
               onClick={() => removePack(pack.packId)}
             >
-              ✕
+              <Icon path={mdiDelete} />
             </button>
           </li>
         ))}

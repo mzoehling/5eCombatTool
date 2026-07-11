@@ -1,9 +1,12 @@
+import { mdiPin, mdiPinOutline, mdiRestore } from '@mdi/js'
 import { useState } from 'react'
+import { describeCondition } from '../data/conditionInfo'
 import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
 import { abilityMod, type Ability, type Combatant, type Statblock, type StatblockEntry } from '../types'
+import { Icon } from './Icon'
 
-type Tab = 'general' | 'traits' | 'actions' | 'spells' | 'uses'
+type Tab = 'general' | 'traits' | 'actions' | 'spells' | 'uses' | 'conditions'
 
 interface StatblockPanelProps {
   combatant: Combatant
@@ -180,6 +183,26 @@ function SpellsTab({ sb }: { sb: Statblock }) {
   )
 }
 
+function ConditionsTab({ combatant }: { combatant: Combatant }) {
+  if (!combatant.conditions.length) return <p className="dim">No active conditions.</p>
+  return (
+    <>
+      {combatant.conditions.map((cond) => (
+        <section key={cond.condition} className="sb-section">
+          <h3>
+            {cond.condition === 'Exhaustion' ? `Exhaustion — Level ${cond.level ?? 1}` : cond.condition}
+            {cond.remainingRounds !== undefined && (
+              <span className="dim"> ({cond.remainingRounds} {cond.remainingRounds === 1 ? 'round' : 'rounds'} left)</span>
+            )}
+          </h3>
+          <p>{describeCondition(cond.condition) ?? 'Custom effect — no rules text.'}</p>
+          {cond.note && <p className="dim">Note: {cond.note}</p>}
+        </section>
+      ))}
+    </>
+  )
+}
+
 function UsesTab({ combatant }: { combatant: Combatant }) {
   const { dispatch } = battleStore
   if (!combatant.limits.length) return <p className="dim">No limited-use abilities detected.</p>
@@ -212,7 +235,7 @@ function UsesTab({ combatant }: { combatant: Combatant }) {
               disabled={limit.used <= 0}
               onClick={() => dispatch({ type: 'consumeLimit', id: combatant.id, limitId: limit.id, delta: -1 })}
             >
-              ↺
+              <Icon path={mdiRestore} />
             </button>
           </li>
         )
@@ -231,7 +254,11 @@ export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPane
     { id: 'actions', label: 'Actions', show: !!sb },
     { id: 'spells', label: 'Spells', show: !!sb && sb.spellcasting.length > 0 },
     { id: 'uses', label: 'Uses', show: true },
+    { id: 'conditions', label: 'Active Conditions', show: combatant.conditions.length > 0 },
   ]
+
+  // fall back when the selected tab disappears (e.g. last condition removed)
+  const shownTab = tabs.some((t) => t.id === tab && t.show) ? tab : 'general'
 
   return (
     <div className="statblock">
@@ -244,7 +271,7 @@ export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPane
           aria-label={pinned ? 'Unpin statblock' : 'Pin statblock'}
           title="Pinned statblocks do not switch with the turn"
         >
-          📌
+          <Icon path={pinned ? mdiPin : mdiPinOutline} />
         </button>
       </header>
 
@@ -252,14 +279,14 @@ export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPane
         {tabs
           .filter((t) => t.show)
           .map((t) => (
-            <button key={t.id} type="button" className={tab === t.id ? 'primary' : ''} onClick={() => setTab(t.id)}>
+            <button key={t.id} type="button" className={shownTab === t.id ? 'primary' : ''} onClick={() => setTab(t.id)}>
               {t.label}
             </button>
           ))}
       </nav>
 
       <div className="sb-content">
-        {tab === 'general' &&
+        {shownTab === 'general' &&
           (sb ? (
             <GeneralTab sb={sb} />
           ) : (
@@ -274,8 +301,8 @@ export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPane
               <dd>{signed(combatant.initiativeBonus)}</dd>
             </dl>
           ))}
-        {tab === 'traits' && sb && <EntryList entries={sb.traits} />}
-        {tab === 'actions' && sb && (
+        {shownTab === 'traits' && sb && <EntryList entries={sb.traits} />}
+        {shownTab === 'actions' && sb && (
           <>
             <EntryList entries={sb.actions} title="Actions" />
             <EntryList entries={sb.bonusActions} title="Bonus Actions" />
@@ -297,8 +324,9 @@ export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPane
             <EntryList entries={sb.lair} title="Lair Actions" />
           </>
         )}
-        {tab === 'spells' && sb && <SpellsTab sb={sb} />}
-        {tab === 'uses' && <UsesTab combatant={combatant} />}
+        {shownTab === 'spells' && sb && <SpellsTab sb={sb} />}
+        {shownTab === 'uses' && <UsesTab combatant={combatant} />}
+        {shownTab === 'conditions' && <ConditionsTab combatant={combatant} />}
       </div>
     </div>
   )

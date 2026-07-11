@@ -1,3 +1,4 @@
+import { mdiArrowLeft } from '@mdi/js'
 import { useMemo, useState } from 'react'
 import { useCompendium, type CompendiumEntry, type Origin } from '../data/compendium'
 import { rankByName, stripPostfix, suffixedNames } from '../lib/search'
@@ -5,6 +6,7 @@ import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
 import type { Statblock } from '../types'
+import { Icon } from './Icon'
 import { Modal } from './Modal'
 import { StatblockPanel } from './StatblockPanel'
 
@@ -87,8 +89,8 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
       <Modal title={preview.name} onClose={() => setPreview(null)}>
         <StatblockPanel combatant={combatantFromStatblock(preview)} pinned={false} onTogglePin={() => {}} />
         <div className="modal-actions">
-          <button type="button" className="ghost" onClick={() => setPreview(null)}>
-            ← Back
+          <button type="button" className="ghost icon-label" onClick={() => setPreview(null)}>
+            <Icon path={mdiArrowLeft} /> Back
           </button>
           <button
             type="button"

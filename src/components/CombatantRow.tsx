@@ -1,9 +1,12 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { mdiDiceD20, mdiDotsHorizontal, mdiDrag, mdiEyeOff, mdiFormatListChecks } from '@mdi/js'
 import { battleStore } from '../store/battleStore'
 import { d20 } from '../lib/dice'
 import type { Combatant } from '../types'
+import { DamageHealInput } from './DamageHealInput'
 import { HpInput } from './HpInput'
+import { Icon } from './Icon'
 
 interface CombatantRowProps {
   combatant: Combatant
@@ -13,6 +16,7 @@ interface CombatantRowProps {
   multiSelect: boolean
   checked: boolean
   groupName?: string
+  groupColor?: string
   groupOut: boolean
   onSelect: () => void
   onToggleCheck: () => void
@@ -36,6 +40,7 @@ export function CombatantRow({
   multiSelect,
   checked,
   groupName,
+  groupColor,
   groupOut,
   onSelect,
   onToggleCheck,
@@ -58,6 +63,10 @@ export function CombatantRow({
   ]
     .filter(Boolean)
     .join(' ')
+
+  // the roll button only shows while initiative is unset (0/null); any
+  // entered or rolled value hides it
+  const showRoll = (c.initiative ?? 0) === 0
 
   return (
     <li
@@ -82,23 +91,40 @@ export function CombatantRow({
           ariaLabel={`${c.name} initiative`}
           onCommit={(v) => dispatch({ type: 'setInitiative', id: c.id, initiative: v })}
         />
-        <button
-          type="button"
-          className="ghost roll-btn"
-          aria-label={`Roll initiative for ${c.name}`}
-          title={`d20 ${c.initiativeBonus >= 0 ? '+' : ''}${c.initiativeBonus}`}
-          onClick={() => dispatch({ type: 'rollInitiative', ids: [c.id], rolls: [d20()] })}
-        >
-          🎲
-        </button>
+        {showRoll && (
+          <button
+            type="button"
+            className="ghost roll-btn"
+            aria-label={`Roll initiative for ${c.name}`}
+            title={`d20 ${c.initiativeBonus >= 0 ? '+' : ''}${c.initiativeBonus}`}
+            onClick={() => dispatch({ type: 'rollInitiative', ids: [c.id], rolls: [d20()] })}
+          >
+            <Icon path={mdiDiceD20} />
+          </button>
+        )}
       </div>
 
       <button type="button" className="row-main" onClick={onSelect}>
         <span className="row-name">
-          {c.hiddenFromPlayers && <span title="Hidden from players">👁️‍🗨️ </span>}
+          {c.hiddenFromPlayers && (
+            <span title="Hidden from players">
+              <Icon path={mdiEyeOff} size={16} className="dim-icon" />{' '}
+            </span>
+          )}
           {c.name}
           {c.isPC && <span className="badge pc">PC</span>}
-          {groupName && <span className="badge group">{groupName}</span>}
+          {groupName && (
+            <span
+              className="badge group"
+              style={
+                groupColor
+                  ? { background: `color-mix(in srgb, ${groupColor} 28%, transparent)`, color: groupColor }
+                  : undefined
+              }
+            >
+              {groupName}
+            </span>
+          )}
         </span>
         {c.conditions.length > 0 && (
           <span className="row-conditions">
@@ -113,18 +139,10 @@ export function CombatantRow({
       </button>
 
       <button type="button" className="ghost cond-btn" aria-label={`Conditions for ${c.name}`} onClick={onEditConditions}>
-        ☰
+        <Icon path={mdiFormatListChecks} />
       </button>
 
       <div className="hp-block">
-        <button
-          type="button"
-          className="ghost"
-          aria-label={`${c.name} minus 1 HP`}
-          onClick={() => dispatch({ type: 'applyDamage', ids: [c.id], amount: 1 })}
-        >
-          −
-        </button>
         <div className="hp-values">
           <HpInput
             className="hp-current"
@@ -140,14 +158,10 @@ export function CombatantRow({
             onCommit={(v) => dispatch({ type: 'updateCombatant', id: c.id, patch: { tempHp: Math.max(0, v) } })}
           />
         </div>
-        <button
-          type="button"
-          className="ghost"
-          aria-label={`${c.name} plus 1 HP`}
-          onClick={() => dispatch({ type: 'applyHealing', ids: [c.id], amount: 1 })}
-        >
-          +
-        </button>
+        <DamageHealInput
+          combatantName={c.name}
+          onApply={(amount, heal) => dispatch({ type: heal ? 'applyHealing' : 'applyDamage', ids: [c.id], amount })}
+        />
       </div>
 
       <span className="ac-badge" title="Armor Class">
@@ -155,12 +169,12 @@ export function CombatantRow({
       </span>
 
       <button type="button" className="ghost edit-btn" aria-label={`Edit ${c.name}`} onClick={onEdit}>
-        ⋯
+        <Icon path={mdiDotsHorizontal} />
       </button>
 
       {isTied && (
         <button type="button" className="ghost drag-handle" aria-label={`Reorder ${c.name}`} {...attributes} {...listeners}>
-          ⠿
+          <Icon path={mdiDrag} />
         </button>
       )}
     </li>

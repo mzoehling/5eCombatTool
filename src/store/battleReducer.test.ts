@@ -134,6 +134,15 @@ describe('battle flow', () => {
     expect(turnOrder(state).map((c) => c.id)).toEqual(['a', 'b', 'c'])
   })
 
+  it('updates group fields via updateGroup', () => {
+    let state = dispatchAll(stateWith([]), {
+      type: 'addGroup',
+      group: { id: 'g1', name: 'Goblins', inBattle: true },
+    })
+    state = battleReducer(state, { type: 'updateGroup', id: 'g1', patch: { color: '#ff0000', name: 'Gobbos' } })
+    expect(state.battle.groups[0]).toEqual({ id: 'g1', name: 'Gobbos', inBattle: true, color: '#ff0000' })
+  })
+
   it('decrements condition durations at the creature turn start and reports expiry', () => {
     const conditioned = [
       makeCombatant({

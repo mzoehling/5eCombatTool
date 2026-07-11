@@ -1,7 +1,7 @@
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { mdiBookOpenVariant, mdiPlus } from '@mdi/js'
 import { useEffect, useState } from 'react'
-import { d20 } from '../lib/dice'
 import { evalArithmetic } from '../lib/arithmetic'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
@@ -13,6 +13,7 @@ import { PacksManager } from './PacksManager'
 import { ConditionEditor } from './ConditionEditor'
 import { EditCombatant } from './EditCombatant'
 import { GroupsEditor } from './GroupsEditor'
+import { Icon } from './Icon'
 
 interface TrackerPaneProps {
   selectedId: string | null
@@ -65,11 +66,6 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
     dispatch({ type: 'reorder', id: active.id.toString(), beforeId })
   }
 
-  const rollMissing = () => {
-    const ids = state.combatants.filter((c) => c.initiative === null && !c.isPC).map((c) => c.id)
-    if (ids.length) dispatch({ type: 'rollInitiative', ids, rolls: ids.map(() => d20()) })
-  }
-
   const applyAoe = (heal: boolean) => {
     const amount = evalArithmetic(aoeAmount)
     if (amount === null || amount <= 0 || checked.size === 0) return
@@ -91,12 +87,11 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
   return (
     <section className="tracker-pane">
       <div className="tracker-toolbar">
-        <button type="button" className="primary" onClick={() => setModal('compendium')}>
-          📖 Compendium
+        <button type="button" className="primary icon-label" onClick={() => setModal('compendium')}>
+          <Icon path={mdiBookOpenVariant} /> Compendium
         </button>
-        <button type="button" onClick={() => setModal('add')}>＋ Blank</button>
-        <button type="button" onClick={rollMissing} title="Roll initiative for monsters without a value">
-          🎲 Roll missing
+        <button type="button" className="icon-label" onClick={() => setModal('add')}>
+          <Icon path={mdiPlus} /> Blank
         </button>
         <button type="button" onClick={() => setModal('groups')}>Groups</button>
         <button type="button" onClick={() => setModal('homebrew')}>Homebrew</button>
@@ -128,6 +123,7 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
                   multiSelect={multiSelect}
                   checked={checked.has(c.id)}
                   groupName={group?.name}
+                  groupColor={group?.color}
                   groupOut={group ? !group.inBattle : false}
                   onSelect={() => onSelect(c.id)}
                   onToggleCheck={() => toggleCheck(c.id)}

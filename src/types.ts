@@ -26,8 +26,23 @@ export const CONDITIONS = [
 
 export type ConditionName = (typeof CONDITIONS)[number]
 
+/** Common single-target spell effects tracked through the same system as conditions. */
+export const SPELL_EFFECTS = [
+  "Hunter's Mark",
+  'Hex',
+  'Bane',
+  'Bless',
+  'Faerie Fire',
+  'Guiding Bolt',
+  'Haste',
+  'Slow',
+] as const
+
+export type SpellEffectName = (typeof SPELL_EFFECTS)[number]
+
 export interface ConditionInstance {
-  condition: ConditionName
+  /** A standard condition, a spell effect, or a custom effect label. */
+  condition: string
   /** Duration in rounds; decremented at the affected creature's turn start. */
   remainingRounds?: number
   /** Exhaustion level 1-6. */
@@ -165,7 +180,7 @@ export interface Combatant {
   /** Temp HP absorbs damage first. */
   tempHp: number
   armorClass: number
-  /** null until rolled/entered. */
+  /** Defaults to 0 for new combatants; null kept for legacy stored data. */
   initiative: number | null
   initiativeBonus: number
   groupId?: string
@@ -186,6 +201,8 @@ export interface Group {
   id: string
   name: string
   inBattle: boolean
+  /** Display color; members are shown with it in the tracker. */
+  color?: string
 }
 
 /** Singleton battle state (id "current"); serializable for the future Player View broadcaster. */

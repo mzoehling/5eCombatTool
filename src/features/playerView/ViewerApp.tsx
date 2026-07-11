@@ -1,5 +1,7 @@
+import { mdiPlay } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import './viewer.css'
+import { Icon } from '../../components/Icon'
 import type { PlayerParticipant, PlayerSnapshot } from './projection'
 import { connectBroadcastViewer, connectPeerViewer, LOCAL_CODE, type ViewerStatus } from './transport'
 
@@ -44,7 +46,7 @@ export function ViewerApp({ code }: { code: string }) {
       <ol className="pv-list">
         {snapshot?.participants.map((p) => (
           <li key={p.id} className={p.id === snapshot.activeId ? 'active' : ''}>
-            <span className="pv-marker">{p.id === snapshot.activeId ? '▶' : ''}</span>
+            <span className="pv-marker">{p.id === snapshot.activeId && <Icon path={mdiPlay} size={16} />}</span>
             <span className="pv-name">
               {p.name}
               {p.conditions.length > 0 && (

@@ -1,5 +1,7 @@
+import { mdiPlay } from '@mdi/js'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { renderSVG } from 'uqr'
+import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { playerViewHost } from './broadcaster'
 import { LOCAL_CODE } from './transport'
@@ -65,8 +67,12 @@ export function HostControls({ onClose }: { onClose: () => void }) {
           </p>
           {error && <p className="error-text">{error}</p>}
           <div className="modal-actions">
-            <button type="button" className="primary" disabled={starting} onClick={start}>
-              {starting ? 'Starting…' : '▶ Start Player View'}
+            <button type="button" className="primary icon-label" disabled={starting} onClick={start}>
+              {starting ? 'Starting…' : (
+                <>
+                  <Icon path={mdiPlay} /> Start Player View
+                </>
+              )}
             </button>
           </div>
         </div>

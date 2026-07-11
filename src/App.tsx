@@ -1,5 +1,7 @@
+import { mdiMonitor } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import './app.css'
+import { Icon } from './components/Icon'
 import { BackupReminder } from './components/BackupReminder'
 import { BattleControls } from './components/BattleControls'
 import { HostControls, useLocalPlayerViewHost } from './features/playerView/HostControls'
@@ -48,7 +50,7 @@ function App() {
           title="Player View"
           onClick={() => setShowPlayerView(true)}
         >
-          📺
+          <Icon path={mdiMonitor} />
         </button>
         <BattleControls />
       </header>

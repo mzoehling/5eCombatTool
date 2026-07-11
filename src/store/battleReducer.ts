@@ -42,6 +42,7 @@ export type BattleAction =
   | { type: 'addGroup'; group: Group }
   | { type: 'removeGroup'; id: string }
   | { type: 'setGroupInBattle'; id: string; inBattle: boolean }
+  | { type: 'updateGroup'; id: string; patch: Partial<Omit<Group, 'id'>> }
   | { type: 'assignGroup'; combatantId: string; groupId?: string }
   | { type: 'setCondition'; id: string; condition: ConditionInstance }
   | { type: 'removeCondition'; id: string; condition: string }
@@ -245,6 +246,15 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         battle: {
           ...state.battle,
           groups: state.battle.groups.map((g) => (g.id === action.id ? { ...g, inBattle: action.inBattle } : g)),
+        },
+      }
+
+    case 'updateGroup':
+      return {
+        ...state,
+        battle: {
+          ...state.battle,
+          groups: state.battle.groups.map((g) => (g.id === action.id ? { ...g, ...action.patch } : g)),
         },
       }
 

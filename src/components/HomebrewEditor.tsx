@@ -8,7 +8,9 @@ import {
   type EntryForm,
   type HomebrewForm,
 } from '../lib/homebrewForm'
+import { mdiClose, mdiPlus } from '@mdi/js'
 import type { HomebrewEntry, HomebrewKind } from '../types'
+import { Icon } from './Icon'
 import { Modal } from './Modal'
 
 interface HomebrewEditorProps {
@@ -47,7 +49,7 @@ function EntryListEditor({
               aria-label={`Remove ${label} entry`}
               onClick={() => onChange(entries.filter((_, j) => j !== i))}
             >
-              ✕
+              <Icon path={mdiClose} />
             </button>
           </div>
           <textarea
@@ -58,8 +60,8 @@ function EntryListEditor({
           />
         </div>
       ))}
-      <button type="button" onClick={() => onChange([...entries, { name: '', text: '' }])}>
-        ＋ {label} entry
+      <button type="button" className="icon-label" onClick={() => onChange([...entries, { name: '', text: '' }])}>
+        <Icon path={mdiPlus} /> {label} entry
       </button>
     </section>
   )

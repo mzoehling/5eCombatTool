@@ -1,4 +1,6 @@
+import { mdiClose } from '@mdi/js'
 import type { ReactNode } from 'react'
+import { Icon } from './Icon'
 
 interface ModalProps {
   title: string
@@ -13,7 +15,7 @@ export function Modal({ title, onClose, children }: ModalProps) {
         <header className="modal-header">
           <h2>{title}</h2>
           <button type="button" className="ghost" onClick={onClose} aria-label="Close">
-            ✕
+            <Icon path={mdiClose} />
           </button>
         </header>
         <div className="modal-body">{children}</div>

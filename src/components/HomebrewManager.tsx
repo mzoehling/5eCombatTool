@@ -1,3 +1,4 @@
+import { mdiDelete, mdiPlus } from '@mdi/js'
 import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { exportBackup, importBackup } from '../data/backup'
@@ -7,6 +8,7 @@ import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
 import type { HomebrewEntry, HomebrewKind } from '../types'
 import { HomebrewEditor } from './HomebrewEditor'
+import { Icon } from './Icon'
 import { Modal } from './Modal'
 
 export function HomebrewManager({ onClose }: { onClose: () => void }) {
@@ -69,7 +71,9 @@ export function HomebrewManager({ onClose }: { onClose: () => void }) {
                 {entry.statblock.cr && ` · CR ${entry.statblock.cr}`}
               </span>
             </button>
-            <button type="button" onClick={() => addToBattle(entry)}>＋ Battle</button>
+            <button type="button" className="icon-label" onClick={() => addToBattle(entry)}>
+              <Icon path={mdiPlus} /> Battle
+            </button>
             <button
               type="button"
               className="ghost"
@@ -78,7 +82,7 @@ export function HomebrewManager({ onClose }: { onClose: () => void }) {
                 if (confirm(`Delete "${entry.statblock.name}"?`)) db.homebrew.delete(entry.id)
               }}
             >
-              ✕
+              <Icon path={mdiDelete} />
             </button>
           </li>
         ))}
@@ -87,11 +91,11 @@ export function HomebrewManager({ onClose }: { onClose: () => void }) {
       {message && <p className={message.error ? 'error-text' : 'ok-text'}>{message.text}</p>}
 
       <div className="modal-actions">
-        <button type="button" onClick={() => setEditor({ kind: 'pc' })}>
-          ＋ New PC
+        <button type="button" className="icon-label" onClick={() => setEditor({ kind: 'pc' })}>
+          <Icon path={mdiPlus} /> New PC
         </button>
-        <button type="button" className="primary" onClick={() => setEditor({ kind: 'monster' })}>
-          ＋ New monster
+        <button type="button" className="primary icon-label" onClick={() => setEditor({ kind: 'monster' })}>
+          <Icon path={mdiPlus} /> New monster
         </button>
       </div>
       <div className="modal-actions">
