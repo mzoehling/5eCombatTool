@@ -16,9 +16,10 @@ export function HpInput({ value, onCommit, ariaLabel, className }: HpInputProps)
 
   const commit = () => {
     const result = evalArithmetic(text)
-    if (result === null) setText(String(value))
-    else if (result !== value) onCommit(result)
-    else setText(String(value))
+    if (result !== null && result !== value) onCommit(result)
+    // reset to the prop; if onCommit changes it, the effect re-syncs —
+    // and if the parent clamps back to the same value, stale text is cleared
+    setText(String(value))
   }
 
   return (

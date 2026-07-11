@@ -13,10 +13,11 @@ dist-ssr
 dev-dist
 *.local
 
-# Local-only planning docs — never commit
+# Local-only planning docs and agent config — never commit
 SPEC.md
 HANDOVER.md
 FEATURE-PLAYER-VIEW.md
+.claude/
 
 # Downloaded upstream data used as build input / test fixtures — never commit
 /fixtures

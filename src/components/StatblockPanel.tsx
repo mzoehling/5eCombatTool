@@ -13,6 +13,15 @@ interface StatblockPanelProps {
 
 const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
 
+const SIZE_NAMES: Record<string, string> = {
+  T: 'Tiny',
+  S: 'Small',
+  M: 'Medium',
+  L: 'Large',
+  H: 'Huge',
+  G: 'Gargantuan',
+}
+
 function signed(n: number): string {
   return n >= 0 ? `+${n}` : String(n)
 }
@@ -38,7 +47,7 @@ function GeneralTab({ sb }: { sb: Statblock }) {
   return (
     <>
       <p className="sb-meta">
-        {sb.size.join('/')} {sb.type}
+        {sb.size.map((s) => SIZE_NAMES[s] ?? s).join(' or ')} {sb.type}
         {sb.typeTags.length > 0 && ` (${sb.typeTags.join(', ')})`}, {sb.alignment}
       </p>
       <div className="sb-statline">
