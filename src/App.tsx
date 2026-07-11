@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './app.css'
+import { BackupReminder } from './components/BackupReminder'
 import { BattleControls } from './components/BattleControls'
 import { StatblockPanel } from './components/StatblockPanel'
 import { TrackerPane } from './components/TrackerPane'
@@ -39,6 +40,7 @@ function App() {
         <h1 className="app-title">5e Combat Tool</h1>
         <BattleControls />
       </header>
+      <BackupReminder />
       <div className="panes">
         <TrackerPane selectedId={shown?.id ?? null} onSelect={setSelectedId} />
         <aside className="statblock-pane">

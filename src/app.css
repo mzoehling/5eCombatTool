@@ -762,6 +762,20 @@ label.check {
   color: var(--ok);
 }
 
+.backup-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.4rem 1rem;
+  background: color-mix(in srgb, var(--warn) 18%, var(--bg-panel));
+  border-bottom: 1px solid var(--warn);
+  font-size: 0.9rem;
+}
+
+.backup-banner span {
+  flex: 1;
+}
+
 /* ---------- footer ---------- */
 
 .app-footer {
