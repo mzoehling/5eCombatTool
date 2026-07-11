@@ -776,6 +776,45 @@ label.check {
   flex: 1;
 }
 
+/* ---------- player view host dialog ---------- */
+
+.pv-host {
+  text-align: center;
+}
+
+.pv-code {
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+  padding: 0.3em 0 0.1em 0.35em; /* left pad balances letter-spacing */
+  color: var(--accent);
+}
+
+.pv-qr {
+  width: min(14rem, 60vw);
+  margin: 0.6rem auto;
+  background: #fff;
+  padding: 0.6rem;
+  border-radius: 10px;
+}
+
+.pv-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pv-link {
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.pv-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1rem 0;
+}
+
 /* ---------- footer ---------- */
 
 .app-footer {
