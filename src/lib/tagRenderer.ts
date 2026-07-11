@@ -5,6 +5,7 @@
 // whose body contains no braces, and we loop until nothing matches.
 
 import { parseDiceExpression } from './diceExpr'
+import { CONDITIONS, type ConditionName } from '../types'
 
 const TAG = /\{@(\w+)(?: ([^{}]*))?\}/g
 
@@ -153,37 +154,60 @@ export function renderTags(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Segment rendering: prose plus rollable dice, for clickable damage/attack
-// links. 5etools tags are authoritative ({@damage}, {@hit}, …); plain text
-// (homebrew, untagged packs) falls back to conservative pattern matching.
+// Segment rendering: prose plus interactive spans (rollable dice, condition
+// references) for clickable statblock text. 5etools tags are authoritative
+// ({@damage}, {@hit}, {@condition}, …); plain text (homebrew, untagged packs)
+// falls back to conservative pattern matching.
 // ---------------------------------------------------------------------------
 
 export type TagSegment =
   | { kind: 'text'; text: string }
   | { kind: 'dice'; expr: string; display: string }
+  /** Reference to a known game concept; only conditions for now. */
+  | { kind: 'ref'; ref: 'condition'; name: string; display: string }
 
-/** Dice-family tags that become rollable segments. Their bodies never nest. */
-const DICE_TAG = /\{@(damage|dice|autodice|scaledice|scaledamage|hit|d20)(?: ([^{}]*))?\}/g
+/** Tags that become interactive segments. Their bodies never nest. */
+const INTERACTIVE_TAG =
+  /\{@(damage|dice|autodice|scaledice|scaledamage|hit|d20|condition|status)(?: ([^{}]*))?\}/g
 
-function diceToken(tag: string, body: string): { expr: string; display: string } | null {
+/** Case-insensitive lookup to the canonical condition name ("prone" → "Prone"). */
+function canonicalCondition(name: string): ConditionName | undefined {
+  const lower = name.trim().toLowerCase()
+  return CONDITIONS.find((c) => c.toLowerCase() === lower)
+}
+
+function interactiveToken(tag: string, body: string): TagSegment | null {
   const parts = body.split('|')
   switch (tag) {
     case 'damage':
     case 'dice':
-    case 'autodice':
-      return { expr: parts[0].trim(), display: parts[1] ?? parts[0] }
+    case 'autodice': {
+      const expr = parts[0].trim()
+      if (parseDiceExpression(expr) === null) return null
+      return { kind: 'dice', expr, display: parts[1] ?? parts[0] }
+    }
     case 'scaledice':
     case 'scaledamage': {
       const display = parts[2] ?? parts[parts.length - 1]
-      return { expr: display.trim(), display }
+      if (parseDiceExpression(display.trim()) === null) return null
+      return { kind: 'dice', expr: display.trim(), display }
     }
     case 'hit': {
       const signed = formatSigned(parts[0])
-      return { expr: `1d20${signed}`, display: signed }
+      if (parseDiceExpression(`1d20${signed}`) === null) return null
+      return { kind: 'dice', expr: `1d20${signed}`, display: signed }
     }
     case 'd20': {
       const signed = formatSigned(parts[0])
-      return { expr: `1d20${signed}`, display: parts[1] ?? parts[0] }
+      if (parseDiceExpression(`1d20${signed}`) === null) return null
+      return { kind: 'dice', expr: `1d20${signed}`, display: parts[1] ?? parts[0] }
+    }
+    // {@status} also carries non-conditions (e.g. Bloodied) — those stay text
+    case 'condition':
+    case 'status': {
+      const name = canonicalCondition(parts[0])
+      if (!name) return null
+      return { kind: 'ref', ref: 'condition', name, display: parts[2] || parts[0] }
     }
     default:
       return null
@@ -193,30 +217,49 @@ function diceToken(tag: string, body: string): { expr: string; display: string }
 /** Dice in plain prose: needs a die term ("2d6 + 3", "1w8+2", "d10") — bare numbers never match. */
 const PLAIN_DICE = /\b\d*[dw]\d+(?:\s*[+-]\s*(?:\d+\s*[dw]\s*\d+|\d*[dw]\d+|\d+))*/gi
 
-function linkifyPlainDice(text: string): TagSegment[] {
+/**
+ * Conditions in plain prose: capitalized whole words only, matching how
+ * 2024-style statblocks write mechanical conditions ("has the Prone
+ * condition") while ordinary prose stays lowercase ("knocked prone").
+ */
+const PLAIN_CONDITION = new RegExp(`\\b(${CONDITIONS.join('|')})\\b`, 'g')
+
+function linkifyPlainConditions(text: string): TagSegment[] {
   const segments: TagSegment[] = []
   let last = 0
-  for (const match of text.matchAll(PLAIN_DICE)) {
-    const expr = match[0]
-    if (parseDiceExpression(expr) === null) continue
+  for (const match of text.matchAll(PLAIN_CONDITION)) {
     if (match.index > last) segments.push({ kind: 'text', text: text.slice(last, match.index) })
-    segments.push({ kind: 'dice', expr, display: expr })
-    last = match.index + expr.length
+    segments.push({ kind: 'ref', ref: 'condition', name: match[1] as ConditionName, display: match[1] })
+    last = match.index + match[0].length
   }
   if (last < text.length) segments.push({ kind: 'text', text: text.slice(last) })
   return segments
 }
 
+function linkifyPlain(text: string): TagSegment[] {
+  const segments: TagSegment[] = []
+  let last = 0
+  for (const match of text.matchAll(PLAIN_DICE)) {
+    const expr = match[0]
+    if (parseDiceExpression(expr) === null) continue
+    if (match.index > last) segments.push(...linkifyPlainConditions(text.slice(last, match.index)))
+    segments.push({ kind: 'dice', expr, display: expr })
+    last = match.index + expr.length
+  }
+  if (last < text.length) segments.push(...linkifyPlainConditions(text.slice(last)))
+  return segments
+}
+
 /**
- * Resolves tags like renderTags, but returns prose/dice segments. Dice-family
- * tags are extracted first (so their expressions stay exact through nested
- * formatting tags), then remaining plain text is pattern-scanned.
+ * Resolves tags like renderTags, but returns prose/interactive segments.
+ * Interactive tags are extracted first (so their payloads stay exact through
+ * nested formatting tags), then remaining plain text is pattern-scanned.
  */
 export function renderTagSegments(text: string): TagSegment[] {
-  const tokens: { expr: string; display: string }[] = []
-  const withSentinels = text.replace(DICE_TAG, (match, tag: string, body: string | undefined) => {
-    const token = diceToken(tag, body ?? '')
-    if (!token || parseDiceExpression(token.expr) === null) return renderTags(match)
+  const tokens: TagSegment[] = []
+  const withSentinels = text.replace(INTERACTIVE_TAG, (match, tag: string, body: string | undefined) => {
+    const token = interactiveToken(tag, body ?? '')
+    if (!token) return renderTags(match)
     tokens.push(token)
     return `\u0000${tokens.length - 1}\u0000`
   })
@@ -227,10 +270,9 @@ export function renderTagSegments(text: string): TagSegment[] {
   // eslint-disable-next-line no-control-regex
   resolved.split(/\u0000(\d+)\u0000/).forEach((part, i) => {
     if (i % 2 === 1) {
-      const token = tokens[Number(part)]
-      segments.push({ kind: 'dice', expr: token.expr, display: token.display })
+      segments.push(tokens[Number(part)])
     } else if (part) {
-      segments.push(...linkifyPlainDice(part))
+      segments.push(...linkifyPlain(part))
     }
   })
   return segments

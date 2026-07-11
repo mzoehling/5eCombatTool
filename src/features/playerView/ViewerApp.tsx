@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import './viewer.css'
 import { DiceRoller } from '../../components/DiceRoller'
 import { Icon } from '../../components/Icon'
+import { Modal } from '../../components/Modal'
+import { describeCondition } from '../../data/conditionInfo'
 import type { PlayerParticipant, PlayerSnapshot } from './projection'
 import { connectBroadcastViewer, connectPeerViewer, LOCAL_CODE, type ViewerStatus } from './transport'
 
@@ -23,6 +25,7 @@ export function ViewerApp({ code }: { code: string }) {
   const [snapshot, setSnapshot] = useState<PlayerSnapshot | null>(null)
   const [status, setStatus] = useState<ViewerStatus>('connecting')
   const [showDice, setShowDice] = useState(false)
+  const [conditionInfo, setConditionInfo] = useState<string | null>(null)
 
   useEffect(() => {
     const handlers = { onSnapshot: setSnapshot, onStatus: setStatus }
@@ -43,6 +46,11 @@ export function ViewerApp({ code }: { code: string }) {
       </header>
 
       {showDice && <DiceRoller onClose={() => setShowDice(false)} />}
+      {conditionInfo && (
+        <Modal title={conditionInfo} onClose={() => setConditionInfo(null)}>
+          <p>{describeCondition(conditionInfo) ?? 'A custom effect — ask your DM what it does.'}</p>
+        </Modal>
+      )}
 
       {status !== 'connected' && (
         <div className="pv-status" role="status">
@@ -59,10 +67,16 @@ export function ViewerApp({ code }: { code: string }) {
               {p.conditions.length > 0 && (
                 <span className="pv-conditions">
                   {p.conditions.map((c) => (
-                    <span key={c.condition} className="pv-chip">
+                    <button
+                      key={c.condition}
+                      type="button"
+                      className="pv-chip"
+                      title={`What does ${c.condition} do?`}
+                      onClick={() => setConditionInfo(c.condition)}
+                    >
                       {c.condition === 'Exhaustion' ? `Exhaustion ${c.level ?? 1}` : c.condition}
                       {c.remainingRounds != null && ` (${c.remainingRounds})`}
-                    </span>
+                    </button>
                   ))}
                 </span>
               )}

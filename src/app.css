@@ -479,7 +479,8 @@ label.check {
 /* dice roller styles live in components/diceRoller.css (shared with the
    Player View); the inline links below only appear in DM statblocks */
 
-.dice-link {
+.dice-link,
+.condition-link {
   display: inline;
   background: none;
   border: none;
@@ -488,15 +489,60 @@ label.check {
   min-height: 0;
   min-width: 0;
   font: inherit;
-  color: var(--accent);
   font-weight: 600;
   text-decoration: underline dotted;
   text-underline-offset: 2px;
   cursor: pointer;
 }
 
-.dice-link:hover {
+.dice-link {
+  color: var(--accent);
+}
+
+.condition-link {
+  color: var(--warn);
+}
+
+.dice-link:hover,
+.condition-link:hover {
   text-decoration-style: solid;
+}
+
+/* ---------- apply-condition dialog ---------- */
+
+.condition-rules {
+  margin-top: 0;
+}
+
+.apply-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 11rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+}
+
+.apply-list label.check {
+  padding: 0.15rem 0;
+  display: flex;
+}
+
+.apply-options {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 0.8rem;
+}
+
+.apply-options label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  flex: 1;
 }
 
 .condition-heading {

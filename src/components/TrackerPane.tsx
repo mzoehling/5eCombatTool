@@ -19,16 +19,26 @@ import { Icon } from './Icon'
 interface TrackerPaneProps {
   selectedId: string | null
   onSelect: (id: string) => void
+  /** AoE multi-select state is owned by App (shared with the statblock panel). */
+  multiSelect: boolean
+  onMultiSelectChange: (on: boolean) => void
+  checked: ReadonlySet<string>
+  onCheckedChange: (checked: ReadonlySet<string>) => void
 }
 
-export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
+export function TrackerPane({
+  selectedId,
+  onSelect,
+  multiSelect,
+  onMultiSelectChange,
+  checked,
+  onCheckedChange,
+}: TrackerPaneProps) {
   const { dispatch } = battleStore
   const state = useBattleState()
   const [modal, setModal] = useState<'add' | 'groups' | 'compendium' | 'packs' | 'homebrew' | 'dice' | null>(null)
   const [conditionsFor, setConditionsFor] = useState<string | null>(null)
   const [editFor, setEditFor] = useState<string | null>(null)
-  const [multiSelect, setMultiSelect] = useState(false)
-  const [checked, setChecked] = useState<Set<string>>(new Set())
   const [aoeAmount, setAoeAmount] = useState('')
 
   const sensors = useSensors(
@@ -74,13 +84,12 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
     setAoeAmount('')
   }
 
-  const toggleCheck = (id: string) =>
-    setChecked((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const toggleCheck = (id: string) => {
+    const next = new Set(checked)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onCheckedChange(next)
+  }
 
   const conditionsCombatant = state.combatants.find((c) => c.id === conditionsFor)
   const editCombatant = state.combatants.find((c) => c.id === editFor)
@@ -100,14 +109,7 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
         <button type="button" onClick={() => setModal('groups')}>Groups</button>
         <button type="button" onClick={() => setModal('homebrew')}>Homebrew</button>
         <button type="button" onClick={() => setModal('packs')}>Packs</button>
-        <button
-          type="button"
-          className={multiSelect ? 'primary' : ''}
-          onClick={() => {
-            setMultiSelect(!multiSelect)
-            setChecked(new Set())
-          }}
-        >
+        <button type="button" className={multiSelect ? 'primary' : ''} onClick={() => onMultiSelectChange(!multiSelect)}>
           AoE
         </button>
       </div>

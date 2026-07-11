@@ -147,4 +147,48 @@ describe('renderTagSegments', () => {
       { kind: 'text', text: ') damage in 5 rounds' },
     ])
   })
+
+  it('extracts {@condition} and {@status Concentration} as condition refs', () => {
+    expect(renderTagSegments('has the {@condition Prone|XPHB} condition')).toEqual([
+      { kind: 'text', text: 'has the ' },
+      { kind: 'ref', ref: 'condition', name: 'Prone', display: 'Prone' },
+      { kind: 'text', text: ' condition' },
+    ])
+    expect(renderTagSegments('loses {@status Concentration|XPHB}')).toEqual([
+      { kind: 'text', text: 'loses ' },
+      { kind: 'ref', ref: 'condition', name: 'Concentration', display: 'Concentration' },
+    ])
+  })
+
+  it('canonicalizes condition names and honors display overrides', () => {
+    expect(renderTagSegments('{@condition prone|XPHB|knocked prone}')).toEqual([
+      { kind: 'ref', ref: 'condition', name: 'Prone', display: 'knocked prone' },
+    ])
+  })
+
+  it('leaves unknown {@status}/{@condition} names as plain text (e.g. Bloodied)', () => {
+    expect(renderTagSegments('while {@status Bloodied|XPHB}')).toEqual([
+      { kind: 'text', text: 'while Bloodied' },
+    ])
+  })
+
+  it('pattern-matches capitalized condition names in untagged text, but not lowercase prose', () => {
+    expect(renderTagSegments('the target has the Restrained condition')).toEqual([
+      { kind: 'text', text: 'the target has the ' },
+      { kind: 'ref', ref: 'condition', name: 'Restrained', display: 'Restrained' },
+      { kind: 'text', text: ' condition' },
+    ])
+    expect(renderTagSegments('is knocked prone and blinded by light')).toEqual([
+      { kind: 'text', text: 'is knocked prone and blinded by light' },
+    ])
+  })
+
+  it('mixes dice and condition segments in one homebrew line', () => {
+    expect(renderTagSegments('takes 2d6+3 damage and is Poisoned')).toEqual([
+      { kind: 'text', text: 'takes ' },
+      { kind: 'dice', expr: '2d6+3', display: '2d6+3' },
+      { kind: 'text', text: ' damage and is ' },
+      { kind: 'ref', ref: 'condition', name: 'Poisoned', display: 'Poisoned' },
+    ])
+  })
 })

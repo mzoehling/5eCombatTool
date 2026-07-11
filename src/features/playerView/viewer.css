@@ -99,10 +99,17 @@
 
 .pv-chip {
   font-size: 0.55em;
+  font-family: inherit;
   background: var(--bg-raised);
   color: var(--warn);
+  border: none;
   border-radius: 0.5em;
   padding: 0.15em 0.5em;
+  min-height: 0;
+  min-width: 0;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
 }
 
 .pv-health {

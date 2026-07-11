@@ -28,6 +28,10 @@ function App() {
   const [pinnedId, setPinnedId] = useState<string | null>(null)
   const [showPlayerView, setShowPlayerView] = useState(false)
   const [theme, toggleTheme] = useTheme()
+  // AoE multi-select lives here so the statblock's "apply condition" dialog
+  // can pre-select the checked combatants
+  const [multiSelect, setMultiSelect] = useState(false)
+  const [checked, setChecked] = useState<ReadonlySet<string>>(new Set())
   const state = useBattleState()
   const activeId = state.battle.activeCombatantId
   useLocalPlayerViewHost()
@@ -80,13 +84,24 @@ function App() {
       {showPlayerView && <HostControls onClose={() => setShowPlayerView(false)} />}
       <BackupReminder />
       <div className="panes">
-        <TrackerPane selectedId={shown?.id ?? null} onSelect={setSelectedId} />
+        <TrackerPane
+          selectedId={shown?.id ?? null}
+          onSelect={setSelectedId}
+          multiSelect={multiSelect}
+          onMultiSelectChange={(on) => {
+            setMultiSelect(on)
+            setChecked(new Set())
+          }}
+          checked={checked}
+          onCheckedChange={setChecked}
+        />
         <aside className="statblock-pane">
           {shown ? (
             <StatblockPanel
               combatant={shown}
               pinned={pinnedId === shown.id}
               onTogglePin={() => setPinnedId(pinnedId === shown.id ? null : shown.id)}
+              preselectIds={multiSelect ? checked : undefined}
             />
           ) : (
             <p className="dim empty-hint">Select a combatant to see its statblock.</p>

@@ -4,12 +4,16 @@ import { describeCondition } from '../data/conditionInfo'
 import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
 import { abilityMod, type Ability, type Combatant, type Statblock, type StatblockEntry } from '../types'
+import { ApplyCondition } from './ApplyCondition'
 import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
 import { TaggedText } from './TaggedText'
 
-/** Callback opening the dice roller pre-filled with an expression. */
-type OnDice = (expr: string) => void
+/** Callbacks opening the dice roller / condition dialog from statblock text. */
+interface TextActions {
+  onDice: (expr: string) => void
+  onCondition: (name: string) => void
+}
 
 type Tab = 'general' | 'traits' | 'actions' | 'spells' | 'uses' | 'conditions'
 
@@ -17,6 +21,8 @@ interface StatblockPanelProps {
   combatant: Combatant
   pinned: boolean
   onTogglePin: () => void
+  /** Combatants pre-checked when applying a condition (AoE selection). */
+  preselectIds?: ReadonlySet<string>
 }
 
 const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -34,7 +40,7 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : String(n)
 }
 
-function EntryList({ entries, title, onDice }: { entries: StatblockEntry[]; title?: string; onDice: OnDice }) {
+function EntryList({ entries, title, actions }: { entries: StatblockEntry[]; title?: string; actions: TextActions }) {
   if (!entries.length) return null
   return (
     <section className="sb-section">
@@ -44,7 +50,7 @@ function EntryList({ entries, title, onDice }: { entries: StatblockEntry[]; titl
           {entry.name && <strong>{renderTags(entry.name)}. </strong>}
           {entry.text.map((t, j) => (
             <p key={j}>
-              <TaggedText text={t} onDice={onDice} />
+              <TaggedText text={t} onDice={actions.onDice} onCondition={actions.onCondition} />
             </p>
           ))}
         </div>
@@ -168,7 +174,7 @@ function GeneralTab({ sb }: { sb: Statblock }) {
   )
 }
 
-function SpellsTab({ sb, onDice }: { sb: Statblock; onDice: OnDice }) {
+function SpellsTab({ sb, actions }: { sb: Statblock; actions: TextActions }) {
   if (!sb.spellcasting.length) return <p className="dim">No spellcasting.</p>
   return (
     <>
@@ -177,7 +183,7 @@ function SpellsTab({ sb, onDice }: { sb: Statblock; onDice: OnDice }) {
           <h3>{sc.name}</h3>
           {sc.headerText.map((t, j) => (
             <p key={j}>
-              <TaggedText text={t} onDice={onDice} />
+              <TaggedText text={t} onDice={actions.onDice} onCondition={actions.onCondition} />
             </p>
           ))}
           {sc.lists.map((list, j) => (
@@ -253,10 +259,12 @@ function UsesTab({ combatant }: { combatant: Combatant }) {
   )
 }
 
-export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPanelProps) {
+export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }: StatblockPanelProps) {
   const [tab, setTab] = useState<Tab>('general')
   const [rollExpr, setRollExpr] = useState<string | null>(null)
+  const [conditionFor, setConditionFor] = useState<string | null>(null)
   const sb = combatant.statblock
+  const actions: TextActions = { onDice: setRollExpr, onCondition: setConditionFor }
 
   const tabs: { id: Tab; label: string; show: boolean }[] = [
     { id: 'general', label: 'General', show: true },
@@ -311,12 +319,12 @@ export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPane
               <dd>{signed(combatant.initiativeBonus)}</dd>
             </dl>
           ))}
-        {shownTab === 'traits' && sb && <EntryList entries={sb.traits} onDice={setRollExpr} />}
+        {shownTab === 'traits' && sb && <EntryList entries={sb.traits} actions={actions} />}
         {shownTab === 'actions' && sb && (
           <>
-            <EntryList entries={sb.actions} title="Actions" onDice={setRollExpr} />
-            <EntryList entries={sb.bonusActions} title="Bonus Actions" onDice={setRollExpr} />
-            <EntryList entries={sb.reactions} title="Reactions" onDice={setRollExpr} />
+            <EntryList entries={sb.actions} title="Actions" actions={actions} />
+            <EntryList entries={sb.bonusActions} title="Bonus Actions" actions={actions} />
+            <EntryList entries={sb.reactions} title="Reactions" actions={actions} />
             {sb.legendary.length > 0 && (
               <section className="sb-section">
                 <h3>Legendary Actions{sb.legendaryActions ? ` (${sb.legendaryActions}/Turn)` : ''}</h3>
@@ -326,22 +334,25 @@ export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPane
                     {entry.name && <strong>{renderTags(entry.name)}. </strong>}
                     {entry.text.map((t, j) => (
                       <p key={j}>
-                        <TaggedText text={t} onDice={setRollExpr} />
+                        <TaggedText text={t} onDice={setRollExpr} onCondition={setConditionFor} />
                       </p>
                     ))}
                   </div>
                 ))}
               </section>
             )}
-            <EntryList entries={sb.lair} title="Lair Actions" onDice={setRollExpr} />
+            <EntryList entries={sb.lair} title="Lair Actions" actions={actions} />
           </>
         )}
-        {shownTab === 'spells' && sb && <SpellsTab sb={sb} onDice={setRollExpr} />}
+        {shownTab === 'spells' && sb && <SpellsTab sb={sb} actions={actions} />}
         {shownTab === 'uses' && <UsesTab combatant={combatant} />}
         {shownTab === 'conditions' && <ConditionsTab combatant={combatant} />}
       </div>
 
       {rollExpr !== null && <DiceRoller initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
+      {conditionFor !== null && (
+        <ApplyCondition name={conditionFor} preselect={preselectIds} onClose={() => setConditionFor(null)} />
+      )}
     </div>
   )
 }
