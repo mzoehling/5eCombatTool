@@ -8,6 +8,7 @@ import { sortedCombatants } from '../store/battleReducer'
 import { AddBlank } from './AddBlank'
 import { CombatantRow } from './CombatantRow'
 import { Compendium } from './Compendium'
+import { HomebrewManager } from './HomebrewManager'
 import { PacksManager } from './PacksManager'
 import { ConditionEditor } from './ConditionEditor'
 import { EditCombatant } from './EditCombatant'
@@ -21,7 +22,7 @@ interface TrackerPaneProps {
 export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
   const { dispatch } = battleStore
   const state = useBattleState()
-  const [modal, setModal] = useState<'add' | 'groups' | 'compendium' | 'packs' | null>(null)
+  const [modal, setModal] = useState<'add' | 'groups' | 'compendium' | 'packs' | 'homebrew' | null>(null)
   const [conditionsFor, setConditionsFor] = useState<string | null>(null)
   const [editFor, setEditFor] = useState<string | null>(null)
   const [multiSelect, setMultiSelect] = useState(false)
@@ -98,6 +99,7 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
           🎲 Roll missing
         </button>
         <button type="button" onClick={() => setModal('groups')}>Groups</button>
+        <button type="button" onClick={() => setModal('homebrew')}>Homebrew</button>
         <button type="button" onClick={() => setModal('packs')}>Packs</button>
         <button
           type="button"
@@ -171,6 +173,7 @@ export function TrackerPane({ selectedId, onSelect }: TrackerPaneProps) {
       {modal === 'groups' && <GroupsEditor onClose={() => setModal(null)} />}
       {modal === 'compendium' && <Compendium onClose={() => setModal(null)} />}
       {modal === 'packs' && <PacksManager onClose={() => setModal(null)} />}
+      {modal === 'homebrew' && <HomebrewManager onClose={() => setModal(null)} />}
       {conditionsCombatant && <ConditionEditor combatant={conditionsCombatant} onClose={() => setConditionsFor(null)} />}
       {editCombatant && <EditCombatant combatant={editCombatant} onClose={() => setEditFor(null)} />}
     </section>

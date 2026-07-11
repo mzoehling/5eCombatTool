@@ -703,6 +703,57 @@ label.check {
   margin: 0.3rem 0;
 }
 
+/* ---------- homebrew editor ---------- */
+
+.hb-abilities {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.hb-abilities label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.hb-abilities input {
+  width: 100%;
+  text-align: center;
+}
+
+.hb-entries h3 {
+  font-size: 0.95rem;
+  color: var(--accent);
+  margin-bottom: 0.3rem;
+}
+
+.hb-entry {
+  margin-bottom: 0.6rem;
+}
+
+.hb-entry-head {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 0.3rem;
+}
+
+.hb-entry-head input {
+  flex: 1;
+}
+
+.hb-entry textarea {
+  width: 100%;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem;
+  resize: vertical;
+}
+
 .error-text {
   color: var(--danger);
 }
