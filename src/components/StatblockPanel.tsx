@@ -4,7 +4,12 @@ import { describeCondition } from '../data/conditionInfo'
 import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
 import { abilityMod, type Ability, type Combatant, type Statblock, type StatblockEntry } from '../types'
+import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
+import { TaggedText } from './TaggedText'
+
+/** Callback opening the dice roller pre-filled with an expression. */
+type OnDice = (expr: string) => void
 
 type Tab = 'general' | 'traits' | 'actions' | 'spells' | 'uses' | 'conditions'
 
@@ -29,7 +34,7 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : String(n)
 }
 
-function EntryList({ entries, title }: { entries: StatblockEntry[]; title?: string }) {
+function EntryList({ entries, title, onDice }: { entries: StatblockEntry[]; title?: string; onDice: OnDice }) {
   if (!entries.length) return null
   return (
     <section className="sb-section">
@@ -38,7 +43,9 @@ function EntryList({ entries, title }: { entries: StatblockEntry[]; title?: stri
         <div key={i} className="sb-entry">
           {entry.name && <strong>{renderTags(entry.name)}. </strong>}
           {entry.text.map((t, j) => (
-            <p key={j}>{renderTags(t)}</p>
+            <p key={j}>
+              <TaggedText text={t} onDice={onDice} />
+            </p>
           ))}
         </div>
       ))}
@@ -161,7 +168,7 @@ function GeneralTab({ sb }: { sb: Statblock }) {
   )
 }
 
-function SpellsTab({ sb }: { sb: Statblock }) {
+function SpellsTab({ sb, onDice }: { sb: Statblock; onDice: OnDice }) {
   if (!sb.spellcasting.length) return <p className="dim">No spellcasting.</p>
   return (
     <>
@@ -169,7 +176,9 @@ function SpellsTab({ sb }: { sb: Statblock }) {
         <section key={i} className="sb-section">
           <h3>{sc.name}</h3>
           {sc.headerText.map((t, j) => (
-            <p key={j}>{renderTags(t)}</p>
+            <p key={j}>
+              <TaggedText text={t} onDice={onDice} />
+            </p>
           ))}
           {sc.lists.map((list, j) => (
             <div key={j} className="sb-entry">
@@ -246,6 +255,7 @@ function UsesTab({ combatant }: { combatant: Combatant }) {
 
 export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPanelProps) {
   const [tab, setTab] = useState<Tab>('general')
+  const [rollExpr, setRollExpr] = useState<string | null>(null)
   const sb = combatant.statblock
 
   const tabs: { id: Tab; label: string; show: boolean }[] = [
@@ -301,12 +311,12 @@ export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPane
               <dd>{signed(combatant.initiativeBonus)}</dd>
             </dl>
           ))}
-        {shownTab === 'traits' && sb && <EntryList entries={sb.traits} />}
+        {shownTab === 'traits' && sb && <EntryList entries={sb.traits} onDice={setRollExpr} />}
         {shownTab === 'actions' && sb && (
           <>
-            <EntryList entries={sb.actions} title="Actions" />
-            <EntryList entries={sb.bonusActions} title="Bonus Actions" />
-            <EntryList entries={sb.reactions} title="Reactions" />
+            <EntryList entries={sb.actions} title="Actions" onDice={setRollExpr} />
+            <EntryList entries={sb.bonusActions} title="Bonus Actions" onDice={setRollExpr} />
+            <EntryList entries={sb.reactions} title="Reactions" onDice={setRollExpr} />
             {sb.legendary.length > 0 && (
               <section className="sb-section">
                 <h3>Legendary Actions{sb.legendaryActions ? ` (${sb.legendaryActions}/Turn)` : ''}</h3>
@@ -315,19 +325,23 @@ export function StatblockPanel({ combatant, pinned, onTogglePin }: StatblockPane
                   <div key={i} className="sb-entry">
                     {entry.name && <strong>{renderTags(entry.name)}. </strong>}
                     {entry.text.map((t, j) => (
-                      <p key={j}>{renderTags(t)}</p>
+                      <p key={j}>
+                        <TaggedText text={t} onDice={setRollExpr} />
+                      </p>
                     ))}
                   </div>
                 ))}
               </section>
             )}
-            <EntryList entries={sb.lair} title="Lair Actions" />
+            <EntryList entries={sb.lair} title="Lair Actions" onDice={setRollExpr} />
           </>
         )}
-        {shownTab === 'spells' && sb && <SpellsTab sb={sb} />}
+        {shownTab === 'spells' && sb && <SpellsTab sb={sb} onDice={setRollExpr} />}
         {shownTab === 'uses' && <UsesTab combatant={combatant} />}
         {shownTab === 'conditions' && <ConditionsTab combatant={combatant} />}
       </div>
+
+      {rollExpr !== null && <DiceRoller initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
     </div>
   )
 }

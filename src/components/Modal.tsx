@@ -1,5 +1,6 @@
 import { mdiClose } from '@mdi/js'
 import type { ReactNode } from 'react'
+import './modal.css'
 import { Icon } from './Icon'
 
 interface ModalProps {

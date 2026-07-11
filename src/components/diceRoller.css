@@ -1,0 +1,102 @@
+/* Dice Roller styles live with the component — it is used in both the DM app
+   and the Player View, which does not load app.css. */
+
+.dice-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dice-form input {
+  flex: 1;
+  min-width: 5rem;
+}
+
+.dice-mode {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+}
+
+.dice-mode button {
+  flex: 1;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.4rem;
+}
+
+.dice-error {
+  color: var(--danger);
+}
+
+.dice-result {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.dice-total {
+  font-size: 2.6rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1.1;
+}
+
+.dice-discarded {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.dice-discarded s {
+  font-weight: 700;
+}
+
+.dice-breakdown {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-top: 0.2rem;
+}
+
+.dice-history {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0.4rem 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.dice-history li {
+  padding: 0;
+}
+
+.modal .dice-history-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.9rem;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  text-align: left;
+  min-height: 0;
+}
+
+.modal .dice-history-entry:hover {
+  background: var(--bg-raised);
+}
+
+.dice-history-expr {
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dice-history-mode {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+
+.dice-history-total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

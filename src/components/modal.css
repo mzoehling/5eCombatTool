@@ -1,0 +1,95 @@
+/* Modal styles live with the component so it works in both the DM app and
+   the Player View (which does not load app.css). The button/input baseline
+   below is scoped to .modal and mirrors app.css — in the DM app the rules
+   coincide; in the viewer they are the only source of these styles. */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  z-index: 20;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: min(30rem, 100%);
+  max-height: min(80dvh, 40rem);
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.modal-body {
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.modal-actions .primary:only-child {
+  margin-left: auto;
+}
+
+.modal button {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+
+.modal button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.modal button.ghost {
+  background: none;
+  border: none;
+}
+
+.modal button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.modal input,
+.modal select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem;
+}
+
+.modal button.icon-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderTags } from './tagRenderer'
+import { renderTags, renderTagSegments } from './tagRenderer'
 
 describe('renderTags', () => {
   it('renders 2024 attack roll markup', () => {
@@ -82,5 +82,69 @@ describe('renderTags', () => {
   it('leaves plain text untouched', () => {
     const src = 'The dragon makes three Rend attacks.'
     expect(renderTags(src)).toBe(src)
+  })
+})
+
+describe('renderTagSegments', () => {
+  it('extracts {@damage} tags as dice segments with exact expressions', () => {
+    const src = '{@h}13 ({@damage 1d10 + 8}) Slashing damage plus 5 ({@damage 2d4}) Fire damage.'
+    expect(renderTagSegments(src)).toEqual([
+      { kind: 'text', text: 'Hit: 13 (' },
+      { kind: 'dice', expr: '1d10 + 8', display: '1d10 + 8' },
+      { kind: 'text', text: ') Slashing damage plus 5 (' },
+      { kind: 'dice', expr: '2d4', display: '2d4' },
+      { kind: 'text', text: ') Fire damage.' },
+    ])
+  })
+
+  it('turns {@hit} into a d20 roll while keeping the "+N" display', () => {
+    expect(renderTagSegments('{@atkr m} {@hit 14}, reach 10 ft.')).toEqual([
+      { kind: 'text', text: 'Melee Attack Roll: ' },
+      { kind: 'dice', expr: '1d20+14', display: '+14' },
+      { kind: 'text', text: ', reach 10 ft.' },
+    ])
+    expect(renderTagSegments('{@hit -2}')).toEqual([{ kind: 'dice', expr: '1d20-2', display: '-2' }])
+  })
+
+  it('honors {@dice} display overrides but rolls the real expression', () => {
+    expect(renderTagSegments('roll {@dice 1d20|d20}')).toEqual([
+      { kind: 'text', text: 'roll ' },
+      { kind: 'dice', expr: '1d20', display: 'd20' },
+    ])
+  })
+
+  it('keeps dice tags rollable through nested formatting tags', () => {
+    expect(renderTagSegments('{@b {@damage 2d6}} damage')).toEqual([
+      { kind: 'dice', expr: '2d6', display: '2d6' },
+      { kind: 'text', text: ' damage' },
+    ])
+  })
+
+  it('pattern-matches dice in untagged text (homebrew, packs)', () => {
+    expect(renderTagSegments('+4 to hit, 1d8 + 2 slashing damage')).toEqual([
+      { kind: 'text', text: '+4 to hit, ' },
+      { kind: 'dice', expr: '1d8 + 2', display: '1d8 + 2' },
+      { kind: 'text', text: ' slashing damage' },
+    ])
+    expect(renderTagSegments('macht 3w8+5+2w4 Schaden')).toEqual([
+      { kind: 'text', text: 'macht ' },
+      { kind: 'dice', expr: '3w8+5+2w4', display: '3w8+5+2w4' },
+      { kind: 'text', text: ' Schaden' },
+    ])
+  })
+
+  it('does not match bare numbers or dice-like words', () => {
+    expect(renderTagSegments('DC 15, reach 10 ft., AC 2')).toEqual([
+      { kind: 'text', text: 'DC 15, reach 10 ft., AC 2' },
+    ])
+    expect(renderTagSegments('the world10 is old10')).toEqual([{ kind: 'text', text: 'the world10 is old10' }])
+  })
+
+  it('numbers around dice tags stay plain text (sentinels do not collide)', () => {
+    expect(renderTagSegments('deals 10 ({@damage 3d6}) damage in 5 rounds')).toEqual([
+      { kind: 'text', text: 'deals 10 (' },
+      { kind: 'dice', expr: '3d6', display: '3d6' },
+      { kind: 'text', text: ') damage in 5 rounds' },
+    ])
   })
 })

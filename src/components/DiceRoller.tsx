@@ -1,43 +1,50 @@
 import { mdiDiceMultiple } from '@mdi/js'
-import { useEffect, useRef, useState } from 'react'
-import { formatBreakdown, rollDiceExpression, type DiceRollResult } from '../lib/diceExpr'
+import { useRef, useState } from 'react'
+import './diceRoller.css'
+import { formatBreakdown, rollWithMode, type ModedRollResult, type RollMode } from '../lib/diceExpr'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 
 interface DiceRollerProps {
   onClose: () => void
-  /** Pre-filled expression (rolled immediately) — used by clickable damage links. */
+  /** Pre-filled expression (not rolled yet) — used by clickable dice links. */
   initialExpression?: string
 }
 
+const MODES: { id: RollMode; label: string }[] = [
+  { id: 'normal', label: 'Normal' },
+  { id: 'advantage', label: 'Advantage' },
+  { id: 'disadvantage', label: 'Disadvantage' },
+]
+
 export function DiceRoller({ onClose, initialExpression = '' }: DiceRollerProps) {
   const [text, setText] = useState(initialExpression)
+  const [mode, setMode] = useState<RollMode>('normal')
   const [invalid, setInvalid] = useState(false)
-  const [history, setHistory] = useState<DiceRollResult[]>([])
+  const [history, setHistory] = useState<ModedRollResult[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const doRoll = (expression: string) => {
-    const result = rollDiceExpression(expression)
+  const doRoll = () => {
+    const result = rollWithMode(text, mode)
     if (!result) {
-      setInvalid(expression.trim().length > 0)
+      setInvalid(text.trim().length > 0)
       return
     }
     setInvalid(false)
     setHistory((h) => [result, ...h].slice(0, 10))
   }
 
-  // a pre-filled expression rolls right away (clickable damage links)
-  useEffect(() => {
-    if (initialExpression) doRoll(initialExpression)
+  const recall = (expression: string) => {
+    setText(expression)
+    inputRef.current?.focus()
     inputRef.current?.select()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }
 
   const latest = history[0]
 
   return (
     <Modal title="Dice Roller" onClose={onClose}>
-      <div className="inline-form">
+      <div className="dice-form">
         <input
           ref={inputRef}
           autoFocus
@@ -45,20 +52,41 @@ export function DiceRoller({ onClose, initialExpression = '' }: DiceRollerProps)
           value={text}
           aria-label="Dice expression"
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && doRoll(text)}
+          onFocus={(e) => e.target.select()}
+          onKeyDown={(e) => e.key === 'Enter' && doRoll()}
         />
-        <button type="button" className="primary icon-label" onClick={() => doRoll(text)}>
+        <button type="button" className="primary icon-label" onClick={doRoll}>
           <Icon path={mdiDiceMultiple} /> Roll
         </button>
       </div>
 
-      {invalid && <p className="error-text">Not a valid dice expression — try something like “2d6 + 3” or “1w8”.</p>}
+      <div className="dice-mode" role="group" aria-label="Roll mode">
+        {MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            className={mode === m.id ? 'primary' : ''}
+            aria-pressed={mode === m.id}
+            onClick={() => setMode(m.id)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {invalid && <p className="dice-error">Not a valid dice expression — try something like “2d6 + 3” or “1w8”.</p>}
 
       {latest && (
         <div className="dice-result" aria-live="polite">
-          <div className="dice-total">{latest.total}</div>
+          <div className="dice-total">{latest.kept.total}</div>
+          {latest.discarded && (
+            <div className="dice-discarded">
+              {latest.mode === 'advantage' ? 'Advantage' : 'Disadvantage'} — discarded <s>{latest.discarded.total}</s>{' '}
+              ({formatBreakdown(latest.discarded)})
+            </div>
+          )}
           <div className="dice-breakdown">
-            {latest.input} → {formatBreakdown(latest)}
+            {latest.kept.input} → {formatBreakdown(latest.kept)}
           </div>
         </div>
       )}
@@ -67,8 +95,18 @@ export function DiceRoller({ onClose, initialExpression = '' }: DiceRollerProps)
         <ul className="dice-history">
           {history.slice(1).map((r, i) => (
             <li key={i}>
-              <span className="dim">{r.input}</span>
-              <span className="dice-history-total">{r.total}</span>
+              <button
+                type="button"
+                className="dice-history-entry"
+                title={`Use "${r.kept.input}" again`}
+                onClick={() => recall(r.kept.input)}
+              >
+                <span className="dice-history-expr">{r.kept.input}</span>
+                {r.mode !== 'normal' && (
+                  <span className="dice-history-mode">{r.mode === 'advantage' ? 'adv' : 'dis'}</span>
+                )}
+                <span className="dice-history-total">{r.kept.total}</span>
+              </button>
             </li>
           ))}
         </ul>

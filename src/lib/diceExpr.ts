@@ -77,6 +77,32 @@ export function rollDiceExpression(input: string, roll: (sides: number) => numbe
   return { input: input.trim(), total, terms: rolled }
 }
 
+export type RollMode = 'normal' | 'advantage' | 'disadvantage'
+
+export interface ModedRollResult {
+  mode: RollMode
+  kept: DiceRollResult
+  /** The roll not counted (advantage/disadvantage only). */
+  discarded?: DiceRollResult
+}
+
+/**
+ * Rolls with advantage/disadvantage semantics: the whole expression is rolled
+ * twice and the higher (advantage) or lower (disadvantage) total is kept.
+ */
+export function rollWithMode(
+  input: string,
+  mode: RollMode,
+  roll: (sides: number) => number = rollDie,
+): ModedRollResult | null {
+  const first = rollDiceExpression(input, roll)
+  if (!first) return null
+  if (mode === 'normal') return { mode, kept: first }
+  const second = rollDiceExpression(input, roll)!
+  const [higher, lower] = first.total >= second.total ? [first, second] : [second, first]
+  return mode === 'advantage' ? { mode, kept: higher, discarded: lower } : { mode, kept: lower, discarded: higher }
+}
+
 /** "3d8 (6, 2, 8) + 5 + 2d4 (3, 1)" — human-readable trace of one roll. */
 export function formatBreakdown(result: DiceRollResult): string {
   return result.terms

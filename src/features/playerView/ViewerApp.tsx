@@ -1,6 +1,7 @@
-import { mdiPlay } from '@mdi/js'
+import { mdiDiceMultiple, mdiPlay } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import './viewer.css'
+import { DiceRoller } from '../../components/DiceRoller'
 import { Icon } from '../../components/Icon'
 import type { PlayerParticipant, PlayerSnapshot } from './projection'
 import { connectBroadcastViewer, connectPeerViewer, LOCAL_CODE, type ViewerStatus } from './transport'
@@ -21,6 +22,7 @@ function Health({ participant }: { participant: PlayerParticipant }) {
 export function ViewerApp({ code }: { code: string }) {
   const [snapshot, setSnapshot] = useState<PlayerSnapshot | null>(null)
   const [status, setStatus] = useState<ViewerStatus>('connecting')
+  const [showDice, setShowDice] = useState(false)
 
   useEffect(() => {
     const handlers = { onSnapshot: setSnapshot, onStatus: setStatus }
@@ -33,9 +35,14 @@ export function ViewerApp({ code }: { code: string }) {
     <div className="pv-app">
       <header className="pv-header">
         <h1>Battle</h1>
+        <button type="button" className="pv-dice-btn" aria-label="Dice Roller" onClick={() => setShowDice(true)}>
+          <Icon path={mdiDiceMultiple} />
+        </button>
         {snapshot?.isRunning && <span className="pv-round">Round {snapshot.round}</span>}
         {snapshot && !snapshot.isRunning && <span className="pv-round dim">forming up…</span>}
       </header>
+
+      {showDice && <DiceRoller onClose={() => setShowDice(false)} />}
 
       {status !== 'connected' && (
         <div className="pv-status" role="status">

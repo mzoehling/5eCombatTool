@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatBreakdown, parseDiceExpression, rollDiceExpression } from './diceExpr'
+import { formatBreakdown, parseDiceExpression, rollDiceExpression, rollWithMode } from './diceExpr'
 
 /** Deterministic "roll": always the die's maximum. */
 const maxRoll = (sides: number) => sides
@@ -70,6 +70,36 @@ describe('rollDiceExpression', () => {
       expect(total).toBeGreaterThanOrEqual(3)
       expect(total).toBeLessThanOrEqual(13)
     }
+  })
+})
+
+describe('rollWithMode', () => {
+  /** Deterministic sequence roller. */
+  const sequence = (values: number[]) => {
+    let i = 0
+    return () => values[i++ % values.length]
+  }
+
+  it('normal mode rolls once', () => {
+    const result = rollWithMode('1d20+5', 'normal', sequence([10]))!
+    expect(result.kept.total).toBe(15)
+    expect(result.discarded).toBeUndefined()
+  })
+
+  it('advantage keeps the higher of two full rolls', () => {
+    const result = rollWithMode('1d20+5', 'advantage', sequence([8, 17]))!
+    expect(result.kept.total).toBe(22)
+    expect(result.discarded!.total).toBe(13)
+  })
+
+  it('disadvantage keeps the lower of two full rolls', () => {
+    const result = rollWithMode('2d6', 'disadvantage', sequence([6, 6, 1, 2]))!
+    expect(result.kept.total).toBe(3)
+    expect(result.discarded!.total).toBe(12)
+  })
+
+  it('returns null for invalid input', () => {
+    expect(rollWithMode('nope', 'advantage')).toBeNull()
   })
 })
 

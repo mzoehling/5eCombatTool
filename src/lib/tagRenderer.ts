@@ -1,6 +1,10 @@
-// Renders upstream inline tag markup ({@tag …}) to plain text.
+// Renders upstream inline tag markup ({@tag …}) to plain text, and — for
+// the dice-roller integration — to segments that keep rollable dice
+// expressions separate from prose (see renderTagSegments).
 // Nested tags are resolved innermost-first: the pattern only matches tags
 // whose body contains no braces, and we loop until nothing matches.
+
+import { parseDiceExpression } from './diceExpr'
 
 const TAG = /\{@(\w+)(?: ([^{}]*))?\}/g
 
@@ -146,4 +150,88 @@ export function renderTags(text: string): string {
     if (!replaced) break
   }
   return out
+}
+
+// ---------------------------------------------------------------------------
+// Segment rendering: prose plus rollable dice, for clickable damage/attack
+// links. 5etools tags are authoritative ({@damage}, {@hit}, …); plain text
+// (homebrew, untagged packs) falls back to conservative pattern matching.
+// ---------------------------------------------------------------------------
+
+export type TagSegment =
+  | { kind: 'text'; text: string }
+  | { kind: 'dice'; expr: string; display: string }
+
+/** Dice-family tags that become rollable segments. Their bodies never nest. */
+const DICE_TAG = /\{@(damage|dice|autodice|scaledice|scaledamage|hit|d20)(?: ([^{}]*))?\}/g
+
+function diceToken(tag: string, body: string): { expr: string; display: string } | null {
+  const parts = body.split('|')
+  switch (tag) {
+    case 'damage':
+    case 'dice':
+    case 'autodice':
+      return { expr: parts[0].trim(), display: parts[1] ?? parts[0] }
+    case 'scaledice':
+    case 'scaledamage': {
+      const display = parts[2] ?? parts[parts.length - 1]
+      return { expr: display.trim(), display }
+    }
+    case 'hit': {
+      const signed = formatSigned(parts[0])
+      return { expr: `1d20${signed}`, display: signed }
+    }
+    case 'd20': {
+      const signed = formatSigned(parts[0])
+      return { expr: `1d20${signed}`, display: parts[1] ?? parts[0] }
+    }
+    default:
+      return null
+  }
+}
+
+/** Dice in plain prose: needs a die term ("2d6 + 3", "1w8+2", "d10") — bare numbers never match. */
+const PLAIN_DICE = /\b\d*[dw]\d+(?:\s*[+-]\s*(?:\d+\s*[dw]\s*\d+|\d*[dw]\d+|\d+))*/gi
+
+function linkifyPlainDice(text: string): TagSegment[] {
+  const segments: TagSegment[] = []
+  let last = 0
+  for (const match of text.matchAll(PLAIN_DICE)) {
+    const expr = match[0]
+    if (parseDiceExpression(expr) === null) continue
+    if (match.index > last) segments.push({ kind: 'text', text: text.slice(last, match.index) })
+    segments.push({ kind: 'dice', expr, display: expr })
+    last = match.index + expr.length
+  }
+  if (last < text.length) segments.push({ kind: 'text', text: text.slice(last) })
+  return segments
+}
+
+/**
+ * Resolves tags like renderTags, but returns prose/dice segments. Dice-family
+ * tags are extracted first (so their expressions stay exact through nested
+ * formatting tags), then remaining plain text is pattern-scanned.
+ */
+export function renderTagSegments(text: string): TagSegment[] {
+  const tokens: { expr: string; display: string }[] = []
+  const withSentinels = text.replace(DICE_TAG, (match, tag: string, body: string | undefined) => {
+    const token = diceToken(tag, body ?? '')
+    if (!token || parseDiceExpression(token.expr) === null) return renderTags(match)
+    tokens.push(token)
+    return `\u0000${tokens.length - 1}\u0000`
+  })
+  const resolved = renderTags(withSentinels)
+
+  const segments: TagSegment[] = []
+  // NUL is the sentinel — it cannot occur in statblock text
+  // eslint-disable-next-line no-control-regex
+  resolved.split(/\u0000(\d+)\u0000/).forEach((part, i) => {
+    if (i % 2 === 1) {
+      const token = tokens[Number(part)]
+      segments.push({ kind: 'dice', expr: token.expr, display: token.display })
+    } else if (part) {
+      segments.push(...linkifyPlainDice(part))
+    }
+  })
+  return segments
 }

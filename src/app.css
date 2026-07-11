@@ -385,56 +385,8 @@ select {
   padding: 0.45rem;
 }
 
-/* ---------- modal ---------- */
-
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: grid;
-  place-items: center;
-  z-index: 20;
-  padding: 1rem;
-}
-
-.modal {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  width: min(30rem, 100%);
-  max-height: min(80dvh, 40rem);
-  display: flex;
-  flex-direction: column;
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 1rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.modal-header h2 {
-  font-size: 1rem;
-  margin: 0;
-}
-
-.modal-body {
-  padding: 1rem;
-  overflow-y: auto;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.modal-actions .primary:only-child {
-  margin-left: auto;
-}
+/* ---------- modal: styles live in components/modal.css (shared with the
+   Player View, which does not load this file) ---------- */
 
 .form-grid {
   display: grid;
@@ -524,44 +476,27 @@ label.check {
   font-size: 0.85rem;
 }
 
-/* ---------- dice roller ---------- */
+/* dice roller styles live in components/diceRoller.css (shared with the
+   Player View); the inline links below only appear in DM statblocks */
 
-.dice-result {
-  text-align: center;
-  margin-top: 1rem;
-}
-
-.dice-total {
-  font-size: 2.6rem;
-  font-weight: 800;
+.dice-link {
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  min-width: 0;
+  font: inherit;
   color: var(--accent);
-  line-height: 1.1;
+  font-weight: 600;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 
-.dice-breakdown {
-  color: var(--text-dim);
-  font-size: 0.9rem;
-  margin-top: 0.2rem;
-}
-
-.dice-history {
-  list-style: none;
-  margin: 1rem 0 0;
-  padding: 0.4rem 0 0;
-  border-top: 1px solid var(--border);
-}
-
-.dice-history li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.15rem 0;
-  font-size: 0.9rem;
-}
-
-.dice-history-total {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+.dice-link:hover {
+  text-decoration-style: solid;
 }
 
 .condition-heading {
