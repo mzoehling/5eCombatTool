@@ -183,6 +183,37 @@ describe('renderTagSegments', () => {
     ])
   })
 
+  it('extracts {@spell} tags as spell refs', () => {
+    expect(renderTagSegments('casts {@spell Fireball|XPHB}')).toEqual([
+      { kind: 'text', text: 'casts ' },
+      { kind: 'ref', ref: 'spell', name: 'Fireball', display: 'Fireball' },
+    ])
+  })
+
+  it('honors {@spell} display overrides while keeping the lookup name', () => {
+    expect(renderTagSegments('{@spell Scorching Ray|XPHB|scorching ray}')).toEqual([
+      { kind: 'ref', ref: 'spell', name: 'Scorching Ray', display: 'scorching ray' },
+    ])
+  })
+
+  it('does not pattern-match spell names in untagged text', () => {
+    expect(renderTagSegments('casts Fireball at the party')).toEqual([
+      { kind: 'text', text: 'casts Fireball at the party' },
+    ])
+  })
+
+  it('mixes spell, dice and condition segments in one line', () => {
+    expect(renderTagSegments('casts {@spell Hold Person|XPHB}: {@condition Paralyzed|XPHB} on a failed save, or takes {@damage 2d8} damage')).toEqual([
+      { kind: 'text', text: 'casts ' },
+      { kind: 'ref', ref: 'spell', name: 'Hold Person', display: 'Hold Person' },
+      { kind: 'text', text: ': ' },
+      { kind: 'ref', ref: 'condition', name: 'Paralyzed', display: 'Paralyzed' },
+      { kind: 'text', text: ' on a failed save, or takes ' },
+      { kind: 'dice', expr: '2d8', display: '2d8' },
+      { kind: 'text', text: ' damage' },
+    ])
+  })
+
   it('mixes dice and condition segments in one homebrew line', () => {
     expect(renderTagSegments('takes 2d6+3 damage and is Poisoned')).toEqual([
       { kind: 'text', text: 'takes ' },
