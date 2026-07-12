@@ -103,6 +103,22 @@ export function rollWithMode(
   return mode === 'advantage' ? { mode, kept: higher, discarded: lower } : { mode, kept: lower, discarded: higher }
 }
 
+/**
+ * Doubles the dice counts but not the flat modifiers — critical-hit damage
+ * per the 5e rule. Null when the input isn't a dice expression or doubling
+ * would exceed the size limits ("2d6 + 3" → "4d6 + 3").
+ */
+export function doubleDiceTerms(input: string): string | null {
+  const terms = parseDiceExpression(input)
+  if (!terms || !terms.some((t) => t.kind === 'dice')) return null
+  const parts = terms.map((t, i) => {
+    const sign = i === 0 ? (t.sign < 0 ? '-' : '') : t.sign < 0 ? ' - ' : ' + '
+    if (t.kind === 'flat') return sign + String(t.value)
+    return t.count * 2 > MAX_DICE ? null : `${sign}${t.count * 2}d${t.sides}`
+  })
+  return parts.includes(null) ? null : parts.join('')
+}
+
 /** "3d8 (6, 2, 8) + 5 + 2d4 (3, 1)" — human-readable trace of one roll. */
 export function formatBreakdown(result: DiceRollResult): string {
   return result.terms

@@ -402,7 +402,7 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
           onClose={() => setSpellFor(null)}
         />
       )}
-      {rollExpr !== null && <DiceRoller initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
+      {rollExpr !== null && <DiceRoller allowApply initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
       {conditionFor !== null && (
         <ApplyCondition name={conditionFor} preselect={preselectIds} onClose={() => setConditionFor(null)} />
       )}

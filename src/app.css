@@ -943,3 +943,21 @@ label.check {
   color: var(--text-dim);
   border-top: 1px solid var(--border);
 }
+
+/* ---------- apply-roll dialog ---------- */
+
+.apply-roll-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.apply-roll-row .check {
+  flex: 1;
+}
+
+.half-btn {
+  min-height: 0;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.85rem;
+}

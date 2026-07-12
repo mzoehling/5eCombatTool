@@ -197,7 +197,7 @@ export function TrackerPane({
       {modal === 'compendium' && <Compendium onClose={() => setModal(null)} />}
       {modal === 'packs' && <PacksManager onClose={() => setModal(null)} />}
       {modal === 'homebrew' && <HomebrewManager onClose={() => setModal(null)} />}
-      {modal === 'dice' && <DiceRoller onClose={() => setModal(null)} />}
+      {modal === 'dice' && <DiceRoller allowApply onClose={() => setModal(null)} />}
       {conditionsCombatant && <ConditionEditor combatant={conditionsCombatant} onClose={() => setConditionsFor(null)} />}
       {editCombatant && <EditCombatant combatant={editCombatant} onClose={() => setEditFor(null)} />}
     </section>
