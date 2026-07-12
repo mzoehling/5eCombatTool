@@ -2,13 +2,27 @@ import { mdiArrowLeft } from '@mdi/js'
 import { useMemo, useState } from 'react'
 import { useCompendium, type CompendiumEntry, type Origin } from '../data/compendium'
 import { rankByName, stripPostfix, suffixedNames } from '../lib/search'
-import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
 import type { Statblock } from '../types'
+import { ApplyCondition } from './ApplyCondition'
+import { CreatureInfo } from './CreatureInfo'
+import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
+import { ItemInfo } from './ItemInfo'
 import { Modal } from './Modal'
+import { SpellInfo } from './SpellInfo'
 import { StatblockPanel } from './StatblockPanel'
+import { TaggedText } from './TaggedText'
+
+/** Link handlers threaded into expanded spell/item rows. */
+interface DetailActions {
+  onDice: (expr: string) => void
+  onCondition: (name: string) => void
+  onSpell: (name: string) => void
+  onItem: (name: string) => void
+  onCreature: (name: string) => void
+}
 
 type Tab = 'monsters' | 'spells' | 'items'
 
@@ -38,6 +52,18 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   const [rarity, setRarity] = useState('')
   const [preview, setPreview] = useState<Statblock | null>(null)
   const [notice, setNotice] = useState('')
+  const [rollExpr, setRollExpr] = useState<string | null>(null)
+  const [conditionFor, setConditionFor] = useState<string | null>(null)
+  const [spellFor, setSpellFor] = useState<string | null>(null)
+  const [itemFor, setItemFor] = useState<string | null>(null)
+  const [creatureFor, setCreatureFor] = useState<string | null>(null)
+  const actions: DetailActions = {
+    onDice: setRollExpr,
+    onCondition: setConditionFor,
+    onSpell: setSpellFor,
+    onItem: setItemFor,
+    onCreature: setCreatureFor,
+  }
 
   const monsters = useMemo(() => {
     if (!data) return []
@@ -195,6 +221,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
                 ...s.entry.text,
                 ...s.entry.higherLevel,
               ]}
+              actions={actions}
             />
           ))}
           {data && spells.length === 0 && <li className="dim">No matches.</li>}
@@ -210,11 +237,19 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
               meta={`${i.entry.typeName}${i.entry.rarity ? ` · ${i.entry.rarity}` : ''}${i.entry.attunement ? ' · Attunement' : ''}`}
               origin={i.origin}
               detail={i.entry.text}
+              actions={actions}
             />
           ))}
           {data && items.length === 0 && <li className="dim">No matches.</li>}
         </ul>
       )}
+
+      {/* reference modals stack over the compendium; dice/condition dialogs above those */}
+      {creatureFor !== null && <CreatureInfo name={creatureFor} onClose={() => setCreatureFor(null)} />}
+      {itemFor !== null && <ItemInfo name={itemFor} {...actions} onClose={() => setItemFor(null)} />}
+      {spellFor !== null && <SpellInfo name={spellFor} {...actions} onClose={() => setSpellFor(null)} />}
+      {rollExpr !== null && <DiceRoller allowApply initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
+      {conditionFor !== null && <ApplyCondition name={conditionFor} onClose={() => setConditionFor(null)} />}
 
       {notice && <div className="toast">{notice}</div>}
     </Modal>
@@ -263,11 +298,13 @@ function TextRow({
   meta,
   origin,
   detail,
+  actions,
 }: {
   name: string
   meta: string
   origin: Origin
   detail: string[]
+  actions: DetailActions
 }) {
   const [open, setOpen] = useState(false)
   return (
@@ -281,7 +318,9 @@ function TextRow({
       {open && (
         <div className="result-detail">
           {detail.map((t, i) => (
-            <p key={i}>{renderTags(t)}</p>
+            <p key={i}>
+              <TaggedText text={t} {...actions} />
+            </p>
           ))}
         </div>
       )}

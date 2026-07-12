@@ -6,16 +6,20 @@ import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
 import { abilityMod, type Ability, type Combatant, type Statblock, type StatblockEntry } from '../types'
 import { ApplyCondition } from './ApplyCondition'
+import { CreatureInfo } from './CreatureInfo'
 import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
+import { ItemInfo } from './ItemInfo'
 import { SpellInfo } from './SpellInfo'
 import { TaggedText } from './TaggedText'
 
-/** Callbacks opening the dice roller / condition dialog / spell info from statblock text. */
+/** Callbacks opening the dice roller and reference dialogs from statblock text. */
 interface TextActions {
   onDice: (expr: string) => void
   onCondition: (name: string) => void
   onSpell: (name: string) => void
+  onItem: (name: string) => void
+  onCreature: (name: string) => void
 }
 
 type Tab = 'general' | 'traits' | 'actions' | 'spells' | 'uses' | 'conditions'
@@ -63,7 +67,7 @@ function EntryList({ entries, title, actions }: { entries: StatblockEntry[]; tit
           {entry.name && <strong>{renderTags(entry.name)}. </strong>}
           {entry.text.map((t, j) => (
             <p key={j}>
-              <TaggedText text={t} onDice={actions.onDice} onCondition={actions.onCondition} onSpell={actions.onSpell} />
+              <TaggedText text={t} {...actions} />
             </p>
           ))}
         </div>
@@ -220,7 +224,7 @@ function SpellsTab({ sb, actions }: { sb: Statblock; actions: TextActions }) {
           <h3>{sc.name}</h3>
           {sc.headerText.map((t, j) => (
             <p key={j}>
-              <TaggedText text={t} onDice={actions.onDice} onCondition={actions.onCondition} onSpell={actions.onSpell} />
+              <TaggedText text={t} {...actions} />
             </p>
           ))}
           {sc.lists.map((list, j) => (
@@ -229,7 +233,7 @@ function SpellsTab({ sb, actions }: { sb: Statblock; actions: TextActions }) {
               {list.spells.map((s, k) => (
                 <Fragment key={k}>
                   {k > 0 && ', '}
-                  <TaggedText text={s} onDice={actions.onDice} onCondition={actions.onCondition} onSpell={actions.onSpell} />
+                  <TaggedText text={s} {...actions} />
                 </Fragment>
               ))}
             </div>
@@ -306,8 +310,16 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
   const [rollExpr, setRollExpr] = useState<string | null>(null)
   const [conditionFor, setConditionFor] = useState<string | null>(null)
   const [spellFor, setSpellFor] = useState<string | null>(null)
+  const [itemFor, setItemFor] = useState<string | null>(null)
+  const [creatureFor, setCreatureFor] = useState<string | null>(null)
   const sb = combatant.statblock
-  const actions: TextActions = { onDice: setRollExpr, onCondition: setConditionFor, onSpell: setSpellFor }
+  const actions: TextActions = {
+    onDice: setRollExpr,
+    onCondition: setConditionFor,
+    onSpell: setSpellFor,
+    onItem: setItemFor,
+    onCreature: setCreatureFor,
+  }
 
   const tabs: { id: Tab; label: string; show: boolean }[] = [
     { id: 'general', label: 'General', show: true },
@@ -377,7 +389,7 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
                     {entry.name && <strong>{renderTags(entry.name)}. </strong>}
                     {entry.text.map((t, j) => (
                       <p key={j}>
-                        <TaggedText text={t} onDice={setRollExpr} onCondition={setConditionFor} onSpell={setSpellFor} />
+                        <TaggedText text={t} {...actions} />
                       </p>
                     ))}
                   </div>
@@ -392,13 +404,27 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
         {shownTab === 'conditions' && <ConditionsTab combatant={combatant} />}
       </div>
 
-      {/* spell info first: dice/condition dialogs opened from spell text must stack above it */}
+      {/* reference modals first: dice/condition dialogs opened from their text must stack above */}
+      {creatureFor !== null && <CreatureInfo name={creatureFor} onClose={() => setCreatureFor(null)} />}
+      {itemFor !== null && (
+        <ItemInfo
+          name={itemFor}
+          onDice={setRollExpr}
+          onCondition={setConditionFor}
+          onSpell={setSpellFor}
+          onItem={setItemFor}
+          onCreature={setCreatureFor}
+          onClose={() => setItemFor(null)}
+        />
+      )}
       {spellFor !== null && (
         <SpellInfo
           name={spellFor}
           onDice={setRollExpr}
           onCondition={setConditionFor}
           onSpell={setSpellFor}
+          onItem={setItemFor}
+          onCreature={setCreatureFor}
           onClose={() => setSpellFor(null)}
         />
       )}

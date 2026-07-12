@@ -214,6 +214,17 @@ describe('renderTagSegments', () => {
     ])
   })
 
+  it('extracts {@item} and {@creature} tags as refs with display overrides', () => {
+    expect(renderTagSegments('wields a {@item Longsword|XPHB}')).toEqual([
+      { kind: 'text', text: 'wields a ' },
+      { kind: 'ref', ref: 'item', name: 'Longsword', display: 'Longsword' },
+    ])
+    expect(renderTagSegments('summons {@creature mummy|XMM|mummies}')).toEqual([
+      { kind: 'text', text: 'summons ' },
+      { kind: 'ref', ref: 'creature', name: 'mummy', display: 'mummies' },
+    ])
+  })
+
   it('mixes dice and condition segments in one homebrew line', () => {
     expect(renderTagSegments('takes 2d6+3 damage and is Poisoned')).toEqual([
       { kind: 'text', text: 'takes ' },

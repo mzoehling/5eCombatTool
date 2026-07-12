@@ -10,11 +10,13 @@ interface SpellInfoProps {
   onCondition?: (name: string) => void
   /** Spell links inside spell text replace the shown spell. */
   onSpell?: (name: string) => void
+  onItem?: (name: string) => void
+  onCreature?: (name: string) => void
   onClose: () => void
 }
 
 /** Full rules text for a spell, looked up in the compendium (SRD + packs). */
-export function SpellInfo({ name, onDice, onCondition, onSpell, onClose }: SpellInfoProps) {
+export function SpellInfo({ name, onClose, ...handlers }: SpellInfoProps) {
   // null = looked up and missing; undefined = query still pending
   const spell = useLiveQuery(async () => (await findSpellByName(name)) ?? null, [name])
 
@@ -47,7 +49,7 @@ export function SpellInfo({ name, onDice, onCondition, onSpell, onClose }: Spell
       <p className="spell-meta">Components: {spell.components}</p>
       {spell.text.map((t, i) => (
         <p key={i}>
-          <TaggedText text={t} onDice={onDice} onCondition={onCondition} onSpell={onSpell} />
+          <TaggedText text={t} {...handlers} />
         </p>
       ))}
       {spell.higherLevel.length > 0 && (
@@ -55,7 +57,7 @@ export function SpellInfo({ name, onDice, onCondition, onSpell, onClose }: Spell
           <h3>Using a Higher-Level Spell Slot</h3>
           {spell.higherLevel.map((t, i) => (
             <p key={i}>
-              <TaggedText text={t} onDice={onDice} onCondition={onCondition} onSpell={onSpell} />
+              <TaggedText text={t} {...handlers} />
             </p>
           ))}
         </>
