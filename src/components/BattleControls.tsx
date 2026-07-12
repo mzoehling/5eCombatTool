@@ -1,8 +1,12 @@
 import { mdiChevronLeft, mdiChevronRight, mdiHistory, mdiPlay, mdiUndo } from '@mdi/js'
 import { useState } from 'react'
+import { rollDie } from '../lib/dice'
 import { battleStore, useBattleState, useUndoDepth } from '../store/battleStore'
 import { CombatLog } from './CombatLog'
 import { Icon } from './Icon'
+
+/** Pre-rolled d6 pool for the reducer's recharge checks (it stays pure). */
+const rechargeDice = () => Array.from({ length: 8 }, () => rollDie(6))
 
 function HistoryButtons() {
   const undoDepth = useUndoDepth()
@@ -39,7 +43,7 @@ export function BattleControls() {
           type="button"
           className="primary icon-label"
           disabled={combatants.length === 0}
-          onClick={() => dispatch({ type: 'startBattle' })}
+          onClick={() => dispatch({ type: 'startBattle', dice: rechargeDice() })}
         >
           <Icon path={mdiPlay} /> Start battle
         </button>
@@ -57,7 +61,7 @@ export function BattleControls() {
       <button
         type="button"
         className="primary next-btn icon-label"
-        onClick={() => dispatch({ type: 'nextTurn' })}
+        onClick={() => dispatch({ type: 'nextTurn', dice: rechargeDice() })}
         aria-label="Next turn"
       >
         Next <Icon path={mdiChevronRight} />

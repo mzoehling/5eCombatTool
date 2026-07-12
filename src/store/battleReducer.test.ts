@@ -184,3 +184,74 @@ describe('limited use', () => {
     expect(next.combatants[0].limits[0].used).toBe(0)
   })
 })
+
+describe('turn-start automation', () => {
+  const dragon = () =>
+    makeCombatant({
+      id: 'd',
+      name: 'Dragon',
+      initiative: 20,
+      limits: [
+        { id: 'l1', name: 'Fire Breath', max: 1, used: 1, rechargeRule: 'recharge:5' },
+        { id: 'l2', name: 'Legendary Actions', max: 3, used: 2, rechargeRule: 'turn' },
+        { id: 'l3', name: 'Fireball (1/Day)', max: 1, used: 1, rechargeRule: 'day' },
+      ],
+    })
+
+  it('recharges abilities and resets legendary actions at the creature turn start', () => {
+    const state = dispatchAll(
+      stateWith([dragon(), makeCombatant({ id: 'b', initiative: 10 })]),
+      { type: 'startBattle', dice: [6] }, // dragon first, recharge succeeds
+    )
+    const d = state.combatants.find((c) => c.id === 'd')!
+    expect(d.limits.find((l) => l.id === 'l1')!.used).toBe(0)
+    expect(d.limits.find((l) => l.id === 'l2')!.used).toBe(0)
+    // daily uses never come back mid-battle
+    expect(d.limits.find((l) => l.id === 'l3')!.used).toBe(1)
+    expect(state.turnEvents).toEqual([
+      'Dragon: Fire Breath recharged (rolled 6)',
+      'Dragon: Legendary Actions reset (3/3)',
+    ])
+  })
+
+  it('keeps a failed recharge spent and reports the roll', () => {
+    const state = dispatchAll(
+      stateWith([dragon(), makeCombatant({ id: 'b', initiative: 10 })]),
+      { type: 'startBattle', dice: [2] },
+    )
+    expect(state.combatants.find((c) => c.id === 'd')!.limits[0].used).toBe(1)
+    expect(state.turnEvents).toContain('Dragon: Fire Breath did not recharge (rolled 2)')
+  })
+
+  it('only processes the creature whose turn starts', () => {
+    const state = dispatchAll(
+      stateWith([makeCombatant({ id: 'b', initiative: 30 }), dragon()]),
+      { type: 'startBattle', dice: [6] }, // b first — dragon untouched
+    )
+    expect(state.combatants.find((c) => c.id === 'd')!.limits[0].used).toBe(1)
+    expect(state.turnEvents).toEqual([])
+  })
+})
+
+describe('concentration notice', () => {
+  it('emits a save DC when a concentrating creature takes damage', () => {
+    const state = dispatchAll(
+      stateWith([makeCombatant({ id: 'a', name: 'Mage', hp: 30, maxHp: 30 })]),
+      { type: 'setCondition', id: 'a', condition: { condition: 'Concentration' } },
+      { type: 'applyDamage', ids: ['a'], amount: 26 },
+    )
+    expect(state.turnEvents).toEqual(['Mage is concentrating — DC 13 Constitution save'])
+    // minimum DC 10 for small hits
+    const small = battleReducer(state, { type: 'applyDamage', ids: ['a'], amount: 3 })
+    expect(small.turnEvents).toEqual(['Mage is concentrating — DC 10 Constitution save'])
+  })
+
+  it('stays silent for non-concentrating targets', () => {
+    const state = dispatchAll(stateWith([makeCombatant({ id: 'a' })]), {
+      type: 'applyDamage',
+      ids: ['a'],
+      amount: 5,
+    })
+    expect(state.turnEvents).toEqual([])
+  })
+})

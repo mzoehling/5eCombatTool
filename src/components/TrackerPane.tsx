@@ -57,12 +57,12 @@ export function TrackerPane({
   }
   const isTied = (init: number | null) => init !== null && (initiativeCounts.get(init) ?? 0) > 1
 
-  // auto-clear condition-expiry notices
+  // auto-clear condition-expiry and turn-event notices
   useEffect(() => {
-    if (!state.expiredConditions.length) return
-    const timer = setTimeout(() => dispatch({ type: 'clearExpiredNotice' }), 5000)
+    if (!state.expiredConditions.length && !state.turnEvents.length) return
+    const timer = setTimeout(() => dispatch({ type: 'clearExpiredNotice' }), 6000)
     return () => clearTimeout(timer)
-  }, [state.expiredConditions, dispatch])
+  }, [state.expiredConditions, state.turnEvents, dispatch])
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return
@@ -179,10 +179,13 @@ export function TrackerPane({
         </div>
       )}
 
-      {state.expiredConditions.length > 0 && (
+      {(state.expiredConditions.length > 0 || state.turnEvents.length > 0) && (
         <div className="toast" role="status">
+          {state.turnEvents.map((message, i) => (
+            <div key={`t${i}`}>{message}</div>
+          ))}
           {state.expiredConditions.map((e, i) => (
-            <div key={i}>
+            <div key={`e${i}`}>
               {e.condition} expired on {e.combatantName}
             </div>
           ))}

@@ -18,6 +18,7 @@ function turnMessages(prev: BattleState, next: BattleState): string[] {
     messages.push(`${nameOf(next, next.battle.activeCombatantId)}'s turn`)
   }
   for (const e of next.expiredConditions) messages.push(`${e.condition} expired on ${e.combatantName}`)
+  messages.push(...next.turnEvents)
   return messages
 }
 
@@ -28,8 +29,12 @@ export function describeAction(action: BattleAction, prev: BattleState, next: Ba
       return [`${action.combatant.name} added`]
     case 'removeCombatants':
       return [`Removed ${names(prev, action.ids)}`]
-    case 'applyDamage':
-      return [`${action.amount} damage → ${names(prev, action.ids)}`]
+    case 'applyDamage': {
+      const messages = [`${action.amount} damage → ${names(prev, action.ids)}`]
+      // fresh concentration notices only (reference change ⇒ this action set them)
+      if (next.turnEvents !== prev.turnEvents) messages.push(...next.turnEvents)
+      return messages
+    }
     case 'applyHealing':
       return [`${action.amount} healing → ${names(prev, action.ids)}`]
     case 'setInitiative':
@@ -46,6 +51,7 @@ export function describeAction(action: BattleAction, prev: BattleState, next: Ba
       const messages = ['Battle started — Round 1']
       if (next.battle.activeCombatantId) messages.push(`${nameOf(next, next.battle.activeCombatantId)}'s turn`)
       for (const e of next.expiredConditions) messages.push(`${e.condition} expired on ${e.combatantName}`)
+      messages.push(...next.turnEvents)
       return messages
     }
     case 'endBattle':
