@@ -72,6 +72,12 @@ export function describeAction(action: BattleAction, prev: BattleState, next: Ba
     }
     case 'removeCondition':
       return [`${nameOf(prev, action.id)}: ${action.condition} removed`]
+    case 'loadEncounter':
+      return [
+        action.mode === 'replace'
+          ? `Loaded encounter "${action.name}" (${action.combatants.length} combatants)`
+          : `Added "${action.name}" to the tracker (${action.combatants.length} combatants)`,
+      ]
     case 'consumeLimit': {
       const c = next.combatants.find((x) => x.id === action.id)
       const limit = c?.limits.find((l) => l.id === action.limitId)

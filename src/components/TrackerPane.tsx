@@ -9,6 +9,7 @@ import { sortedCombatants } from '../store/battleReducer'
 import { AddBlank } from './AddBlank'
 import { CombatantRow } from './CombatantRow'
 import { Compendium } from './Compendium'
+import { EncountersManager } from './EncountersManager'
 import { HomebrewManager } from './HomebrewManager'
 import { PacksManager } from './PacksManager'
 import { ConditionEditor } from './ConditionEditor'
@@ -37,7 +38,9 @@ export function TrackerPane({
 }: TrackerPaneProps) {
   const { dispatch } = battleStore
   const state = useBattleState()
-  const [modal, setModal] = useState<'add' | 'groups' | 'compendium' | 'packs' | 'homebrew' | 'dice' | null>(null)
+  const [modal, setModal] = useState<
+    'add' | 'groups' | 'compendium' | 'packs' | 'homebrew' | 'dice' | 'encounters' | null
+  >(null)
   const [conditionsFor, setConditionsFor] = useState<string | null>(null)
   const [editFor, setEditFor] = useState<string | null>(null)
   const [aoeAmount, setAoeAmount] = useState('')
@@ -124,6 +127,7 @@ export function TrackerPane({
             <Icon path={mdiDiceD20} /> Roll NPCs
           </button>
         )}
+        <button type="button" onClick={() => setModal('encounters')}>Encounters</button>
         <button type="button" onClick={() => setModal('groups')}>Groups</button>
         <button type="button" onClick={() => setModal('homebrew')}>Homebrew</button>
         <button type="button" onClick={() => setModal('packs')}>Packs</button>
@@ -193,6 +197,7 @@ export function TrackerPane({
       )}
 
       {modal === 'add' && <AddBlank onClose={() => setModal(null)} />}
+      {modal === 'encounters' && <EncountersManager onClose={() => setModal(null)} />}
       {modal === 'groups' && <GroupsEditor onClose={() => setModal(null)} />}
       {modal === 'compendium' && <Compendium onClose={() => setModal(null)} />}
       {modal === 'packs' && <PacksManager onClose={() => setModal(null)} />}

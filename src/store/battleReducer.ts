@@ -48,6 +48,8 @@ export type BattleAction =
   | { type: 'setGroupInBattle'; id: string; inBattle: boolean }
   | { type: 'updateGroup'; id: string; patch: Partial<Omit<Group, 'id'>> }
   | { type: 'assignGroup'; combatantId: string; groupId?: string }
+  /** Load a saved encounter: replace the tracker, or merge into it ("add party"). */
+  | { type: 'loadEncounter'; name: string; combatants: Combatant[]; groups: Group[]; mode: 'replace' | 'add' }
   | { type: 'setCondition'; id: string; condition: ConditionInstance }
   | { type: 'removeCondition'; id: string; condition: string }
   | { type: 'consumeLimit'; id: string; limitId: string; delta: number }
@@ -312,6 +314,25 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         ...state,
         combatants: updateOne(state.combatants, action.combatantId, (c) => ({ ...c, groupId: action.groupId })),
       }
+
+    case 'loadEncounter': {
+      if (action.mode === 'replace') {
+        return {
+          ...state,
+          combatants: action.combatants,
+          battle: { ...state.battle, groups: action.groups, isRunning: false, round: 1, activeCombatantId: null },
+          expiredConditions: [],
+          turnEvents: [],
+        }
+      }
+      const maxSort = Math.max(0, ...state.combatants.map((c) => c.sortIndex + 1))
+      const added = action.combatants.map((c, i) => ({ ...c, sortIndex: maxSort + i }))
+      return {
+        ...state,
+        combatants: [...state.combatants, ...added],
+        battle: { ...state.battle, groups: [...state.battle.groups, ...action.groups] },
+      }
+    }
 
     case 'setCondition':
       return {

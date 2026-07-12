@@ -255,3 +255,33 @@ describe('concentration notice', () => {
     expect(state.turnEvents).toEqual([])
   })
 })
+
+describe('loadEncounter', () => {
+  const saved = () => [
+    makeCombatant({ id: 'n1', name: 'Goblin', groupId: 'g1' }),
+    makeCombatant({ id: 'n2', name: 'Wolf' }),
+  ]
+  const groups = [{ id: 'g1', name: 'Pack', inBattle: true }]
+
+  it('replace mode swaps combatants and groups and stops the battle', () => {
+    let state = stateWith(
+      [makeCombatant({ id: 'old', initiative: 15 })],
+      { ...initialState.battle, isRunning: true, round: 4, activeCombatantId: 'old', groups: [{ id: 'x', name: 'Old', inBattle: true }] },
+    )
+    state = battleReducer(state, { type: 'loadEncounter', name: 'Ambush', combatants: saved(), groups, mode: 'replace' })
+    expect(state.combatants.map((c) => c.id)).toEqual(['n1', 'n2'])
+    expect(state.battle.groups).toEqual(groups)
+    expect(state.battle.isRunning).toBe(false)
+    expect(state.battle.round).toBe(1)
+    expect(state.battle.activeCombatantId).toBeNull()
+  })
+
+  it('add mode appends combatants after the existing sort order and merges groups', () => {
+    let state = stateWith([makeCombatant({ id: 'old', sortIndex: 7 })])
+    state = battleReducer(state, { type: 'loadEncounter', name: 'Party', combatants: saved(), groups, mode: 'add' })
+    expect(state.combatants).toHaveLength(3)
+    const added = state.combatants.filter((c) => c.id !== 'old')
+    expect(added.every((c) => c.sortIndex > 7)).toBe(true)
+    expect(state.battle.groups).toEqual(groups)
+  })
+})

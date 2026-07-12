@@ -39,6 +39,7 @@ export function HomebrewManager({ onClose }: { onClose: () => void }) {
       if (summary.battleRestored) await battleStore.hydrate()
       const parts = [`${summary.homebrew} homebrew entries`]
       if (summary.packs) parts.push(`${summary.packs} packs`)
+      if (summary.encounters) parts.push(`${summary.encounters} encounters`)
       if (summary.battleRestored) parts.push('the saved battle')
       setMessage({ text: `Imported ${parts.join(', ')}.` })
     } catch (err) {

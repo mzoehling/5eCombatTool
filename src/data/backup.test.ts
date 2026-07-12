@@ -45,7 +45,7 @@ describe('backup', () => {
       const json = await exportBackup(source)
 
       const summary = await importBackup(json, target)
-      expect(summary).toEqual({ homebrew: 2, packs: 1, battleRestored: true })
+      expect(summary).toEqual({ homebrew: 2, packs: 1, encounters: 0, battleRestored: true })
       expect(await target.homebrew.count()).toBe(2)
       expect((await target.homebrew.get('hb-alpha'))?.statblock.name).toBe('Alpha')
       expect((await target.packs.get('p1'))?.name).toBe('Pack One')
@@ -102,7 +102,7 @@ describe('backup', () => {
         homebrew: [makeEntry('Alpha')],
       })
       const summary = await importBackup(v1, target)
-      expect(summary).toEqual({ homebrew: 1, packs: 0, battleRestored: false })
+      expect(summary).toEqual({ homebrew: 1, packs: 0, encounters: 0, battleRestored: false })
       expect(await target.homebrew.count()).toBe(1)
     } finally {
       await target.delete()

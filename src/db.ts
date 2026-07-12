@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Battle, Combatant, ContentPack, HomebrewEntry, Item, Spell, Statblock } from './types'
+import type { Battle, Combatant, ContentPack, HomebrewEntry, Item, SavedEncounter, Spell, Statblock } from './types'
 
 /** Key/value store for app metadata (e.g. bundled-data version, last backup export). */
 export interface MetaEntry {
@@ -16,6 +16,7 @@ export class CombatDb extends Dexie {
   combatants!: EntityTable<Combatant, 'id'>
   battle!: EntityTable<Battle, 'id'>
   meta!: EntityTable<MetaEntry, 'key'>
+  encounters!: EntityTable<SavedEncounter, 'id'>
 
   constructor(name = '5eCombatTool') {
     super(name)
@@ -28,6 +29,10 @@ export class CombatDb extends Dexie {
       combatants: 'id, sortIndex, groupId',
       battle: 'id',
       meta: 'key',
+    })
+    // v2: saved-encounter library
+    this.version(2).stores({
+      encounters: 'id, name',
     })
   }
 }
