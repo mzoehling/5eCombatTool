@@ -520,6 +520,32 @@ label.check {
   margin: 0 0 0.35rem;
 }
 
+/* ---------- combat log ---------- */
+
+.combat-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+  font-size: 0.9rem;
+}
+
+.combat-log li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.combat-log .log-time {
+  flex: 0 0 3.2rem;
+}
+
+.combat-log .log-round {
+  flex: 0 0 2rem;
+}
+
 /* ---------- apply-condition dialog ---------- */
 
 .condition-rules {

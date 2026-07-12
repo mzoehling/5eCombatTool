@@ -1,6 +1,31 @@
-import { mdiChevronLeft, mdiChevronRight, mdiPlay } from '@mdi/js'
-import { battleStore, useBattleState } from '../store/battleStore'
+import { mdiChevronLeft, mdiChevronRight, mdiHistory, mdiPlay, mdiUndo } from '@mdi/js'
+import { useState } from 'react'
+import { battleStore, useBattleState, useUndoDepth } from '../store/battleStore'
+import { CombatLog } from './CombatLog'
 import { Icon } from './Icon'
+
+function HistoryButtons() {
+  const undoDepth = useUndoDepth()
+  const [showLog, setShowLog] = useState(false)
+  return (
+    <>
+      <button
+        type="button"
+        className="ghost"
+        disabled={undoDepth === 0}
+        aria-label="Undo"
+        title="Undo the last change (Ctrl+Z)"
+        onClick={battleStore.undo}
+      >
+        <Icon path={mdiUndo} />
+      </button>
+      <button type="button" className="ghost" aria-label="Combat log" title="Combat log" onClick={() => setShowLog(true)}>
+        <Icon path={mdiHistory} />
+      </button>
+      {showLog && <CombatLog onClose={() => setShowLog(false)} />}
+    </>
+  )
+}
 
 export function BattleControls() {
   const { dispatch } = battleStore
@@ -9,6 +34,7 @@ export function BattleControls() {
   if (!battle.isRunning) {
     return (
       <div className="battle-controls">
+        <HistoryButtons />
         <button
           type="button"
           className="primary icon-label"
@@ -23,6 +49,7 @@ export function BattleControls() {
 
   return (
     <div className="battle-controls">
+      <HistoryButtons />
       <button type="button" className="icon-label" onClick={() => dispatch({ type: 'prevTurn' })} aria-label="Previous turn">
         <Icon path={mdiChevronLeft} /> Back
       </button>
