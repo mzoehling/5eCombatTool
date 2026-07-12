@@ -17,6 +17,7 @@ dev-dist
 SPEC.md
 HANDOVER.md
 FEATURE-PLAYER-VIEW.md
+CLAUDE.md
 .claude/
 
 # Downloaded upstream data used as build input / test fixtures — never commit

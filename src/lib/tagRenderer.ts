@@ -155,7 +155,7 @@ export function renderTags(text: string): string {
 
 // ---------------------------------------------------------------------------
 // Segment rendering: prose plus interactive spans (rollable dice, condition
-// references) for clickable statblock text. 5etools tags are authoritative
+// references) for clickable statblock text. Source inline tags are authoritative
 // ({@damage}, {@hit}, {@condition}, …); plain text (homebrew, untagged packs)
 // falls back to conservative pattern matching.
 // ---------------------------------------------------------------------------
