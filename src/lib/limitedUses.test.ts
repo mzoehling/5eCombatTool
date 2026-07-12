@@ -9,7 +9,10 @@ const fixturePath = resolve(import.meta.dirname, '..', '..', 'fixtures', 'bestia
 const hasFixtures = existsSync(fixturePath)
 
 describe.skipIf(!hasFixtures)('detectLimitedUses (fixtures)', () => {
-  const monsters = JSON.parse(readFileSync(fixturePath, 'utf8')).monster as Parameters<typeof parseMonster>[0][]
+  // body still executes when skipped — guard the load itself
+  const monsters = (
+    hasFixtures ? JSON.parse(readFileSync(fixturePath, 'utf8')).monster : []
+  ) as Parameters<typeof parseMonster>[0][]
   const byName = (name: string): Statblock => parseMonster(monsters.find((m) => m.name === name)!)
 
   it('detects recharge abilities and legendary actions (Adult Red Dragon)', () => {

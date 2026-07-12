@@ -1,8 +1,9 @@
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { mdiBookOpenVariant, mdiDiceMultiple, mdiPlus } from '@mdi/js'
+import { mdiBookOpenVariant, mdiDiceD20, mdiDiceMultiple, mdiPlus } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import { evalArithmetic } from '../lib/arithmetic'
+import { d20 } from '../lib/dice'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
 import { AddBlank } from './AddBlank'
@@ -84,6 +85,13 @@ export function TrackerPane({
     setAoeAmount('')
   }
 
+  // NPCs whose initiative is still unset — PCs roll at the table
+  const unrolledNpcs = state.combatants.filter((c) => !c.isPC && (c.initiative ?? 0) === 0)
+  const rollNpcs = () => {
+    const ids = unrolledNpcs.map((c) => c.id)
+    dispatch({ type: 'rollInitiative', ids, rolls: ids.map(() => d20()) })
+  }
+
   const toggleCheck = (id: string) => {
     const next = new Set(checked)
     if (next.has(id)) next.delete(id)
@@ -106,6 +114,16 @@ export function TrackerPane({
         <button type="button" className="icon-label" onClick={() => setModal('dice')}>
           <Icon path={mdiDiceMultiple} /> Dice Roller
         </button>
+        {unrolledNpcs.length > 0 && (
+          <button
+            type="button"
+            className="icon-label"
+            title="Roll initiative for all NPCs without a value"
+            onClick={rollNpcs}
+          >
+            <Icon path={mdiDiceD20} /> Roll NPCs
+          </button>
+        )}
         <button type="button" onClick={() => setModal('groups')}>Groups</button>
         <button type="button" onClick={() => setModal('homebrew')}>Homebrew</button>
         <button type="button" onClick={() => setModal('packs')}>Packs</button>
