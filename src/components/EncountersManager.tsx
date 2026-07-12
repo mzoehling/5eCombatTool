@@ -1,4 +1,4 @@
-import { mdiContentSave, mdiDelete, mdiPlus, mdiSwapHorizontal } from '@mdi/js'
+import { mdiContentSave, mdiDelete, mdiPlus, mdiSwapHorizontal, mdiTrashCanOutline } from '@mdi/js'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { instantiateEncounter, prepareForAdd, saveEncounter } from '../data/encounters'
@@ -57,6 +57,16 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
     if (confirm(`Delete saved encounter "${saved.name}"?`)) db.encounters.delete(saved.id)
   }
 
+  const clear = () => {
+    if (state.combatants.length === 0) return
+    if (!confirm('Clear the current tracker? This removes all combatants and the combat log. (Undo can bring it back.)')) {
+      return
+    }
+    dispatch({ type: 'loadEncounter', name: '', combatants: [], groups: [], mode: 'replace' })
+    battleStore.clearLog()
+    setMessage('Cleared the tracker.')
+  }
+
   return (
     <Modal title="Encounters" onClose={onClose}>
       <div className="inline-form">
@@ -74,6 +84,15 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
           onClick={save}
         >
           <Icon path={mdiContentSave} /> Save current
+        </button>
+        <button
+          type="button"
+          className="danger icon-label"
+          disabled={state.combatants.length === 0}
+          title="Remove all combatants and the combat log from the tracker"
+          onClick={clear}
+        >
+          <Icon path={mdiTrashCanOutline} /> Clear
         </button>
       </div>
 

@@ -1,12 +1,11 @@
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { mdiBookOpenVariant, mdiDiceD20, mdiDiceMultiple, mdiPlus } from '@mdi/js'
+import { mdiBookOpenVariant, mdiDiceD20, mdiDiceMultiple } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import { evalArithmetic } from '../lib/arithmetic'
 import { d20 } from '../lib/dice'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
-import { AddBlank } from './AddBlank'
 import { CombatantRow } from './CombatantRow'
 import { Compendium } from './Compendium'
 import { EncountersManager } from './EncountersManager'
@@ -39,7 +38,7 @@ export function TrackerPane({
   const { dispatch } = battleStore
   const state = useBattleState()
   const [modal, setModal] = useState<
-    'add' | 'groups' | 'compendium' | 'packs' | 'homebrew' | 'dice' | 'encounters' | null
+    'groups' | 'compendium' | 'packs' | 'homebrew' | 'dice' | 'encounters' | null
   >(null)
   const [conditionsFor, setConditionsFor] = useState<string | null>(null)
   const [editFor, setEditFor] = useState<string | null>(null)
@@ -111,9 +110,7 @@ export function TrackerPane({
         <button type="button" className="primary icon-label" onClick={() => setModal('compendium')}>
           <Icon path={mdiBookOpenVariant} /> Compendium
         </button>
-        <button type="button" className="icon-label" onClick={() => setModal('add')}>
-          <Icon path={mdiPlus} /> Blank
-        </button>
+        <button type="button" onClick={() => setModal('encounters')}>Encounters</button>
         <button type="button" className="icon-label" onClick={() => setModal('dice')}>
           <Icon path={mdiDiceMultiple} /> Dice Roller
         </button>
@@ -127,7 +124,6 @@ export function TrackerPane({
             <Icon path={mdiDiceD20} /> Roll NPCs
           </button>
         )}
-        <button type="button" onClick={() => setModal('encounters')}>Encounters</button>
         <button type="button" onClick={() => setModal('groups')}>Groups</button>
         <button type="button" onClick={() => setModal('homebrew')}>Homebrew</button>
         <button type="button" onClick={() => setModal('packs')}>Packs</button>
@@ -196,7 +192,6 @@ export function TrackerPane({
         </div>
       )}
 
-      {modal === 'add' && <AddBlank onClose={() => setModal(null)} />}
       {modal === 'encounters' && <EncountersManager onClose={() => setModal(null)} />}
       {modal === 'groups' && <GroupsEditor onClose={() => setModal(null)} />}
       {modal === 'compendium' && <Compendium onClose={() => setModal(null)} />}

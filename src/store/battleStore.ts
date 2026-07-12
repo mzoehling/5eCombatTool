@@ -62,6 +62,13 @@ class BattleStore {
     this.schedulePersist()
   }
 
+  /** Empties the combat log (used when clearing the tracker). */
+  clearLog = (): void => {
+    this.log = []
+    this.notify()
+    this.schedulePersist()
+  }
+
   /** Reverts the last undoable action (turn changes, damage, conditions, …). */
   undo = (): void => {
     const prev = this.past.at(-1)

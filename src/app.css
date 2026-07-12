@@ -100,7 +100,7 @@
 .combatant-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.6rem;
   padding: 0.35rem 0.4rem;
   margin-bottom: 0.35rem;
   background: var(--bg-panel);
@@ -207,13 +207,13 @@
 .hp-block {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.4rem;
 }
 
 .hp-values {
   display: flex;
   align-items: baseline;
-  gap: 0.1rem;
+  gap: 0.25rem;
 }
 
 .hp-current {
@@ -275,6 +275,12 @@
 .drag-handle {
   touch-action: none;
   cursor: grab;
+  flex-shrink: 0;
+}
+
+.drag-handle-inactive {
+  cursor: default;
+  opacity: 0.35;
 }
 
 .empty-hint {

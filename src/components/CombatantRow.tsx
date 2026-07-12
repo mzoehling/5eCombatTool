@@ -173,11 +173,16 @@ export function CombatantRow({
         <Icon path={mdiDotsHorizontal} />
       </button>
 
-      {isTied && (
-        <button type="button" className="ghost drag-handle" aria-label={`Reorder ${c.name}`} {...attributes} {...listeners}>
-          <Icon path={mdiDrag} />
-        </button>
-      )}
+      <button
+        type="button"
+        className={`ghost drag-handle${isTied ? '' : ' drag-handle-inactive'}`}
+        aria-label={`Reorder ${c.name}`}
+        title={isTied ? 'Drag to reorder within tied initiative' : 'Only usable when initiative is tied'}
+        {...attributes}
+        {...listeners}
+      >
+        <Icon path={mdiDrag} />
+      </button>
     </li>
   )
 }
