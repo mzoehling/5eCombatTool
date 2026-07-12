@@ -1,6 +1,7 @@
 import { mdiPin, mdiPinOutline, mdiRestore } from '@mdi/js'
 import { Fragment, useState } from 'react'
 import { describeCondition } from '../data/conditionInfo'
+import { parseDiceExpression } from '../lib/diceExpr'
 import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
 import { abilityMod, type Ability, type Combatant, type Statblock, type StatblockEntry } from '../types'
@@ -42,6 +43,16 @@ function signed(n: number): string {
   return n >= 0 ? `+${n}` : String(n)
 }
 
+/** A d20 roll with a flat bonus (save, check, initiative) as a dice link. */
+function D20Link({ bonus, onDice }: { bonus: number; onDice: (expr: string) => void }) {
+  const expr = `1d20${signed(bonus)}`
+  return (
+    <button type="button" className="dice-link" title={`Roll ${expr}`} onClick={() => onDice(expr)}>
+      {signed(bonus)}
+    </button>
+  )
+}
+
 function EntryList({ entries, title, actions }: { entries: StatblockEntry[]; title?: string; actions: TextActions }) {
   if (!entries.length) return null
   return (
@@ -61,7 +72,8 @@ function EntryList({ entries, title, actions }: { entries: StatblockEntry[]; tit
   )
 }
 
-function GeneralTab({ sb }: { sb: Statblock }) {
+function GeneralTab({ sb, actions }: { sb: Statblock; actions: TextActions }) {
+  const hpFormula = sb.hp.formula
   return (
     <>
       <p className="sb-meta">
@@ -74,11 +86,27 @@ function GeneralTab({ sb }: { sb: Statblock }) {
           {sb.acFrom && ` (${renderTags(sb.acFrom)})`}
         </span>
         <span>
-          <b>Initiative</b> {signed(sb.initiativeBonus)}
+          <b>Initiative</b> <D20Link bonus={sb.initiativeBonus} onDice={actions.onDice} />
         </span>
         <span>
           <b>HP</b> {sb.hp.special ?? sb.hp.average}
-          {sb.hp.formula && ` (${sb.hp.formula})`}
+          {hpFormula &&
+            (parseDiceExpression(hpFormula) !== null ? (
+              <>
+                {' ('}
+                <button
+                  type="button"
+                  className="dice-link"
+                  title={`Roll ${hpFormula}`}
+                  onClick={() => actions.onDice(hpFormula)}
+                >
+                  {hpFormula}
+                </button>
+                {')'}
+              </>
+            ) : (
+              ` (${hpFormula})`
+            ))}
         </span>
         <span>
           <b>Speed</b>{' '}
@@ -104,13 +132,17 @@ function GeneralTab({ sb }: { sb: Statblock }) {
           <tr>
             <th>Mod</th>
             {ABILITIES.map((a) => (
-              <td key={a}>{signed(abilityMod(sb.abilities[a]))}</td>
+              <td key={a}>
+                <D20Link bonus={abilityMod(sb.abilities[a])} onDice={actions.onDice} />
+              </td>
             ))}
           </tr>
           <tr>
             <th>Save</th>
             {ABILITIES.map((a) => (
-              <td key={a}>{signed(sb.saves[a] ?? abilityMod(sb.abilities[a]))}</td>
+              <td key={a}>
+                <D20Link bonus={sb.saves[a] ?? abilityMod(sb.abilities[a])} onDice={actions.onDice} />
+              </td>
             ))}
           </tr>
         </tbody>
@@ -120,9 +152,12 @@ function GeneralTab({ sb }: { sb: Statblock }) {
           <>
             <dt>Skills</dt>
             <dd>
-              {Object.entries(sb.skills)
-                .map(([name, bonus]) => `${name.replace(/^./, (c) => c.toUpperCase())} ${signed(bonus)}`)
-                .join(', ')}
+              {Object.entries(sb.skills).map(([name, bonus], i) => (
+                <Fragment key={name}>
+                  {i > 0 && ', '}
+                  {name.replace(/^./, (c) => c.toUpperCase())} <D20Link bonus={bonus} onDice={actions.onDice} />
+                </Fragment>
+              ))}
             </dd>
           </>
         )}
@@ -314,7 +349,7 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
       <div className="sb-content">
         {shownTab === 'general' &&
           (sb ? (
-            <GeneralTab sb={sb} />
+            <GeneralTab sb={sb} actions={actions} />
           ) : (
             <dl className="sb-details">
               <dt>AC</dt>
