@@ -100,3 +100,11 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+.crit-btn {
+  margin-left: auto;
+}
+
+.apply-roll-btn {
+  margin-top: 0.5rem;
+}

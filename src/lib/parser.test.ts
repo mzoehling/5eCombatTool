@@ -12,8 +12,12 @@ if (!hasFixtures && process.env.CI) {
   throw new Error('Fixtures are required in CI — run `npm run fetch-fixtures` first.')
 }
 
-function loadFixture<T>(relPath: string): T {
-  return JSON.parse(readFileSync(resolve(fixturesDir, relPath), 'utf8')) as T
+// Returns [] for the requested key when fixtures are absent — the describe
+// blocks are skipped then, but their bodies still execute during collection.
+function loadFixture<T>(relPath: string, key: string): T[] {
+  if (!hasFixtures) return []
+  const data = JSON.parse(readFileSync(resolve(fixturesDir, relPath), 'utf8')) as Record<string, T[]>
+  return data[key]
 }
 
 /** Every human-readable string of a parsed statblock. */
@@ -32,7 +36,7 @@ function allText(sb: Statblock): string[] {
 }
 
 describe.skipIf(!hasFixtures)('parseMonster (bestiary fixture)', () => {
-  const monsters = loadFixture<{ monster: Parameters<typeof parseMonster>[0][] }>('bestiary/bestiary-xmm.json').monster
+  const monsters = loadFixture<Parameters<typeof parseMonster>[0]>('bestiary/bestiary-xmm.json', 'monster')
 
   it('parses all monsters without throwing', () => {
     expect(monsters.length).toBeGreaterThanOrEqual(500)
@@ -104,7 +108,7 @@ describe.skipIf(!hasFixtures)('parseMonster (bestiary fixture)', () => {
 })
 
 describe.skipIf(!hasFixtures)('parseSpell (spells fixture)', () => {
-  const spells = loadFixture<{ spell: Parameters<typeof parseSpell>[0][] }>('spells/spells-xphb.json').spell
+  const spells = loadFixture<Parameters<typeof parseSpell>[0]>('spells/spells-xphb.json', 'spell')
 
   it('parses all spells without throwing', () => {
     expect(spells.length).toBeGreaterThanOrEqual(380)
@@ -137,8 +141,8 @@ describe.skipIf(!hasFixtures)('parseSpell (spells fixture)', () => {
 })
 
 describe.skipIf(!hasFixtures)('parseItem (items fixtures)', () => {
-  const items = loadFixture<{ item: Parameters<typeof parseItem>[0][] }>('items.json').item
-  const baseItems = loadFixture<{ baseitem: Parameters<typeof parseItem>[0][] }>('items-base.json').baseitem
+  const items = loadFixture<Parameters<typeof parseItem>[0]>('items.json', 'item')
+  const baseItems = loadFixture<Parameters<typeof parseItem>[0]>('items-base.json', 'baseitem')
   const modern = [...items, ...baseItems].filter((i) => i.source === 'XPHB' || i.source === 'XDMG')
 
   it('parses all XPHB/XDMG items without throwing', () => {

@@ -9,6 +9,8 @@ export interface BattleState {
   battle: Battle
   /** Conditions that expired at the most recent turn change (for a UI notice). */
   expiredConditions: { combatantName: string; condition: string }[]
+  /** Turn-start automation and concentration notices (for a UI toast + log). */
+  turnEvents: string[]
 }
 
 export const initialBattle: Battle = {
@@ -23,6 +25,7 @@ export const initialState: BattleState = {
   combatants: [],
   battle: initialBattle,
   expiredConditions: [],
+  turnEvents: [],
 }
 
 export type BattleAction =
@@ -35,15 +38,18 @@ export type BattleAction =
   | { type: 'setInitiative'; id: string; initiative: number | null }
   | { type: 'rollInitiative'; ids: string[]; rolls: number[] }
   | { type: 'reorder'; id: string; beforeId: string | null }
-  | { type: 'startBattle' }
+  /** `dice` is a pool of pre-rolled d6 values consumed by recharge checks (reducer stays pure). */
+  | { type: 'startBattle'; dice?: number[] }
   | { type: 'endBattle' }
-  | { type: 'nextTurn' }
+  | { type: 'nextTurn'; dice?: number[] }
   | { type: 'prevTurn' }
   | { type: 'addGroup'; group: Group }
   | { type: 'removeGroup'; id: string }
   | { type: 'setGroupInBattle'; id: string; inBattle: boolean }
   | { type: 'updateGroup'; id: string; patch: Partial<Omit<Group, 'id'>> }
   | { type: 'assignGroup'; combatantId: string; groupId?: string }
+  /** Load a saved encounter: replace the tracker, or merge into it ("add party"). */
+  | { type: 'loadEncounter'; name: string; combatants: Combatant[]; groups: Group[]; mode: 'replace' | 'add' }
   | { type: 'setCondition'; id: string; condition: ConditionInstance }
   | { type: 'removeCondition'; id: string; condition: string }
   | { type: 'consumeLimit'; id: string; limitId: string; delta: number }
@@ -104,7 +110,43 @@ function tickConditions(state: BattleState, combatantId: string): BattleState {
   return { ...state, combatants, expiredConditions: expired }
 }
 
-function advanceTurn(state: BattleState, direction: 1 | -1): BattleState {
+const RECHARGE_RULE = /^recharge:(\d)$/
+
+/**
+ * Turn-start bookkeeping for the newly active creature: condition durations
+ * tick, spent legendary actions reset, and recharge abilities roll a d6 from
+ * the supplied pool. Events are collected for the toast and combat log.
+ */
+function applyTurnStart(state: BattleState, combatantId: string, dice: number[]): BattleState {
+  const ticked = tickConditions(state, combatantId)
+  const events: string[] = []
+  const pool = [...dice]
+  const combatants = updateOne(ticked.combatants, combatantId, (c) => {
+    if (!c.limits.some((l) => l.used > 0)) return c
+    const limits = c.limits.map((l) => {
+      if (l.used <= 0) return l
+      if (l.rechargeRule === 'turn') {
+        events.push(`${c.name}: ${l.name} reset (${l.max}/${l.max})`)
+        return { ...l, used: 0 }
+      }
+      const rule = l.rechargeRule?.match(RECHARGE_RULE)
+      if (rule) {
+        const roll = pool.shift()
+        if (roll === undefined) return l
+        if (roll >= Number(rule[1])) {
+          events.push(`${c.name}: ${l.name} recharged (rolled ${roll})`)
+          return { ...l, used: 0 }
+        }
+        events.push(`${c.name}: ${l.name} did not recharge (rolled ${roll})`)
+      }
+      return l
+    })
+    return { ...c, limits }
+  })
+  return { ...ticked, combatants, turnEvents: events }
+}
+
+function advanceTurn(state: BattleState, direction: 1 | -1, dice: number[]): BattleState {
   const order = turnOrder(state)
   if (!order.length) return state
   const currentIndex = order.findIndex((c) => c.id === state.battle.activeCombatantId)
@@ -127,9 +169,10 @@ function advanceTurn(state: BattleState, direction: 1 | -1): BattleState {
     ...state,
     battle: { ...state.battle, round, activeCombatantId: active.id },
     expiredConditions: [],
+    turnEvents: [],
   }
-  // durations tick only when a turn starts going forward
-  return direction === 1 ? tickConditions(next, active.id) : next
+  // durations tick and abilities recharge only when a turn starts going forward
+  return direction === 1 ? applyTurnStart(next, active.id, dice) : next
 }
 
 let sortCounter = 0
@@ -159,10 +202,16 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
 
     case 'applyDamage': {
       const ids = new Set(action.ids)
-      return {
-        ...state,
-        combatants: state.combatants.map((c) => (ids.has(c.id) ? damageOne(c, action.amount) : c)),
-      }
+      const events: string[] = []
+      const combatants = state.combatants.map((c) => {
+        if (!ids.has(c.id)) return c
+        if (action.amount > 0 && c.conditions.some((x) => x.condition === 'Concentration')) {
+          const dc = Math.max(10, Math.floor(action.amount / 2))
+          events.push(`${c.name} is concentrating — DC ${dc} Constitution save`)
+        }
+        return damageOne(c, action.amount)
+      })
+      return { ...state, combatants, ...(events.length && { turnEvents: events }) }
     }
 
     case 'applyHealing': {
@@ -213,8 +262,9 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         ...state,
         battle: { ...state.battle, isRunning: true, round: 1, activeCombatantId: first?.id ?? null },
         expiredConditions: [],
+        turnEvents: [],
       }
-      return first ? tickConditions(next, first.id) : next
+      return first ? applyTurnStart(next, first.id, action.dice ?? []) : next
     }
 
     case 'endBattle':
@@ -222,13 +272,14 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         ...state,
         battle: { ...state.battle, isRunning: false, round: 1, activeCombatantId: null },
         expiredConditions: [],
+        turnEvents: [],
       }
 
     case 'nextTurn':
-      return advanceTurn(state, 1)
+      return advanceTurn(state, 1, action.dice ?? [])
 
     case 'prevTurn':
-      return advanceTurn(state, -1)
+      return advanceTurn(state, -1, [])
 
     case 'addGroup':
       return { ...state, battle: { ...state.battle, groups: [...state.battle.groups, action.group] } }
@@ -264,6 +315,25 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         combatants: updateOne(state.combatants, action.combatantId, (c) => ({ ...c, groupId: action.groupId })),
       }
 
+    case 'loadEncounter': {
+      if (action.mode === 'replace') {
+        return {
+          ...state,
+          combatants: action.combatants,
+          battle: { ...state.battle, groups: action.groups, isRunning: false, round: 1, activeCombatantId: null },
+          expiredConditions: [],
+          turnEvents: [],
+        }
+      }
+      const maxSort = Math.max(0, ...state.combatants.map((c) => c.sortIndex + 1))
+      const added = action.combatants.map((c, i) => ({ ...c, sortIndex: maxSort + i }))
+      return {
+        ...state,
+        combatants: [...state.combatants, ...added],
+        battle: { ...state.battle, groups: [...state.battle.groups, ...action.groups] },
+      }
+    }
+
     case 'setCondition':
       return {
         ...state,
@@ -297,6 +367,8 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
       }
 
     case 'clearExpiredNotice':
-      return state.expiredConditions.length ? { ...state, expiredConditions: [] } : state
+      return state.expiredConditions.length || state.turnEvents.length
+        ? { ...state, expiredConditions: [], turnEvents: [] }
+        : state
   }
 }

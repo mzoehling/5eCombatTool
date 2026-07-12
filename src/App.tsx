@@ -43,6 +43,19 @@ function App() {
       .finally(() => setHydrated(true))
   }, [])
 
+  // Ctrl/Cmd+Z undoes the last battle change — except while typing in a field
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z' || e.shiftKey) return
+      const target = e.target as HTMLElement | null
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target?.isContentEditable) return
+      e.preventDefault()
+      battleStore.undo()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   // unpinned panel follows the turn: a turn change resets manual selection
   useEffect(() => setSelectedId(null), [activeId])
 

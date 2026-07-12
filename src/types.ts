@@ -224,6 +224,16 @@ export interface HomebrewEntry {
   updatedAt: number
 }
 
+/** A saved tracker setup (prepped fight or party) for later loading. */
+export interface SavedEncounter {
+  id: string
+  name: string
+  createdAt: number
+  updatedAt: number
+  combatants: Combatant[]
+  groups: Group[]
+}
+
 /** Versioned content-pack format; produced externally, imported via file picker. */
 export interface ContentPack {
   packId: string

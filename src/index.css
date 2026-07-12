@@ -10,6 +10,7 @@
   --danger: #f7768e;
   --warn: #e0af68;
   --ok: #9ece6a;
+  --magic: #bb9af7;
   /* Text placed on accent/danger/warn/ok backgrounds. */
   --on-accent: #10101a;
 
@@ -33,6 +34,7 @@
   --danger: #b23a52;
   --warn: #9a6a1e;
   --ok: #52791f;
+  --magic: #6d3fb0;
   --on-accent: #ffffff;
 
   color-scheme: light;

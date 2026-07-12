@@ -57,3 +57,32 @@ export async function findSpellByName(name: string): Promise<Spell | undefined> 
   }
   return undefined
 }
+
+/** Case-insensitive item lookup: SRD table first, then imported packs. */
+export async function findItemByName(name: string): Promise<Item | undefined> {
+  const trimmed = name.trim()
+  const srd = await db.items.where('name').equalsIgnoreCase(trimmed).first()
+  if (srd) return srd
+  const lower = trimmed.toLowerCase()
+  const packs = await db.packs.toArray()
+  for (const pack of packs) {
+    const hit = (pack.items ?? []).find((i) => i.name.toLowerCase() === lower)
+    if (hit) return hit
+  }
+  return undefined
+}
+
+/** Case-insensitive monster lookup: SRD, then packs, then homebrew. */
+export async function findMonsterByName(name: string): Promise<Statblock | undefined> {
+  const trimmed = name.trim()
+  const srd = await db.monsters.where('name').equalsIgnoreCase(trimmed).first()
+  if (srd) return srd
+  const lower = trimmed.toLowerCase()
+  const packs = await db.packs.toArray()
+  for (const pack of packs) {
+    const hit = (pack.monsters ?? []).find((m) => m.name.toLowerCase() === lower)
+    if (hit) return hit
+  }
+  const homebrew = await db.homebrew.toArray()
+  return homebrew.find((h) => h.statblock.name.toLowerCase() === lower)?.statblock
+}

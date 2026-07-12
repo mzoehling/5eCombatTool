@@ -100,7 +100,7 @@
 .combatant-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.6rem;
   padding: 0.35rem 0.4rem;
   margin-bottom: 0.35rem;
   background: var(--bg-panel);
@@ -207,13 +207,13 @@
 .hp-block {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.4rem;
 }
 
 .hp-values {
   display: flex;
   align-items: baseline;
-  gap: 0.1rem;
+  gap: 0.25rem;
 }
 
 .hp-current {
@@ -275,6 +275,12 @@
 .drag-handle {
   touch-action: none;
   cursor: grab;
+  flex-shrink: 0;
+}
+
+.drag-handle-inactive {
+  cursor: default;
+  opacity: 0.35;
 }
 
 .empty-hint {
@@ -481,7 +487,9 @@ label.check {
 
 .dice-link,
 .condition-link,
-.spell-link {
+.spell-link,
+.item-link,
+.creature-link {
   display: inline;
   background: none;
   border: none;
@@ -508,9 +516,19 @@ label.check {
   color: var(--ok);
 }
 
+.item-link {
+  color: var(--magic);
+}
+
+.creature-link {
+  color: var(--danger);
+}
+
 .dice-link:hover,
 .condition-link:hover,
-.spell-link:hover {
+.spell-link:hover,
+.item-link:hover,
+.creature-link:hover {
   text-decoration-style: solid;
 }
 
@@ -518,6 +536,32 @@ label.check {
 
 .spell-meta {
   margin: 0 0 0.35rem;
+}
+
+/* ---------- combat log ---------- */
+
+.combat-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+  font-size: 0.9rem;
+}
+
+.combat-log li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.combat-log .log-time {
+  flex: 0 0 3.2rem;
+}
+
+.combat-log .log-round {
+  flex: 0 0 2rem;
 }
 
 /* ---------- apply-condition dialog ---------- */
@@ -916,4 +960,22 @@ label.check {
   font-size: 0.68rem;
   color: var(--text-dim);
   border-top: 1px solid var(--border);
+}
+
+/* ---------- apply-roll dialog ---------- */
+
+.apply-roll-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.apply-roll-row .check {
+  flex: 1;
+}
+
+.half-btn {
+  min-height: 0;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.85rem;
 }

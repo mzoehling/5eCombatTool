@@ -1,7 +1,8 @@
 import { mdiDiceMultiple } from '@mdi/js'
 import { useRef, useState } from 'react'
 import './diceRoller.css'
-import { formatBreakdown, rollWithMode, type ModedRollResult, type RollMode } from '../lib/diceExpr'
+import { doubleDiceTerms, formatBreakdown, rollWithMode, type ModedRollResult, type RollMode } from '../lib/diceExpr'
+import { ApplyRoll } from './ApplyRoll'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 
@@ -9,6 +10,8 @@ interface DiceRollerProps {
   onClose: () => void
   /** Pre-filled expression (not rolled yet) — used by clickable dice links. */
   initialExpression?: string
+  /** Show "Apply…" on results to damage/heal combatants (DM view only). */
+  allowApply?: boolean
 }
 
 const MODES: { id: RollMode; label: string }[] = [
@@ -17,12 +20,15 @@ const MODES: { id: RollMode; label: string }[] = [
   { id: 'disadvantage', label: 'Disadvantage' },
 ]
 
-export function DiceRoller({ onClose, initialExpression = '' }: DiceRollerProps) {
+export function DiceRoller({ onClose, initialExpression = '', allowApply = false }: DiceRollerProps) {
   const [text, setText] = useState(initialExpression)
   const [mode, setMode] = useState<RollMode>('normal')
   const [invalid, setInvalid] = useState(false)
   const [history, setHistory] = useState<ModedRollResult[]>([])
+  const [applyAmount, setApplyAmount] = useState<number | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const critExpression = doubleDiceTerms(text)
 
   const doRoll = () => {
     const result = rollWithMode(text, mode)
@@ -72,6 +78,19 @@ export function DiceRoller({ onClose, initialExpression = '' }: DiceRollerProps)
             {m.label}
           </button>
         ))}
+        <button
+          type="button"
+          className="crit-btn"
+          disabled={!critExpression}
+          title="Double the dice — critical hit"
+          onClick={() => {
+            if (!critExpression) return
+            setText(critExpression)
+            inputRef.current?.focus()
+          }}
+        >
+          Crit ×2
+        </button>
       </div>
 
       {invalid && <p className="dice-error">Not a valid dice expression — try something like “2d6 + 3” or “1w8”.</p>}
@@ -88,8 +107,15 @@ export function DiceRoller({ onClose, initialExpression = '' }: DiceRollerProps)
           <div className="dice-breakdown">
             {latest.kept.input} → {formatBreakdown(latest.kept)}
           </div>
+          {allowApply && (
+            <button type="button" className="apply-roll-btn" onClick={() => setApplyAmount(latest.kept.total)}>
+              Apply to combatants…
+            </button>
+          )}
         </div>
       )}
+
+      {applyAmount !== null && <ApplyRoll amount={applyAmount} onClose={() => setApplyAmount(null)} />}
 
       {history.length > 1 && (
         <ul className="dice-history">

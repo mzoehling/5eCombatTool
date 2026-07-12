@@ -1,5 +1,7 @@
 import { renderTags, renderTagSegments, type TagSegment } from '../lib/tagRenderer'
 
+type RefKind = 'condition' | 'spell' | 'item' | 'creature'
+
 interface TaggedTextProps {
   text: string
   /** When set, dice expressions and attack bonuses render as clickable links. */
@@ -8,10 +10,37 @@ interface TaggedTextProps {
   onCondition?: (name: string) => void
   /** When set, {@spell} references render as clickable links. */
   onSpell?: (name: string) => void
+  /** When set, {@item} references render as clickable links. */
+  onItem?: (name: string) => void
+  /** When set, {@creature} references render as clickable links. */
+  onCreature?: (name: string) => void
 }
 
-function segmentNode(segment: TagSegment, key: number, { onDice, onCondition, onSpell }: Omit<TaggedTextProps, 'text'>) {
-  if (segment.kind === 'dice' && onDice) {
+type Handlers = Omit<TaggedTextProps, 'text'>
+
+const REF_STYLE: Record<RefKind, { className: string; title: string }> = {
+  condition: { className: 'condition-link', title: 'rules and apply' },
+  spell: { className: 'spell-link', title: 'spell description' },
+  item: { className: 'item-link', title: 'item description' },
+  creature: { className: 'creature-link', title: 'statblock' },
+}
+
+function refHandler(ref: RefKind, handlers: Handlers): ((name: string) => void) | undefined {
+  switch (ref) {
+    case 'condition':
+      return handlers.onCondition
+    case 'spell':
+      return handlers.onSpell
+    case 'item':
+      return handlers.onItem
+    case 'creature':
+      return handlers.onCreature
+  }
+}
+
+function segmentNode(segment: TagSegment, key: number, handlers: Handlers) {
+  if (segment.kind === 'dice' && handlers.onDice) {
+    const { onDice } = handlers
     return (
       <button
         key={key}
@@ -24,37 +53,30 @@ function segmentNode(segment: TagSegment, key: number, { onDice, onCondition, on
       </button>
     )
   }
-  if (segment.kind === 'ref' && segment.ref === 'condition' && onCondition) {
-    return (
-      <button
-        key={key}
-        type="button"
-        className="condition-link"
-        title={`${segment.name} — rules and apply`}
-        onClick={() => onCondition(segment.name)}
-      >
-        {segment.display}
-      </button>
-    )
-  }
-  if (segment.kind === 'ref' && segment.ref === 'spell' && onSpell) {
-    return (
-      <button
-        key={key}
-        type="button"
-        className="spell-link"
-        title={`${segment.name} — spell description`}
-        onClick={() => onSpell(segment.name)}
-      >
-        {segment.display}
-      </button>
-    )
+  if (segment.kind === 'ref') {
+    const handler = refHandler(segment.ref, handlers)
+    if (handler) {
+      const { className, title } = REF_STYLE[segment.ref]
+      return (
+        <button
+          key={key}
+          type="button"
+          className={className}
+          title={`${segment.name} — ${title}`}
+          onClick={() => handler(segment.name)}
+        >
+          {segment.display}
+        </button>
+      )
+    }
   }
   return segment.kind === 'text' ? segment.text : segment.display
 }
 
-/** Statblock text with {@…} tags resolved; dice, conditions and spells become links. */
-export function TaggedText({ text, onDice, onCondition, onSpell }: TaggedTextProps) {
-  if (!onDice && !onCondition && !onSpell) return <>{renderTags(text)}</>
-  return <>{renderTagSegments(text).map((segment, i) => segmentNode(segment, i, { onDice, onCondition, onSpell }))}</>
+/** Statblock text with {@…} tags resolved; dice and known references become links. */
+export function TaggedText({ text, ...handlers }: TaggedTextProps) {
+  if (!handlers.onDice && !handlers.onCondition && !handlers.onSpell && !handlers.onItem && !handlers.onCreature) {
+    return <>{renderTags(text)}</>
+  }
+  return <>{renderTagSegments(text).map((segment, i) => segmentNode(segment, i, handlers))}</>
 }

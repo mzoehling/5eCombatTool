@@ -1,13 +1,14 @@
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { mdiBookOpenVariant, mdiDiceMultiple, mdiPlus } from '@mdi/js'
+import { mdiBookOpenVariant, mdiDiceD20, mdiDiceMultiple } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import { evalArithmetic } from '../lib/arithmetic'
+import { d20 } from '../lib/dice'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
-import { AddBlank } from './AddBlank'
 import { CombatantRow } from './CombatantRow'
 import { Compendium } from './Compendium'
+import { EncountersManager } from './EncountersManager'
 import { HomebrewManager } from './HomebrewManager'
 import { PacksManager } from './PacksManager'
 import { ConditionEditor } from './ConditionEditor'
@@ -36,7 +37,9 @@ export function TrackerPane({
 }: TrackerPaneProps) {
   const { dispatch } = battleStore
   const state = useBattleState()
-  const [modal, setModal] = useState<'add' | 'groups' | 'compendium' | 'packs' | 'homebrew' | 'dice' | null>(null)
+  const [modal, setModal] = useState<
+    'groups' | 'compendium' | 'packs' | 'homebrew' | 'dice' | 'encounters' | null
+  >(null)
   const [conditionsFor, setConditionsFor] = useState<string | null>(null)
   const [editFor, setEditFor] = useState<string | null>(null)
   const [aoeAmount, setAoeAmount] = useState('')
@@ -56,12 +59,12 @@ export function TrackerPane({
   }
   const isTied = (init: number | null) => init !== null && (initiativeCounts.get(init) ?? 0) > 1
 
-  // auto-clear condition-expiry notices
+  // auto-clear condition-expiry and turn-event notices
   useEffect(() => {
-    if (!state.expiredConditions.length) return
-    const timer = setTimeout(() => dispatch({ type: 'clearExpiredNotice' }), 5000)
+    if (!state.expiredConditions.length && !state.turnEvents.length) return
+    const timer = setTimeout(() => dispatch({ type: 'clearExpiredNotice' }), 6000)
     return () => clearTimeout(timer)
-  }, [state.expiredConditions, dispatch])
+  }, [state.expiredConditions, state.turnEvents, dispatch])
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) return
@@ -84,6 +87,13 @@ export function TrackerPane({
     setAoeAmount('')
   }
 
+  // NPCs whose initiative is still unset — PCs roll at the table
+  const unrolledNpcs = state.combatants.filter((c) => !c.isPC && (c.initiative ?? 0) === 0)
+  const rollNpcs = () => {
+    const ids = unrolledNpcs.map((c) => c.id)
+    dispatch({ type: 'rollInitiative', ids, rolls: ids.map(() => d20()) })
+  }
+
   const toggleCheck = (id: string) => {
     const next = new Set(checked)
     if (next.has(id)) next.delete(id)
@@ -100,12 +110,20 @@ export function TrackerPane({
         <button type="button" className="primary icon-label" onClick={() => setModal('compendium')}>
           <Icon path={mdiBookOpenVariant} /> Compendium
         </button>
-        <button type="button" className="icon-label" onClick={() => setModal('add')}>
-          <Icon path={mdiPlus} /> Blank
-        </button>
+        <button type="button" onClick={() => setModal('encounters')}>Encounters</button>
         <button type="button" className="icon-label" onClick={() => setModal('dice')}>
           <Icon path={mdiDiceMultiple} /> Dice Roller
         </button>
+        {unrolledNpcs.length > 0 && (
+          <button
+            type="button"
+            className="icon-label"
+            title="Roll initiative for all NPCs without a value"
+            onClick={rollNpcs}
+          >
+            <Icon path={mdiDiceD20} /> Roll NPCs
+          </button>
+        )}
         <button type="button" onClick={() => setModal('groups')}>Groups</button>
         <button type="button" onClick={() => setModal('homebrew')}>Homebrew</button>
         <button type="button" onClick={() => setModal('packs')}>Packs</button>
@@ -161,22 +179,25 @@ export function TrackerPane({
         </div>
       )}
 
-      {state.expiredConditions.length > 0 && (
+      {(state.expiredConditions.length > 0 || state.turnEvents.length > 0) && (
         <div className="toast" role="status">
+          {state.turnEvents.map((message, i) => (
+            <div key={`t${i}`}>{message}</div>
+          ))}
           {state.expiredConditions.map((e, i) => (
-            <div key={i}>
+            <div key={`e${i}`}>
               {e.condition} expired on {e.combatantName}
             </div>
           ))}
         </div>
       )}
 
-      {modal === 'add' && <AddBlank onClose={() => setModal(null)} />}
+      {modal === 'encounters' && <EncountersManager onClose={() => setModal(null)} />}
       {modal === 'groups' && <GroupsEditor onClose={() => setModal(null)} />}
       {modal === 'compendium' && <Compendium onClose={() => setModal(null)} />}
       {modal === 'packs' && <PacksManager onClose={() => setModal(null)} />}
       {modal === 'homebrew' && <HomebrewManager onClose={() => setModal(null)} />}
-      {modal === 'dice' && <DiceRoller onClose={() => setModal(null)} />}
+      {modal === 'dice' && <DiceRoller allowApply onClose={() => setModal(null)} />}
       {conditionsCombatant && <ConditionEditor combatant={conditionsCombatant} onClose={() => setConditionsFor(null)} />}
       {editCombatant && <EditCombatant combatant={editCombatant} onClose={() => setEditFor(null)} />}
     </section>

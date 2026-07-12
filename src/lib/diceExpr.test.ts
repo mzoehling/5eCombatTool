@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatBreakdown, parseDiceExpression, rollDiceExpression, rollWithMode } from './diceExpr'
+import { doubleDiceTerms, formatBreakdown, parseDiceExpression, rollDiceExpression, rollWithMode } from './diceExpr'
 
 /** Deterministic "roll": always the die's maximum. */
 const maxRoll = (sides: number) => sides
@@ -107,5 +107,20 @@ describe('formatBreakdown', () => {
   it('shows each term with its rolls', () => {
     const result = rollDiceExpression('3d8+5-1d4', maxRoll)!
     expect(formatBreakdown(result)).toBe('3d8 (8, 8, 8) + 5 − 1d4 (4)')
+  })
+})
+
+describe('doubleDiceTerms', () => {
+  it('doubles dice counts but not flat modifiers', () => {
+    expect(doubleDiceTerms('2d6 + 3')).toBe('4d6 + 3')
+    expect(doubleDiceTerms('d10')).toBe('2d10')
+    expect(doubleDiceTerms('1w8+2')).toBe('2d8 + 2')
+    expect(doubleDiceTerms('2d6 - 1d4 + 5')).toBe('4d6 - 2d4 + 5')
+  })
+
+  it('rejects invalid input, pure numbers and over-limit doubling', () => {
+    expect(doubleDiceTerms('hello')).toBeNull()
+    expect(doubleDiceTerms('42')).toBeNull()
+    expect(doubleDiceTerms('80d6')).toBeNull()
   })
 })
