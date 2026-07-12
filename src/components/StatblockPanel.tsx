@@ -1,5 +1,5 @@
 import { mdiPin, mdiPinOutline, mdiRestore } from '@mdi/js'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { describeCondition } from '../data/conditionInfo'
 import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
@@ -7,12 +7,14 @@ import { abilityMod, type Ability, type Combatant, type Statblock, type Statbloc
 import { ApplyCondition } from './ApplyCondition'
 import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
+import { SpellInfo } from './SpellInfo'
 import { TaggedText } from './TaggedText'
 
-/** Callbacks opening the dice roller / condition dialog from statblock text. */
+/** Callbacks opening the dice roller / condition dialog / spell info from statblock text. */
 interface TextActions {
   onDice: (expr: string) => void
   onCondition: (name: string) => void
+  onSpell: (name: string) => void
 }
 
 type Tab = 'general' | 'traits' | 'actions' | 'spells' | 'uses' | 'conditions'
@@ -50,7 +52,7 @@ function EntryList({ entries, title, actions }: { entries: StatblockEntry[]; tit
           {entry.name && <strong>{renderTags(entry.name)}. </strong>}
           {entry.text.map((t, j) => (
             <p key={j}>
-              <TaggedText text={t} onDice={actions.onDice} onCondition={actions.onCondition} />
+              <TaggedText text={t} onDice={actions.onDice} onCondition={actions.onCondition} onSpell={actions.onSpell} />
             </p>
           ))}
         </div>
@@ -183,13 +185,18 @@ function SpellsTab({ sb, actions }: { sb: Statblock; actions: TextActions }) {
           <h3>{sc.name}</h3>
           {sc.headerText.map((t, j) => (
             <p key={j}>
-              <TaggedText text={t} onDice={actions.onDice} onCondition={actions.onCondition} />
+              <TaggedText text={t} onDice={actions.onDice} onCondition={actions.onCondition} onSpell={actions.onSpell} />
             </p>
           ))}
           {sc.lists.map((list, j) => (
             <div key={j} className="sb-entry">
               <strong>{list.label}: </strong>
-              {list.spells.map((s) => renderTags(s)).join(', ')}
+              {list.spells.map((s, k) => (
+                <Fragment key={k}>
+                  {k > 0 && ', '}
+                  <TaggedText text={s} onDice={actions.onDice} onCondition={actions.onCondition} onSpell={actions.onSpell} />
+                </Fragment>
+              ))}
             </div>
           ))}
         </section>
@@ -263,8 +270,9 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
   const [tab, setTab] = useState<Tab>('general')
   const [rollExpr, setRollExpr] = useState<string | null>(null)
   const [conditionFor, setConditionFor] = useState<string | null>(null)
+  const [spellFor, setSpellFor] = useState<string | null>(null)
   const sb = combatant.statblock
-  const actions: TextActions = { onDice: setRollExpr, onCondition: setConditionFor }
+  const actions: TextActions = { onDice: setRollExpr, onCondition: setConditionFor, onSpell: setSpellFor }
 
   const tabs: { id: Tab; label: string; show: boolean }[] = [
     { id: 'general', label: 'General', show: true },
@@ -334,7 +342,7 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
                     {entry.name && <strong>{renderTags(entry.name)}. </strong>}
                     {entry.text.map((t, j) => (
                       <p key={j}>
-                        <TaggedText text={t} onDice={setRollExpr} onCondition={setConditionFor} />
+                        <TaggedText text={t} onDice={setRollExpr} onCondition={setConditionFor} onSpell={setSpellFor} />
                       </p>
                     ))}
                   </div>
@@ -349,6 +357,16 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
         {shownTab === 'conditions' && <ConditionsTab combatant={combatant} />}
       </div>
 
+      {/* spell info first: dice/condition dialogs opened from spell text must stack above it */}
+      {spellFor !== null && (
+        <SpellInfo
+          name={spellFor}
+          onDice={setRollExpr}
+          onCondition={setConditionFor}
+          onSpell={setSpellFor}
+          onClose={() => setSpellFor(null)}
+        />
+      )}
       {rollExpr !== null && <DiceRoller initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
       {conditionFor !== null && (
         <ApplyCondition name={conditionFor} preselect={preselectIds} onClose={() => setConditionFor(null)} />

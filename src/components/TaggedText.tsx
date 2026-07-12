@@ -6,9 +6,11 @@ interface TaggedTextProps {
   onDice?: (expr: string) => void
   /** When set, condition names render as clickable links. */
   onCondition?: (name: string) => void
+  /** When set, {@spell} references render as clickable links. */
+  onSpell?: (name: string) => void
 }
 
-function segmentNode(segment: TagSegment, key: number, { onDice, onCondition }: Omit<TaggedTextProps, 'text'>) {
+function segmentNode(segment: TagSegment, key: number, { onDice, onCondition, onSpell }: Omit<TaggedTextProps, 'text'>) {
   if (segment.kind === 'dice' && onDice) {
     return (
       <button
@@ -22,7 +24,7 @@ function segmentNode(segment: TagSegment, key: number, { onDice, onCondition }: 
       </button>
     )
   }
-  if (segment.kind === 'ref' && onCondition) {
+  if (segment.kind === 'ref' && segment.ref === 'condition' && onCondition) {
     return (
       <button
         key={key}
@@ -35,11 +37,24 @@ function segmentNode(segment: TagSegment, key: number, { onDice, onCondition }: 
       </button>
     )
   }
+  if (segment.kind === 'ref' && segment.ref === 'spell' && onSpell) {
+    return (
+      <button
+        key={key}
+        type="button"
+        className="spell-link"
+        title={`${segment.name} — spell description`}
+        onClick={() => onSpell(segment.name)}
+      >
+        {segment.display}
+      </button>
+    )
+  }
   return segment.kind === 'text' ? segment.text : segment.display
 }
 
-/** Statblock text with {@…} tags resolved; dice and conditions become links. */
-export function TaggedText({ text, onDice, onCondition }: TaggedTextProps) {
-  if (!onDice && !onCondition) return <>{renderTags(text)}</>
-  return <>{renderTagSegments(text).map((segment, i) => segmentNode(segment, i, { onDice, onCondition }))}</>
+/** Statblock text with {@…} tags resolved; dice, conditions and spells become links. */
+export function TaggedText({ text, onDice, onCondition, onSpell }: TaggedTextProps) {
+  if (!onDice && !onCondition && !onSpell) return <>{renderTags(text)}</>
+  return <>{renderTagSegments(text).map((segment, i) => segmentNode(segment, i, { onDice, onCondition, onSpell }))}</>
 }

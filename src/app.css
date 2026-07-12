@@ -480,7 +480,8 @@ label.check {
    Player View); the inline links below only appear in DM statblocks */
 
 .dice-link,
-.condition-link {
+.condition-link,
+.spell-link {
   display: inline;
   background: none;
   border: none;
@@ -503,9 +504,20 @@ label.check {
   color: var(--warn);
 }
 
+.spell-link {
+  color: var(--ok);
+}
+
 .dice-link:hover,
-.condition-link:hover {
+.condition-link:hover,
+.spell-link:hover {
   text-decoration-style: solid;
+}
+
+/* ---------- spell info dialog ---------- */
+
+.spell-meta {
+  margin: 0 0 0.35rem;
 }
 
 /* ---------- apply-condition dialog ---------- */

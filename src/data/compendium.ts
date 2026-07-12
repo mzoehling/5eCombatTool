@@ -43,3 +43,17 @@ export function useCompendium(): CompendiumData | undefined {
     return data
   })
 }
+
+/** Case-insensitive spell lookup: SRD table first, then imported packs. */
+export async function findSpellByName(name: string): Promise<Spell | undefined> {
+  const trimmed = name.trim()
+  const srd = await db.spells.where('name').equalsIgnoreCase(trimmed).first()
+  if (srd) return srd
+  const lower = trimmed.toLowerCase()
+  const packs = await db.packs.toArray()
+  for (const pack of packs) {
+    const hit = (pack.spells ?? []).find((s) => s.name.toLowerCase() === lower)
+    if (hit) return hit
+  }
+  return undefined
+}

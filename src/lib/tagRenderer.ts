@@ -163,12 +163,12 @@ export function renderTags(text: string): string {
 export type TagSegment =
   | { kind: 'text'; text: string }
   | { kind: 'dice'; expr: string; display: string }
-  /** Reference to a known game concept; only conditions for now. */
-  | { kind: 'ref'; ref: 'condition'; name: string; display: string }
+  /** Reference to a known game concept (condition rules, compendium spell). */
+  | { kind: 'ref'; ref: 'condition' | 'spell'; name: string; display: string }
 
 /** Tags that become interactive segments. Their bodies never nest. */
 const INTERACTIVE_TAG =
-  /\{@(damage|dice|autodice|scaledice|scaledamage|hit|d20|condition|status)(?: ([^{}]*))?\}/g
+  /\{@(damage|dice|autodice|scaledice|scaledamage|hit|d20|condition|status|spell)(?: ([^{}]*))?\}/g
 
 /** Case-insensitive lookup to the canonical condition name ("prone" → "Prone"). */
 function canonicalCondition(name: string): ConditionName | undefined {
@@ -208,6 +208,13 @@ function interactiveToken(tag: string, body: string): TagSegment | null {
       const name = canonicalCondition(parts[0])
       if (!name) return null
       return { kind: 'ref', ref: 'condition', name, display: parts[2] || parts[0] }
+    }
+    // No existence check here — this lib stays synchronous; the spell modal
+    // handles names that aren't in the compendium.
+    case 'spell': {
+      const name = parts[0].trim()
+      if (!name) return null
+      return { kind: 'ref', ref: 'spell', name, display: parts[2] || parts[0] }
     }
     default:
       return null
