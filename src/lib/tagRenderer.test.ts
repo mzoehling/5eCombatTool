@@ -166,9 +166,10 @@ describe('renderTagSegments', () => {
     ])
   })
 
-  it('leaves unknown {@status}/{@condition} names as plain text (e.g. Bloodied)', () => {
+  it('routes {@status} names that are not tracked conditions to the rules glossary (e.g. Bloodied)', () => {
     expect(renderTagSegments('while {@status Bloodied|XPHB}')).toEqual([
-      { kind: 'text', text: 'while Bloodied' },
+      { kind: 'text', text: 'while ' },
+      { kind: 'ref', ref: 'rule', name: 'Bloodied', display: 'Bloodied' },
     ])
   })
 
@@ -233,6 +234,24 @@ describe('renderTagSegments', () => {
     expect(renderTagSegments('a 60-foot {@variantrule Cone [Area of Effect]|XPHB|Cone}')).toEqual([
       { kind: 'text', text: 'a 60-foot ' },
       { kind: 'ref', ref: 'rule', name: 'Cone [Area of Effect]', display: 'Cone' },
+    ])
+  })
+
+  it('extracts {@action}, {@sense}, and {@skill} tags as rule refs', () => {
+    expect(renderTagSegments('takes the {@action Dodge|XPHB} action')).toEqual([
+      { kind: 'text', text: 'takes the ' },
+      { kind: 'ref', ref: 'rule', name: 'Dodge', display: 'Dodge' },
+      { kind: 'text', text: ' action' },
+    ])
+    expect(renderTagSegments('has {@sense Darkvision|XPHB} 60 ft.')).toEqual([
+      { kind: 'text', text: 'has ' },
+      { kind: 'ref', ref: 'rule', name: 'Darkvision', display: 'Darkvision' },
+      { kind: 'text', text: ' 60 ft.' },
+    ])
+    expect(renderTagSegments('a DC 15 {@skill Investigation|XPHB} check')).toEqual([
+      { kind: 'text', text: 'a DC 15 ' },
+      { kind: 'ref', ref: 'rule', name: 'Investigation', display: 'Investigation' },
+      { kind: 'text', text: ' check' },
     ])
   })
 

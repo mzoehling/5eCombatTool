@@ -28,6 +28,10 @@ export const FIXTURE_FILES = [
   'items.json',
   'items-base.json',
   'variantrules.json',
+  'actions.json',
+  'senses.json',
+  'skills.json',
+  'conditionsdiseases.json',
 ] as const
 
 export async function fetchJson(baseUrl: string, relPath: string): Promise<unknown> {

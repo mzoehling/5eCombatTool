@@ -25,18 +25,26 @@ const baseUrl = upstreamDataUrl()
 const outDir = resolve(import.meta.dirname, '..', 'public', 'data')
 mkdirSync(outDir, { recursive: true })
 
-const [bestiary, spellbook, items, itemsBase, rules] = (await Promise.all([
+const [bestiary, spellbook, items, itemsBase, variantrules, actions, senses, skills, conditions] = (await Promise.all([
   fetchJson(baseUrl, 'bestiary/bestiary-xmm.json'),
   fetchJson(baseUrl, 'spells/spells-xphb.json'),
   fetchJson(baseUrl, 'items.json'),
   fetchJson(baseUrl, 'items-base.json'),
   fetchJson(baseUrl, 'variantrules.json'),
+  fetchJson(baseUrl, 'actions.json'),
+  fetchJson(baseUrl, 'senses.json'),
+  fetchJson(baseUrl, 'skills.json'),
+  fetchJson(baseUrl, 'conditionsdiseases.json'),
 ])) as [
   { monster: (SrdFlagged & Parameters<typeof parseMonster>[0])[] },
   { spell: (SrdFlagged & Parameters<typeof parseSpell>[0])[] },
   { item: (SrdFlagged & Parameters<typeof parseItem>[0])[] },
   { baseitem: (SrdFlagged & Parameters<typeof parseItem>[0])[] },
   { variantrule: (SrdFlagged & Parameters<typeof parseRule>[0])[] },
+  { action: (SrdFlagged & Parameters<typeof parseRule>[0])[] },
+  { sense: (SrdFlagged & Parameters<typeof parseRule>[0])[] },
+  { skill: (SrdFlagged & Parameters<typeof parseRule>[0])[] },
+  { condition: (SrdFlagged & Parameters<typeof parseRule>[0])[]; status: (SrdFlagged & Parameters<typeof parseRule>[0])[] },
 ]
 
 const monsters = filterSrd(bestiary.monster).map((raw) => {
@@ -52,7 +60,16 @@ const allItems = [...filterSrd(items.item), ...filterSrd(itemsBase.baseitem)].ma
   const parsed = parseItem(raw)
   return { ...parsed, id: slugId(parsed.name, parsed.source) }
 })
-const glossaryRules = filterSrd(rules.variantrule).map((raw) => {
+// "Concentration" is already tracked as an app condition (see src/data/conditionInfo.ts)
+// and resolved via the condition-apply flow, not the rules glossary.
+const glossaryRules = [
+  ...filterSrd(variantrules.variantrule),
+  ...filterSrd(actions.action),
+  ...filterSrd(senses.sense),
+  ...filterSrd(skills.skill),
+  ...filterSrd(conditions.condition),
+  ...filterSrd(conditions.status).filter((s) => s.name !== 'Concentration'),
+].map((raw) => {
   const parsed = parseRule(raw)
   return { ...parsed, id: slugId(parsed.name, parsed.source) }
 })
