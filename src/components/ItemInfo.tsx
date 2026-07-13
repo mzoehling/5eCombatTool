@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { findItemByName } from '../data/compendium'
+import { sourceLabel } from '../lib/format'
 import { Modal } from './Modal'
 import { TaggedText } from './TaggedText'
 
@@ -42,6 +43,7 @@ export function ItemInfo({ name, onClose, ...handlers }: ItemInfoProps) {
       <p className="spell-meta dim">
         {item.typeName}
         {item.rarity && ` · ${item.rarity}`}
+        {item.source && ` · ${sourceLabel(item.source, item.page)}`}
       </p>
       {item.attunement && (
         <p className="spell-meta dim">

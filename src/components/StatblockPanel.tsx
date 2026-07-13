@@ -2,6 +2,7 @@ import { mdiPin, mdiPinOutline, mdiRestore } from '@mdi/js'
 import { Fragment, useState } from 'react'
 import { describeCondition } from '../data/conditionInfo'
 import { parseDiceExpression } from '../lib/diceExpr'
+import { sourceLabel } from '../lib/format'
 import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
 import { abilityMod, type Ability, type Combatant, type Statblock, type StatblockEntry } from '../types'
@@ -85,6 +86,7 @@ function GeneralTab({ sb, actions }: { sb: Statblock; actions: TextActions }) {
       <p className="sb-meta">
         {sb.size.map((s) => SIZE_NAMES[s] ?? s).join(' or ')} {sb.type}
         {sb.typeTags.length > 0 && ` (${sb.typeTags.join(', ')})`}, {sb.alignment}
+        {sb.source && ` · ${sourceLabel(sb.source, sb.page)}`}
       </p>
       <div className="sb-statline">
         <span>

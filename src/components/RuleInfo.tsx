@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { findRuleByName } from '../data/compendium'
+import { sourceLabel } from '../lib/format'
 import { Modal } from './Modal'
 import { TaggedText } from './TaggedText'
 
@@ -39,10 +40,7 @@ export function RuleInfo({ name, onClose, ...handlers }: RuleInfoProps) {
 
   return (
     <Modal title={rule.name} onClose={onClose}>
-      <p className="spell-meta dim">
-        {rule.source}
-        {rule.page && ` p. ${rule.page}`}
-      </p>
+      <p className="spell-meta dim">{sourceLabel(rule.source, rule.page)}</p>
       {rule.text.map((t, i) => (
         <p key={i}>
           <TaggedText text={t} {...handlers} />

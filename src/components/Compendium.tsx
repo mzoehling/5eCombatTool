@@ -1,6 +1,7 @@
 import { mdiArrowLeft } from '@mdi/js'
 import { useMemo, useState } from 'react'
 import { useCompendium, type CompendiumEntry, type Origin } from '../data/compendium'
+import { sourceLabel } from '../lib/format'
 import { rankByName, stripPostfix, suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
@@ -222,7 +223,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
             <TextRow
               key={s.entry.id + s.origin.kind}
               name={s.entry.name}
-              meta={`${s.entry.level === 0 ? 'Cantrip' : `Level ${s.entry.level}`} · ${s.entry.school}${s.entry.concentration ? ' · Conc.' : ''}`}
+              meta={`${s.entry.level === 0 ? 'Cantrip' : `Level ${s.entry.level}`} · ${s.entry.school}${s.entry.concentration ? ' · Conc.' : ''} · ${sourceLabel(s.entry.source, s.entry.page)}`}
               origin={s.origin}
               detail={[
                 `Casting Time: ${s.entry.castingTime} · Range: ${s.entry.range} · Duration: ${s.entry.duration}`,
@@ -243,7 +244,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
             <TextRow
               key={i.entry.id + i.origin.kind}
               name={i.entry.name}
-              meta={`${i.entry.typeName}${i.entry.rarity ? ` · ${i.entry.rarity}` : ''}${i.entry.attunement ? ' · Attunement' : ''}`}
+              meta={`${i.entry.typeName}${i.entry.rarity ? ` · ${i.entry.rarity}` : ''}${i.entry.attunement ? ' · Attunement' : ''} · ${sourceLabel(i.entry.source, i.entry.page)}`}
               origin={i.origin}
               detail={i.entry.text}
               actions={actions}
@@ -259,7 +260,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
             <TextRow
               key={r.entry.id + r.origin.kind}
               name={r.entry.name}
-              meta={`${r.entry.source}${r.entry.page ? ` p. ${r.entry.page}` : ''}`}
+              meta={sourceLabel(r.entry.source, r.entry.page)}
               origin={r.origin}
               detail={r.entry.text}
               actions={actions}
@@ -300,7 +301,7 @@ function MonsterRow({
           {sb.name} <OriginBadge origin={origin} />
         </span>
         <span className="result-meta dim">
-          CR {sb.cr ?? '—'} · {sb.type} · AC {sb.ac} · HP {sb.hp.average}
+          CR {sb.cr ?? '—'} · {sb.type} · AC {sb.ac} · HP {sb.hp.average} · {sourceLabel(sb.source, sb.page)}
         </span>
       </button>
       <span className="stepper">

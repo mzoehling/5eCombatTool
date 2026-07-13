@@ -98,6 +98,7 @@ export interface Statblock {
   name: string
   /** Book abbreviation, e.g. "XMM". */
   source: string
+  page?: number
   size: string[]
   type: string
   typeTags: string[]
@@ -144,6 +145,7 @@ export interface Spell {
   id: string
   name: string
   source: string
+  page?: number
   level: number
   school: string
   castingTime: string
@@ -162,6 +164,7 @@ export interface Item {
   id: string
   name: string
   source: string
+  page?: number
   /** Human-readable type, e.g. "Weapon (Longsword)", "Wondrous Item". */
   typeName: string
   rarity?: string
