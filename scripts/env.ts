@@ -27,6 +27,7 @@ export const FIXTURE_FILES = [
   'spells/spells-xphb.json',
   'items.json',
   'items-base.json',
+  'variantrules.json',
 ] as const
 
 export async function fetchJson(baseUrl: string, relPath: string): Promise<unknown> {

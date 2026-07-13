@@ -11,20 +11,22 @@ import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
 import { ItemInfo } from './ItemInfo'
 import { Modal } from './Modal'
+import { RuleInfo } from './RuleInfo'
 import { SpellInfo } from './SpellInfo'
 import { StatblockPanel } from './StatblockPanel'
 import { TaggedText } from './TaggedText'
 
-/** Link handlers threaded into expanded spell/item rows. */
+/** Link handlers threaded into expanded spell/item/rule rows. */
 interface DetailActions {
   onDice: (expr: string) => void
   onCondition: (name: string) => void
   onSpell: (name: string) => void
   onItem: (name: string) => void
   onCreature: (name: string) => void
+  onRule: (name: string) => void
 }
 
-type Tab = 'monsters' | 'spells' | 'items'
+type Tab = 'monsters' | 'spells' | 'items' | 'rules'
 
 const CR_BUCKETS: { label: string; min: number; max: number }[] = [
   { label: 'Any CR', min: -1, max: 99 },
@@ -57,12 +59,14 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   const [spellFor, setSpellFor] = useState<string | null>(null)
   const [itemFor, setItemFor] = useState<string | null>(null)
   const [creatureFor, setCreatureFor] = useState<string | null>(null)
+  const [ruleFor, setRuleFor] = useState<string | null>(null)
   const actions: DetailActions = {
     onDice: setRollExpr,
     onCondition: setConditionFor,
     onSpell: setSpellFor,
     onItem: setItemFor,
     onCreature: setCreatureFor,
+    onRule: setRuleFor,
   }
 
   const monsters = useMemo(() => {
@@ -92,6 +96,11 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
     )
     return rankByName(filtered, query, (i) => i.entry.name).slice(0, 100)
   }, [data, query, itemType, rarity])
+
+  const rules = useMemo(() => {
+    if (!data) return []
+    return rankByName(data.rules, query, (r) => r.entry.name).slice(0, 100)
+  }, [data, query])
 
   const schools = useMemo(() => [...new Set(data?.spells.map((s) => s.entry.school) ?? [])].sort(), [data])
   const itemTypes = useMemo(() => [...new Set(data?.items.map((i) => i.entry.typeName) ?? [])].sort(), [data])
@@ -136,7 +145,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   return (
     <Modal title="Compendium" onClose={onClose}>
       <div className="sb-tabs">
-        {(['monsters', 'spells', 'items'] as const).map((t) => (
+        {(['monsters', 'spells', 'items', 'rules'] as const).map((t) => (
           <button key={t} type="button" className={tab === t ? 'primary' : ''} onClick={() => setTab(t)}>
             {t[0].toUpperCase() + t.slice(1)}
           </button>
@@ -244,10 +253,27 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
         </ul>
       )}
 
+      {tab === 'rules' && (
+        <ul className="result-list">
+          {rules.map((r) => (
+            <TextRow
+              key={r.entry.id + r.origin.kind}
+              name={r.entry.name}
+              meta={`${r.entry.source}${r.entry.page ? ` p. ${r.entry.page}` : ''}`}
+              origin={r.origin}
+              detail={r.entry.text}
+              actions={actions}
+            />
+          ))}
+          {data && rules.length === 0 && <li className="dim">No matches.</li>}
+        </ul>
+      )}
+
       {/* reference modals stack over the compendium; dice/condition dialogs above those */}
       {creatureFor !== null && <CreatureInfo name={creatureFor} onClose={() => setCreatureFor(null)} />}
       {itemFor !== null && <ItemInfo name={itemFor} {...actions} onClose={() => setItemFor(null)} />}
       {spellFor !== null && <SpellInfo name={spellFor} {...actions} onClose={() => setSpellFor(null)} />}
+      {ruleFor !== null && <RuleInfo name={ruleFor} {...actions} onClose={() => setRuleFor(null)} />}
       {rollExpr !== null && <DiceRoller allowApply initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
       {conditionFor !== null && <ApplyCondition name={conditionFor} onClose={() => setConditionFor(null)} />}
 

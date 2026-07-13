@@ -1,6 +1,6 @@
 import type { CombatDb } from '../db'
 import { db } from '../db'
-import type { Item, Spell, Statblock } from '../types'
+import type { Item, Rule, Spell, Statblock } from '../types'
 
 interface SrdMeta {
   version: string
@@ -17,15 +17,21 @@ export async function ensureSrdData(dbi: CombatDb = db, fetchFn: typeof fetch = 
   const current = await dbi.meta.get('srdDataVersion')
   if (current?.value === meta.version) return false
 
-  const [monsters, spells, items] = (await Promise.all([
+  const [monsters, spells, items, rules] = (await Promise.all([
     fetchFn(`${base}srd-monsters.json`).then((r) => r.json()),
     fetchFn(`${base}srd-spells.json`).then((r) => r.json()),
     fetchFn(`${base}srd-items.json`).then((r) => r.json()),
-  ])) as [Statblock[], Spell[], Item[]]
+    fetchFn(`${base}srd-rules.json`).then((r) => r.json()),
+  ])) as [Statblock[], Spell[], Item[], Rule[]]
 
-  await dbi.transaction('rw', [dbi.monsters, dbi.spells, dbi.items, dbi.meta], async () => {
-    await Promise.all([dbi.monsters.clear(), dbi.spells.clear(), dbi.items.clear()])
-    await Promise.all([dbi.monsters.bulkPut(monsters), dbi.spells.bulkPut(spells), dbi.items.bulkPut(items)])
+  await dbi.transaction('rw', [dbi.monsters, dbi.spells, dbi.items, dbi.rules, dbi.meta], async () => {
+    await Promise.all([dbi.monsters.clear(), dbi.spells.clear(), dbi.items.clear(), dbi.rules.clear()])
+    await Promise.all([
+      dbi.monsters.bulkPut(monsters),
+      dbi.spells.bulkPut(spells),
+      dbi.items.bulkPut(items),
+      dbi.rules.bulkPut(rules),
+    ])
     await dbi.meta.put({ key: 'srdDataVersion', value: meta.version })
   })
   return true

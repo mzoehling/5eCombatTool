@@ -12,6 +12,7 @@ interface ItemInfoProps {
   /** Item links inside item text replace the shown item. */
   onItem?: (name: string) => void
   onCreature?: (name: string) => void
+  onRule?: (name: string) => void
   onClose: () => void
 }
 

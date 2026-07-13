@@ -225,6 +225,17 @@ describe('renderTagSegments', () => {
     ])
   })
 
+  it('extracts {@variantrule} tags as rule refs with display overrides', () => {
+    expect(renderTagSegments('has {@variantrule Cover|XPHB}')).toEqual([
+      { kind: 'text', text: 'has ' },
+      { kind: 'ref', ref: 'rule', name: 'Cover', display: 'Cover' },
+    ])
+    expect(renderTagSegments('a 60-foot {@variantrule Cone [Area of Effect]|XPHB|Cone}')).toEqual([
+      { kind: 'text', text: 'a 60-foot ' },
+      { kind: 'ref', ref: 'rule', name: 'Cone [Area of Effect]', display: 'Cone' },
+    ])
+  })
+
   it('mixes dice and condition segments in one homebrew line', () => {
     expect(renderTagSegments('takes 2d6+3 damage and is Poisoned')).toEqual([
       { kind: 'text', text: 'takes ' },

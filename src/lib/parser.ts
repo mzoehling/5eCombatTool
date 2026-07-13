@@ -8,6 +8,7 @@ import {
   type Ability,
   type AbilityScores,
   type Item,
+  type Rule,
   type Spell,
   type SpeedEntry,
   type SpellcastingBlock,
@@ -646,5 +647,25 @@ export function parseItem(raw: RawItem): Item {
     weight: raw.weight,
     valueCp: raw.value,
     text,
+  }
+}
+
+// ---------- rule (rules glossary) ----------
+
+interface RawRule {
+  name: string
+  source?: string
+  page?: number
+  entries?: RawEntry[]
+}
+
+export function parseRule(raw: RawRule): Rule {
+  const source = raw.source ?? 'UNK'
+  return {
+    id: slugId(raw.name, source),
+    name: raw.name,
+    source,
+    page: raw.page,
+    text: flattenEntries(raw.entries),
   }
 }

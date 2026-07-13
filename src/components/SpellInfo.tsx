@@ -12,6 +12,7 @@ interface SpellInfoProps {
   onSpell?: (name: string) => void
   onItem?: (name: string) => void
   onCreature?: (name: string) => void
+  onRule?: (name: string) => void
   onClose: () => void
 }
 

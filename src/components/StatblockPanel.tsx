@@ -10,6 +10,7 @@ import { CreatureInfo } from './CreatureInfo'
 import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
 import { ItemInfo } from './ItemInfo'
+import { RuleInfo } from './RuleInfo'
 import { SpellInfo } from './SpellInfo'
 import { TaggedText } from './TaggedText'
 
@@ -20,6 +21,7 @@ interface TextActions {
   onSpell: (name: string) => void
   onItem: (name: string) => void
   onCreature: (name: string) => void
+  onRule: (name: string) => void
 }
 
 type Tab = 'general' | 'traits' | 'actions' | 'spells' | 'uses' | 'conditions'
@@ -312,11 +314,13 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
   const [spellFor, setSpellFor] = useState<string | null>(null)
   const [itemFor, setItemFor] = useState<string | null>(null)
   const [creatureFor, setCreatureFor] = useState<string | null>(null)
+  const [ruleFor, setRuleFor] = useState<string | null>(null)
   const sb = combatant.statblock
   const actions: TextActions = {
     onDice: setRollExpr,
     onCondition: setConditionFor,
     onSpell: setSpellFor,
+    onRule: setRuleFor,
     onItem: setItemFor,
     onCreature: setCreatureFor,
   }
@@ -414,6 +418,7 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
           onSpell={setSpellFor}
           onItem={setItemFor}
           onCreature={setCreatureFor}
+          onRule={setRuleFor}
           onClose={() => setItemFor(null)}
         />
       )}
@@ -425,7 +430,20 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
           onSpell={setSpellFor}
           onItem={setItemFor}
           onCreature={setCreatureFor}
+          onRule={setRuleFor}
           onClose={() => setSpellFor(null)}
+        />
+      )}
+      {ruleFor !== null && (
+        <RuleInfo
+          name={ruleFor}
+          onDice={setRollExpr}
+          onCondition={setConditionFor}
+          onSpell={setSpellFor}
+          onItem={setItemFor}
+          onCreature={setCreatureFor}
+          onRule={setRuleFor}
+          onClose={() => setRuleFor(null)}
         />
       )}
       {rollExpr !== null && <DiceRoller allowApply initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}

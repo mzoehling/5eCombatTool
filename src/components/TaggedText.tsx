@@ -1,6 +1,6 @@
 import { renderTags, renderTagSegments, type TagSegment } from '../lib/tagRenderer'
 
-type RefKind = 'condition' | 'spell' | 'item' | 'creature'
+type RefKind = 'condition' | 'spell' | 'item' | 'creature' | 'rule'
 
 interface TaggedTextProps {
   text: string
@@ -14,6 +14,8 @@ interface TaggedTextProps {
   onItem?: (name: string) => void
   /** When set, {@creature} references render as clickable links. */
   onCreature?: (name: string) => void
+  /** When set, {@variantrule} references render as clickable links. */
+  onRule?: (name: string) => void
 }
 
 type Handlers = Omit<TaggedTextProps, 'text'>
@@ -23,6 +25,7 @@ const REF_STYLE: Record<RefKind, { className: string; title: string }> = {
   spell: { className: 'spell-link', title: 'spell description' },
   item: { className: 'item-link', title: 'item description' },
   creature: { className: 'creature-link', title: 'statblock' },
+  rule: { className: 'rule-link', title: 'rules glossary' },
 }
 
 function refHandler(ref: RefKind, handlers: Handlers): ((name: string) => void) | undefined {
@@ -35,6 +38,8 @@ function refHandler(ref: RefKind, handlers: Handlers): ((name: string) => void) 
       return handlers.onItem
     case 'creature':
       return handlers.onCreature
+    case 'rule':
+      return handlers.onRule
   }
 }
 
@@ -75,7 +80,14 @@ function segmentNode(segment: TagSegment, key: number, handlers: Handlers) {
 
 /** Statblock text with {@…} tags resolved; dice and known references become links. */
 export function TaggedText({ text, ...handlers }: TaggedTextProps) {
-  if (!handlers.onDice && !handlers.onCondition && !handlers.onSpell && !handlers.onItem && !handlers.onCreature) {
+  if (
+    !handlers.onDice &&
+    !handlers.onCondition &&
+    !handlers.onSpell &&
+    !handlers.onItem &&
+    !handlers.onCreature &&
+    !handlers.onRule
+  ) {
     return <>{renderTags(text)}</>
   }
   return <>{renderTagSegments(text).map((segment, i) => segmentNode(segment, i, handlers))}</>

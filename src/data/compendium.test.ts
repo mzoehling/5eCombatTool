@@ -1,8 +1,8 @@
 import 'fake-indexeddb/auto'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../db'
-import type { ContentPack, Spell } from '../types'
-import { findSpellByName } from './compendium'
+import type { ContentPack, Rule, Spell } from '../types'
+import { findRuleByName, findSpellByName } from './compendium'
 
 function makeSpell(id: string, name: string): Spell {
   return {
@@ -47,5 +47,25 @@ describe('findSpellByName', () => {
 
   it('returns undefined for unknown spells', async () => {
     expect(await findSpellByName('Meteor Storm')).toBeUndefined()
+  })
+})
+
+function makeRule(id: string, name: string): Rule {
+  return { id, name, source: 'TEST', page: 1, text: ['Test rule text.'] }
+}
+
+describe('findRuleByName', () => {
+  beforeAll(async () => {
+    await db.rules.put(makeRule('srd-cover', 'Cover'))
+  })
+
+  it('finds rules case-insensitively', async () => {
+    expect((await findRuleByName('Cover'))?.id).toBe('srd-cover')
+    expect((await findRuleByName('cOVER'))?.id).toBe('srd-cover')
+    expect((await findRuleByName(' Cover '))?.id).toBe('srd-cover')
+  })
+
+  it('returns undefined for unknown rules', async () => {
+    expect(await findRuleByName('Nonexistent Rule')).toBeUndefined()
   })
 })

@@ -22,6 +22,7 @@ describe('ensureSrdData', () => {
       expect(await db.monsters.count()).toBeGreaterThan(300)
       expect(await db.spells.count()).toBeGreaterThan(300)
       expect(await db.items.count()).toBeGreaterThan(400)
+      expect(await db.rules.count()).toBeGreaterThan(100)
       expect(await db.monsters.get('xmm-adult-red-dragon')).toBeDefined()
 
       // second launch with same version: no reload

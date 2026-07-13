@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
-import type { Item, Spell, Statblock } from '../types'
+import type { Item, Rule, Spell, Statblock } from '../types'
 
 export type Origin = { kind: 'srd' } | { kind: 'pack'; packName: string } | { kind: 'homebrew'; isPC: boolean }
 
@@ -13,15 +13,17 @@ export interface CompendiumData {
   monsters: CompendiumEntry<Statblock>[]
   spells: CompendiumEntry<Spell>[]
   items: CompendiumEntry<Item>[]
+  rules: CompendiumEntry<Rule>[]
 }
 
 /** Live view over SRD tables + imported packs + homebrew. */
 export function useCompendium(): CompendiumData | undefined {
   return useLiveQuery(async (): Promise<CompendiumData> => {
-    const [monsters, spells, items, packs, homebrew] = await Promise.all([
+    const [monsters, spells, items, rules, packs, homebrew] = await Promise.all([
       db.monsters.toArray(),
       db.spells.toArray(),
       db.items.toArray(),
+      db.rules.toArray(),
       db.packs.toArray(),
       db.homebrew.toArray(),
     ])
@@ -30,6 +32,7 @@ export function useCompendium(): CompendiumData | undefined {
       monsters: monsters.map((entry) => ({ entry, origin: srd })),
       spells: spells.map((entry) => ({ entry, origin: srd })),
       items: items.map((entry) => ({ entry, origin: srd })),
+      rules: rules.map((entry) => ({ entry, origin: srd })),
     }
     for (const pack of packs) {
       const origin = { kind: 'pack', packName: pack.name } as const
@@ -70,6 +73,11 @@ export async function findItemByName(name: string): Promise<Item | undefined> {
     if (hit) return hit
   }
   return undefined
+}
+
+/** Case-insensitive rules-glossary lookup. */
+export async function findRuleByName(name: string): Promise<Rule | undefined> {
+  return db.rules.where('name').equalsIgnoreCase(name.trim()).first()
 }
 
 /** Case-insensitive monster lookup: SRD, then packs, then homebrew. */

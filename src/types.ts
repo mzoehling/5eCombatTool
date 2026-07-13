@@ -172,6 +172,15 @@ export interface Item {
   text: string[]
 }
 
+/** Rules glossary entry (e.g. "Cover", "Saving Throw", "Long Rest"). */
+export interface Rule {
+  id: string
+  name: string
+  source: string
+  page?: number
+  text: string[]
+}
+
 export interface Combatant {
   id: string
   name: string
