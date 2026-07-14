@@ -8,6 +8,7 @@ import {
   type Ability,
   type AbilityScores,
   type Item,
+  type Rule,
   type Spell,
   type SpeedEntry,
   type SpellcastingBlock,
@@ -66,6 +67,7 @@ interface RawSpellcasting {
 interface RawMonster {
   name: string
   source?: string
+  page?: number
   size?: string[]
   type?: string | { type?: string | { choose?: string[] }; tags?: (string | { tag?: string; prefix?: string })[] }
   alignment?: (string | { alignment?: string[] })[]
@@ -350,6 +352,7 @@ export function parseMonster(raw: RawMonster): Statblock {
     id: slugId(raw.name, source),
     name: raw.name,
     source,
+    page: raw.page,
     size: raw.size ?? [],
     type,
     typeTags,
@@ -404,6 +407,7 @@ const SCHOOLS: Record<string, string> = {
 interface RawSpell {
   name: string
   source?: string
+  page?: number
   level?: number
   school?: string
   time?: { number?: number; unit?: string; condition?: string }[]
@@ -507,6 +511,7 @@ export function parseSpell(raw: RawSpell): Spell {
     id: slugId(raw.name, source),
     name: raw.name,
     source,
+    page: raw.page,
     level: raw.level ?? 0,
     school: SCHOOLS[raw.school ?? ''] ?? raw.school ?? '',
     castingTime: parseCastingTime(raw.time),
@@ -584,6 +589,7 @@ const DAMAGE_TYPES: Record<string, string> = {
 interface RawItem {
   name: string
   source?: string
+  page?: number
   type?: string | null
   wondrous?: boolean
   staff?: boolean
@@ -635,6 +641,7 @@ export function parseItem(raw: RawItem): Item {
     id: slugId(raw.name, source),
     name: raw.name,
     source,
+    page: raw.page,
     typeName: itemTypeName(raw),
     rarity: raw.rarity && raw.rarity !== 'none' ? raw.rarity : undefined,
     attunement:
@@ -646,5 +653,25 @@ export function parseItem(raw: RawItem): Item {
     weight: raw.weight,
     valueCp: raw.value,
     text,
+  }
+}
+
+// ---------- rule (rules glossary) ----------
+
+interface RawRule {
+  name: string
+  source?: string
+  page?: number
+  entries?: RawEntry[]
+}
+
+export function parseRule(raw: RawRule): Rule {
+  const source = raw.source ?? 'UNK'
+  return {
+    id: slugId(raw.name, source),
+    name: raw.name,
+    source,
+    page: raw.page,
+    text: flattenEntries(raw.entries),
   }
 }

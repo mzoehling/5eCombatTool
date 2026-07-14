@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { findSpellByName } from '../data/compendium'
+import { sourceLabel } from '../lib/format'
 import { Modal } from './Modal'
 import { TaggedText } from './TaggedText'
 
@@ -12,6 +13,7 @@ interface SpellInfoProps {
   onSpell?: (name: string) => void
   onItem?: (name: string) => void
   onCreature?: (name: string) => void
+  onRule?: (name: string) => void
   onClose: () => void
 }
 
@@ -42,6 +44,7 @@ export function SpellInfo({ name, onClose, ...handlers }: SpellInfoProps) {
         {spell.level === 0 ? 'Cantrip' : `Level ${spell.level}`} · {spell.school}
         {spell.concentration && ' · Concentration'}
         {spell.ritual && ' · Ritual'}
+        {spell.source && ` · ${sourceLabel(spell.source, spell.page)}`}
       </p>
       <p className="spell-meta">
         Casting Time: {spell.castingTime} · Range: {spell.range} · Duration: {spell.duration}

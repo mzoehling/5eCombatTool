@@ -1,6 +1,7 @@
 import { mdiArrowLeft } from '@mdi/js'
 import { useMemo, useState } from 'react'
 import { useCompendium, type CompendiumEntry, type Origin } from '../data/compendium'
+import { sourceLabel } from '../lib/format'
 import { rankByName, stripPostfix, suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
@@ -11,20 +12,22 @@ import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
 import { ItemInfo } from './ItemInfo'
 import { Modal } from './Modal'
+import { RuleInfo } from './RuleInfo'
 import { SpellInfo } from './SpellInfo'
 import { StatblockPanel } from './StatblockPanel'
 import { TaggedText } from './TaggedText'
 
-/** Link handlers threaded into expanded spell/item rows. */
+/** Link handlers threaded into expanded spell/item/rule rows. */
 interface DetailActions {
   onDice: (expr: string) => void
   onCondition: (name: string) => void
   onSpell: (name: string) => void
   onItem: (name: string) => void
   onCreature: (name: string) => void
+  onRule: (name: string) => void
 }
 
-type Tab = 'monsters' | 'spells' | 'items'
+type Tab = 'monsters' | 'spells' | 'items' | 'rules'
 
 const CR_BUCKETS: { label: string; min: number; max: number }[] = [
   { label: 'Any CR', min: -1, max: 99 },
@@ -57,12 +60,14 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   const [spellFor, setSpellFor] = useState<string | null>(null)
   const [itemFor, setItemFor] = useState<string | null>(null)
   const [creatureFor, setCreatureFor] = useState<string | null>(null)
+  const [ruleFor, setRuleFor] = useState<string | null>(null)
   const actions: DetailActions = {
     onDice: setRollExpr,
     onCondition: setConditionFor,
     onSpell: setSpellFor,
     onItem: setItemFor,
     onCreature: setCreatureFor,
+    onRule: setRuleFor,
   }
 
   const monsters = useMemo(() => {
@@ -92,6 +97,11 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
     )
     return rankByName(filtered, query, (i) => i.entry.name).slice(0, 100)
   }, [data, query, itemType, rarity])
+
+  const rules = useMemo(() => {
+    if (!data) return []
+    return rankByName(data.rules, query, (r) => r.entry.name).slice(0, 100)
+  }, [data, query])
 
   const schools = useMemo(() => [...new Set(data?.spells.map((s) => s.entry.school) ?? [])].sort(), [data])
   const itemTypes = useMemo(() => [...new Set(data?.items.map((i) => i.entry.typeName) ?? [])].sort(), [data])
@@ -136,7 +146,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   return (
     <Modal title="Compendium" onClose={onClose}>
       <div className="sb-tabs">
-        {(['monsters', 'spells', 'items'] as const).map((t) => (
+        {(['monsters', 'spells', 'items', 'rules'] as const).map((t) => (
           <button key={t} type="button" className={tab === t ? 'primary' : ''} onClick={() => setTab(t)}>
             {t[0].toUpperCase() + t.slice(1)}
           </button>
@@ -213,7 +223,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
             <TextRow
               key={s.entry.id + s.origin.kind}
               name={s.entry.name}
-              meta={`${s.entry.level === 0 ? 'Cantrip' : `Level ${s.entry.level}`} · ${s.entry.school}${s.entry.concentration ? ' · Conc.' : ''}`}
+              meta={`${s.entry.level === 0 ? 'Cantrip' : `Level ${s.entry.level}`} · ${s.entry.school}${s.entry.concentration ? ' · Conc.' : ''} · ${sourceLabel(s.entry.source, s.entry.page)}`}
               origin={s.origin}
               detail={[
                 `Casting Time: ${s.entry.castingTime} · Range: ${s.entry.range} · Duration: ${s.entry.duration}`,
@@ -234,7 +244,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
             <TextRow
               key={i.entry.id + i.origin.kind}
               name={i.entry.name}
-              meta={`${i.entry.typeName}${i.entry.rarity ? ` · ${i.entry.rarity}` : ''}${i.entry.attunement ? ' · Attunement' : ''}`}
+              meta={`${i.entry.typeName}${i.entry.rarity ? ` · ${i.entry.rarity}` : ''}${i.entry.attunement ? ' · Attunement' : ''} · ${sourceLabel(i.entry.source, i.entry.page)}`}
               origin={i.origin}
               detail={i.entry.text}
               actions={actions}
@@ -244,10 +254,27 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
         </ul>
       )}
 
+      {tab === 'rules' && (
+        <ul className="result-list">
+          {rules.map((r) => (
+            <TextRow
+              key={r.entry.id + r.origin.kind}
+              name={r.entry.name}
+              meta={sourceLabel(r.entry.source, r.entry.page)}
+              origin={r.origin}
+              detail={r.entry.text}
+              actions={actions}
+            />
+          ))}
+          {data && rules.length === 0 && <li className="dim">No matches.</li>}
+        </ul>
+      )}
+
       {/* reference modals stack over the compendium; dice/condition dialogs above those */}
       {creatureFor !== null && <CreatureInfo name={creatureFor} onClose={() => setCreatureFor(null)} />}
       {itemFor !== null && <ItemInfo name={itemFor} {...actions} onClose={() => setItemFor(null)} />}
       {spellFor !== null && <SpellInfo name={spellFor} {...actions} onClose={() => setSpellFor(null)} />}
+      {ruleFor !== null && <RuleInfo name={ruleFor} {...actions} onClose={() => setRuleFor(null)} />}
       {rollExpr !== null && <DiceRoller allowApply initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
       {conditionFor !== null && <ApplyCondition name={conditionFor} onClose={() => setConditionFor(null)} />}
 
@@ -274,7 +301,7 @@ function MonsterRow({
           {sb.name} <OriginBadge origin={origin} />
         </span>
         <span className="result-meta dim">
-          CR {sb.cr ?? '—'} · {sb.type} · AC {sb.ac} · HP {sb.hp.average}
+          CR {sb.cr ?? '—'} · {sb.type} · AC {sb.ac} · HP {sb.hp.average} · {sourceLabel(sb.source, sb.page)}
         </span>
       </button>
       <span className="stepper">

@@ -164,11 +164,11 @@ export type TagSegment =
   | { kind: 'text'; text: string }
   | { kind: 'dice'; expr: string; display: string }
   /** Reference to a known game concept, looked up on click (condition rules, compendium entries). */
-  | { kind: 'ref'; ref: 'condition' | 'spell' | 'item' | 'creature'; name: string; display: string }
+  | { kind: 'ref'; ref: 'condition' | 'spell' | 'item' | 'creature' | 'rule'; name: string; display: string }
 
 /** Tags that become interactive segments. Their bodies never nest. */
 const INTERACTIVE_TAG =
-  /\{@(damage|dice|autodice|scaledice|scaledamage|hit|d20|condition|status|spell|item|creature)(?: ([^{}]*))?\}/g
+  /\{@(damage|dice|autodice|scaledice|scaledamage|hit|d20|condition|status|spell|item|creature|variantrule|action|sense|skill)(?: ([^{}]*))?\}/g
 
 /** Case-insensitive lookup to the canonical condition name ("prone" → "Prone"). */
 function canonicalCondition(name: string): ConditionName | undefined {
@@ -202,12 +202,19 @@ function interactiveToken(tag: string, body: string): TagSegment | null {
       if (parseDiceExpression(`1d20${signed}`) === null) return null
       return { kind: 'dice', expr: `1d20${signed}`, display: parts[1] ?? parts[0] }
     }
-    // {@status} also carries non-conditions (e.g. Bloodied) — those stay text
-    case 'condition':
-    case 'status': {
+    case 'condition': {
       const name = canonicalCondition(parts[0])
       if (!name) return null
       return { kind: 'ref', ref: 'condition', name, display: parts[2] || parts[0] }
+    }
+    // {@status} also carries non-conditions (e.g. Bloodied, Surprised) — those
+    // fall back to the rules glossary instead of the condition-apply flow.
+    case 'status': {
+      const condition = canonicalCondition(parts[0])
+      if (condition) return { kind: 'ref', ref: 'condition', name: condition, display: parts[2] || parts[0] }
+      const name = parts[0].trim()
+      if (!name) return null
+      return { kind: 'ref', ref: 'rule', name, display: parts[2] || parts[0] }
     }
     // No existence check here — this lib stays synchronous; the modals
     // handle names that aren't in the compendium.
@@ -217,6 +224,14 @@ function interactiveToken(tag: string, body: string): TagSegment | null {
       const name = parts[0].trim()
       if (!name) return null
       return { kind: 'ref', ref: tag as 'spell' | 'item' | 'creature', name, display: parts[2] || parts[0] }
+    }
+    case 'variantrule':
+    case 'action':
+    case 'sense':
+    case 'skill': {
+      const name = parts[0].trim()
+      if (!name) return null
+      return { kind: 'ref', ref: 'rule', name, display: parts[2] || parts[0] }
     }
     default:
       return null

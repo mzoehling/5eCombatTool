@@ -1,10 +1,11 @@
 {
-  "version": "091c2d8343d808bb",
-  "generated": "2026-07-11",
+  "version": "83545ff157804786",
+  "generated": "2026-07-13",
   "counts": {
     "monsters": 331,
     "spells": 339,
     "items": 474,
-    "baseItems": 92
+    "baseItems": 92,
+    "rules": 168
   }
 }

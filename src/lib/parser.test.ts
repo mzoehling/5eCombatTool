@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Statblock } from '../types'
-import { parseItem, parseMonster, parseSpell } from './parser'
+import { parseItem, parseMonster, parseRule, parseSpell } from './parser'
 import { renderTags } from './tagRenderer'
 
 const fixturesDir = resolve(import.meta.dirname, '..', '..', 'fixtures')
@@ -166,6 +166,97 @@ describe.skipIf(!hasFixtures)('parseItem (items fixtures)', () => {
       const item = parseItem(raw)
       for (const text of item.text) {
         expect(renderTags(text), item.name).not.toContain('{@')
+      }
+    }
+  })
+})
+
+describe.skipIf(!hasFixtures)('parseRule (rules glossary fixture)', () => {
+  const rules = loadFixture<Parameters<typeof parseRule>[0] & { srd52?: boolean | string }>(
+    'variantrules.json',
+    'variantrule',
+  ).filter((r) => r.srd52)
+
+  it('parses all SRD rules without throwing', () => {
+    expect(rules.length).toBeGreaterThanOrEqual(100)
+    for (const raw of rules) {
+      expect(() => parseRule(raw), raw.name).not.toThrow()
+    }
+  })
+
+  it('spot-checks Cover', () => {
+    const cover = parseRule(rules.find((r) => r.name === 'Cover')!)
+    expect(cover.source).toBe('XPHB')
+    expect(cover.page).toBeGreaterThan(0)
+    expect(cover.text.length).toBeGreaterThan(0)
+  })
+
+  it('renders every rule text with zero unresolved tags', () => {
+    for (const raw of rules) {
+      const rule = parseRule(raw)
+      for (const text of rule.text) {
+        expect(renderTags(text), rule.name).not.toContain('{@')
+      }
+    }
+  })
+})
+
+describe.skipIf(!hasFixtures)('parseRule (actions/senses/skills/conditions fixtures)', () => {
+  const actions = loadFixture<Parameters<typeof parseRule>[0] & { srd52?: boolean | string }>(
+    'actions.json',
+    'action',
+  ).filter((r) => r.srd52)
+  const senses = loadFixture<Parameters<typeof parseRule>[0] & { srd52?: boolean | string }>(
+    'senses.json',
+    'sense',
+  ).filter((r) => r.srd52)
+  const skills = loadFixture<Parameters<typeof parseRule>[0] & { srd52?: boolean | string }>(
+    'skills.json',
+    'skill',
+  ).filter((r) => r.srd52)
+  const conditions = loadFixture<Parameters<typeof parseRule>[0] & { srd52?: boolean | string }>(
+    'conditionsdiseases.json',
+    'condition',
+  ).filter((r) => r.srd52)
+  const statuses = loadFixture<Parameters<typeof parseRule>[0] & { srd52?: boolean | string }>(
+    'conditionsdiseases.json',
+    'status',
+  ).filter((r) => r.srd52 && r.name !== 'Concentration')
+
+  it('parses all sources without throwing', () => {
+    expect(actions.length).toBeGreaterThanOrEqual(10)
+    expect(senses.length).toBeGreaterThanOrEqual(4)
+    expect(skills.length).toBeGreaterThanOrEqual(15)
+    expect(conditions.length).toBeGreaterThanOrEqual(14)
+    expect(statuses.length).toBeGreaterThanOrEqual(2)
+    for (const raw of [...actions, ...senses, ...skills, ...conditions, ...statuses]) {
+      expect(() => parseRule(raw), raw.name).not.toThrow()
+    }
+  })
+
+  it('excludes Concentration from statuses (handled by the condition-apply flow instead)', () => {
+    expect(statuses.some((s) => s.name === 'Concentration')).toBe(false)
+  })
+
+  it('has no name collisions across the merged glossary sources', () => {
+    const names = [
+      ...loadFixture<Parameters<typeof parseRule>[0] & { srd52?: boolean | string }>('variantrules.json', 'variantrule').filter(
+        (r) => r.srd52,
+      ),
+      ...actions,
+      ...senses,
+      ...skills,
+      ...conditions,
+      ...statuses,
+    ].map((r) => r.name)
+    expect(new Set(names).size).toBe(names.length)
+  })
+
+  it('renders every entry with zero unresolved tags', () => {
+    for (const raw of [...actions, ...senses, ...skills, ...conditions, ...statuses]) {
+      const rule = parseRule(raw)
+      for (const text of rule.text) {
+        expect(renderTags(text), rule.name).not.toContain('{@')
       }
     }
   })

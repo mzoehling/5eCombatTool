@@ -489,7 +489,8 @@ label.check {
 .condition-link,
 .spell-link,
 .item-link,
-.creature-link {
+.creature-link,
+.rule-link {
   display: inline;
   background: none;
   border: none;
@@ -524,11 +525,16 @@ label.check {
   color: var(--danger);
 }
 
+.rule-link {
+  color: var(--accent);
+}
+
 .dice-link:hover,
 .condition-link:hover,
 .spell-link:hover,
 .item-link:hover,
-.creature-link:hover {
+.creature-link:hover,
+.rule-link:hover {
   text-decoration-style: solid;
 }
 
