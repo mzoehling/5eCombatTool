@@ -9,7 +9,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      // The app registers the service worker itself (see UpdateBanner.tsx) so
+      // it can show an "update available" prompt instead of reloading blind.
+      injectRegister: false,
       includeAssets: ['apple-touch-icon.png'],
       workbox: {
         // App shell + bundled SRD data — fully offline from first launch

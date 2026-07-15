@@ -1,12 +1,14 @@
-import { mdiMonitor, mdiWeatherNight, mdiWeatherSunny } from '@mdi/js'
+import { mdiCog, mdiMonitor, mdiWeatherNight, mdiWeatherSunny } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import './app.css'
 import { Icon } from './components/Icon'
 import { BackupReminder } from './components/BackupReminder'
 import { BattleControls } from './components/BattleControls'
 import { HostControls, useLocalPlayerViewHost } from './features/playerView/HostControls'
+import { SettingsInfo } from './components/SettingsInfo'
 import { StatblockPanel } from './components/StatblockPanel'
 import { TrackerPane } from './components/TrackerPane'
+import { UpdateBanner } from './components/UpdateBanner'
 import { battleStore, useBattleState } from './store/battleStore'
 
 type Theme = 'dark' | 'light'
@@ -27,6 +29,7 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [pinnedId, setPinnedId] = useState<string | null>(null)
   const [showPlayerView, setShowPlayerView] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [theme, toggleTheme] = useTheme()
   // AoE multi-select lives here so the statblock's "apply condition" dialog
   // can pre-select the checked combatants
@@ -77,6 +80,15 @@ function App() {
         <button
           type="button"
           className="ghost"
+          aria-label="Settings"
+          title="Settings"
+          onClick={() => setShowSettings(true)}
+        >
+          <Icon path={mdiCog} />
+        </button>
+        <button
+          type="button"
+          className="ghost"
           aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
           onClick={toggleTheme}
@@ -95,6 +107,8 @@ function App() {
         <BattleControls />
       </header>
       {showPlayerView && <HostControls onClose={() => setShowPlayerView(false)} />}
+      {showSettings && <SettingsInfo onClose={() => setShowSettings(false)} />}
+      <UpdateBanner />
       <BackupReminder />
       <div className="panes">
         <TrackerPane
