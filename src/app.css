@@ -906,7 +906,7 @@ label.check {
   color: var(--ok);
 }
 
-.backup-banner {
+.app-banner {
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -916,7 +916,7 @@ label.check {
   font-size: 0.9rem;
 }
 
-.backup-banner span {
+.app-banner span {
   flex: 1;
 }
 

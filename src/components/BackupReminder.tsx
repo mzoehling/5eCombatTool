@@ -22,7 +22,7 @@ export function BackupReminder() {
   }
 
   return (
-    <div className="backup-banner" role="status">
+    <div className="app-banner" role="status">
       <span>Your homebrew hasn't been backed up recently.</span>
       <button type="button" className="primary" onClick={doExport}>
         Export now

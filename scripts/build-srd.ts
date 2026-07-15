@@ -7,19 +7,12 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { parseItem, parseMonster, parseRule, parseSpell, slugId } from '../src/lib/parser.ts'
-import { fetchJson, upstreamDataUrl } from './env.ts'
+import { fetchJson, filterSrd, upstreamDataUrl, type SrdFlagged } from './env.ts'
 
-interface SrdFlagged {
-  name: string
-  source?: string
-  srd52?: boolean | string
-}
-
-function filterSrd<T extends SrdFlagged>(entries: T[]): T[] {
-  return entries
-    .filter((e) => e.srd52)
-    .map((e) => (typeof e.srd52 === 'string' ? { ...e, name: e.srd52 } : e))
-}
+// Upstream leaves `srd52` unset on these two even though both are core 2024
+// SRD 5.2.1 actions, referenced throughout SRD monster/spell text via
+// {@action} — without forcing them in, those references are dead links.
+const FORCE_SRD_ACTIONS = new Set(['Influence', 'Study'])
 
 const baseUrl = upstreamDataUrl()
 const outDir = resolve(import.meta.dirname, '..', 'public', 'data')
@@ -64,7 +57,7 @@ const allItems = [...filterSrd(items.item), ...filterSrd(itemsBase.baseitem)].ma
 // and resolved via the condition-apply flow, not the rules glossary.
 const glossaryRules = [
   ...filterSrd(variantrules.variantrule),
-  ...filterSrd(actions.action),
+  ...filterSrd(actions.action, FORCE_SRD_ACTIONS),
   ...filterSrd(senses.sense),
   ...filterSrd(skills.skill),
   ...filterSrd(conditions.condition),

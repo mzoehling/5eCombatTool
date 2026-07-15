@@ -40,3 +40,21 @@ export async function fetchJson(baseUrl: string, relPath: string): Promise<unkno
   if (!res.ok) throw new Error(`Failed to fetch ${relPath}: HTTP ${res.status}`)
   return res.json()
 }
+
+export interface SrdFlagged {
+  name: string
+  source?: string
+  srd52?: boolean | string
+}
+
+/**
+ * Keeps only entries flagged `srd52` (a string value = the entry is renamed
+ * in the SRD → use the SRD name), plus any name in `forceInclude` regardless
+ * of its flag — for entries upstream fails to flag even though they're
+ * genuinely part of the SRD (see build-srd.ts's FORCE_SRD_ACTIONS).
+ */
+export function filterSrd<T extends SrdFlagged>(entries: T[], forceInclude?: Set<string>): T[] {
+  return entries
+    .filter((e) => e.srd52 || forceInclude?.has(e.name))
+    .map((e) => (typeof e.srd52 === 'string' ? { ...e, name: e.srd52 } : e))
+}
