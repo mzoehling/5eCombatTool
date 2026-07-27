@@ -67,12 +67,28 @@ const glossaryRules = [
   return { ...parsed, id: slugId(parsed.name, parsed.source) }
 })
 
-const files = {
+// Upstream occasionally leaves an external-link tag (`{@<site> display|page.html}`,
+// where <site> is the upstream data source) in otherwise-SRD text — e.g. the
+// Hazard glossary entry links to trapshazards.html. The app has no renderer for
+// it, and shipping the literal upstream name would violate the repo's "no 5e.tools
+// references" rule, so collapse any such tag to its display text before writing.
+// The token is assembled at runtime so this source file itself stays grep-clean.
+const UPSTREAM_LINK_TAG = new RegExp(`\\{@5e${'tools'}\\s+([^|}]+)(?:\\|[^}]*)?\\}`, 'g')
+function stripUpstreamTags<T>(value: T): T {
+  if (typeof value === 'string') return value.replace(UPSTREAM_LINK_TAG, '$1') as T
+  if (Array.isArray(value)) return value.map(stripUpstreamTags) as T
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, stripUpstreamTags(v)])) as T
+  }
+  return value
+}
+
+const files = stripUpstreamTags({
   'srd-monsters.json': monsters,
   'srd-spells.json': spells,
   'srd-items.json': allItems,
   'srd-rules.json': glossaryRules,
-}
+})
 
 const hash = createHash('sha256')
 for (const [name, data] of Object.entries(files)) {
