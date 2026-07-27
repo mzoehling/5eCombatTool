@@ -16,6 +16,28 @@ export interface CompendiumData {
   rules: CompendiumEntry<Rule>[]
 }
 
+/**
+ * Deduplicate compendium entries by case-insensitive name. Inputs are given
+ * highest-precedence-first; the first entry seen for a given name wins and
+ * later same-name entries are dropped. Used so an imported pack's variant of a
+ * spell/item/monster shadows the bundled SRD copy instead of listing twice.
+ */
+export function dedupeByName<T extends { name: string }>(
+  ...sources: CompendiumEntry<T>[][]
+): CompendiumEntry<T>[] {
+  const seen = new Set<string>()
+  const out: CompendiumEntry<T>[] = []
+  for (const source of sources) {
+    for (const wrapped of source) {
+      const key = wrapped.entry.name.trim().toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(wrapped)
+    }
+  }
+  return out
+}
+
 /** Live view over SRD tables + imported packs + homebrew. */
 export function useCompendium(): CompendiumData | undefined {
   return useLiveQuery(async (): Promise<CompendiumData> => {
@@ -28,22 +50,34 @@ export function useCompendium(): CompendiumData | undefined {
       db.homebrew.toArray(),
     ])
     const srd = { kind: 'srd' } as const
-    const data: CompendiumData = {
-      monsters: monsters.map((entry) => ({ entry, origin: srd })),
-      spells: spells.map((entry) => ({ entry, origin: srd })),
-      items: items.map((entry) => ({ entry, origin: srd })),
-      rules: rules.map((entry) => ({ entry, origin: srd })),
-    }
+    const srdMonsters = monsters.map((entry) => ({ entry, origin: srd }))
+    const srdSpells = spells.map((entry) => ({ entry, origin: srd }))
+    const srdItems = items.map((entry) => ({ entry, origin: srd }))
+    const srdRules = rules.map((entry) => ({ entry, origin: srd }))
+
+    const packMonsters: CompendiumEntry<Statblock>[] = []
+    const packSpells: CompendiumEntry<Spell>[] = []
+    const packItems: CompendiumEntry<Item>[] = []
     for (const pack of packs) {
       const origin = { kind: 'pack', packName: pack.name } as const
-      data.monsters.push(...(pack.monsters ?? []).map((entry) => ({ entry, origin })))
-      data.spells.push(...(pack.spells ?? []).map((entry) => ({ entry, origin })))
-      data.items.push(...(pack.items ?? []).map((entry) => ({ entry, origin })))
+      packMonsters.push(...(pack.monsters ?? []).map((entry) => ({ entry, origin })))
+      packSpells.push(...(pack.spells ?? []).map((entry) => ({ entry, origin })))
+      packItems.push(...(pack.items ?? []).map((entry) => ({ entry, origin })))
     }
-    for (const hb of homebrew) {
-      data.monsters.push({ entry: hb.statblock, origin: { kind: 'homebrew', isPC: hb.kind === 'pc' } })
+
+    const hbMonsters: CompendiumEntry<Statblock>[] = homebrew.map((hb) => ({
+      entry: hb.statblock,
+      origin: { kind: 'homebrew', isPC: hb.kind === 'pc' },
+    }))
+
+    // Precedence homebrew > pack > SRD: a same-name entry from a higher source
+    // shadows the lower one so duplicates are not listed twice.
+    return {
+      monsters: dedupeByName(hbMonsters, packMonsters, srdMonsters),
+      spells: dedupeByName(packSpells, srdSpells),
+      items: dedupeByName(packItems, srdItems),
+      rules: srdRules,
     }
-    return data
   })
 }
 

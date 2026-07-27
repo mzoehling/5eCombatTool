@@ -17,7 +17,7 @@ Install to the home screen on iPadOS: open the URL in Safari → Share → **Add
 - Encounter library: save the current tracker as a named encounter, load or merge it back in later, or clear the tracker in one step
 - Dice roller: free-form expressions and tappable to-hit/damage buttons from statblocks, ADV/DIS/CRIT, apply rolled totals straight to combatants
 - Undo and a persistent combat log
-- Player View: broadcast a read-only, player-safe second screen (PeerJS join code + QR, or same-device `BroadcastChannel`) — see `FEATURE-PLAYER-VIEW.md`
+- Player View: broadcast a read-only, player-safe second screen (PeerJS join code + QR, or same-device `BroadcastChannel`)
 
 ## Tech
 

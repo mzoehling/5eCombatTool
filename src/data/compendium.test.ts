@@ -2,7 +2,8 @@ import 'fake-indexeddb/auto'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../db'
 import type { ContentPack, Rule, Spell } from '../types'
-import { findRuleByName, findSpellByName } from './compendium'
+import { dedupeByName, findRuleByName, findSpellByName } from './compendium'
+import type { CompendiumEntry, Origin } from './compendium'
 
 function makeSpell(id: string, name: string): Spell {
   return {
@@ -47,6 +48,39 @@ describe('findSpellByName', () => {
 
   it('returns undefined for unknown spells', async () => {
     expect(await findSpellByName('Meteor Storm')).toBeUndefined()
+  })
+})
+
+describe('dedupeByName', () => {
+  const srd: Origin = { kind: 'srd' }
+  const pack: Origin = { kind: 'pack', packName: 'PHB 2024' }
+  const wrap = (name: string, origin: Origin): CompendiumEntry<{ name: string }> => ({
+    entry: { name },
+    origin,
+  })
+
+  it('drops a same-name SRD entry so the pack variant wins', () => {
+    const out = dedupeByName([wrap('Fireball', pack)], [wrap('Fireball', srd)])
+    expect(out).toHaveLength(1)
+    expect(out[0].origin.kind).toBe('pack')
+  })
+
+  it('keeps entries with differing names', () => {
+    const out = dedupeByName([wrap('Frost Bolt', pack)], [wrap('Fireball', srd)])
+    expect(out).toHaveLength(2)
+  })
+
+  it('matches case- and whitespace-insensitively', () => {
+    const out = dedupeByName([wrap(' fIREBALL ', pack)], [wrap('Fireball', srd)])
+    expect(out).toHaveLength(1)
+    expect(out[0].origin.kind).toBe('pack')
+  })
+
+  it('lets a higher-precedence source win across all sources', () => {
+    const hb: Origin = { kind: 'homebrew', isPC: false }
+    const out = dedupeByName([wrap('Goblin', hb)], [wrap('Goblin', pack)], [wrap('Goblin', srd)])
+    expect(out).toHaveLength(1)
+    expect(out[0].origin.kind).toBe('homebrew')
   })
 })
 
