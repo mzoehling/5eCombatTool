@@ -103,7 +103,7 @@ export function EditCombatant({ combatant, onClose }: EditCombatantProps) {
         >
           Remove
         </button>
-        <button type="button" className="primary" onClick={save}>
+        <button type="button" className="ok" onClick={save}>
           Save
         </button>
       </div>

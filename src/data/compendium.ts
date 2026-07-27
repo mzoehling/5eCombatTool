@@ -81,32 +81,30 @@ export function useCompendium(): CompendiumData | undefined {
   })
 }
 
-/** Case-insensitive spell lookup: SRD table first, then imported packs. */
+/** Case-insensitive spell lookup: imported packs first, then SRD — mirrors the
+ *  browse-list precedence (pack overrides SRD) so a tapped link resolves to the
+ *  same entry the compendium shows. */
 export async function findSpellByName(name: string): Promise<Spell | undefined> {
   const trimmed = name.trim()
-  const srd = await db.spells.where('name').equalsIgnoreCase(trimmed).first()
-  if (srd) return srd
   const lower = trimmed.toLowerCase()
   const packs = await db.packs.toArray()
   for (const pack of packs) {
     const hit = (pack.spells ?? []).find((s) => s.name.toLowerCase() === lower)
     if (hit) return hit
   }
-  return undefined
+  return db.spells.where('name').equalsIgnoreCase(trimmed).first()
 }
 
-/** Case-insensitive item lookup: SRD table first, then imported packs. */
+/** Case-insensitive item lookup: imported packs first, then SRD (see findSpellByName). */
 export async function findItemByName(name: string): Promise<Item | undefined> {
   const trimmed = name.trim()
-  const srd = await db.items.where('name').equalsIgnoreCase(trimmed).first()
-  if (srd) return srd
   const lower = trimmed.toLowerCase()
   const packs = await db.packs.toArray()
   for (const pack of packs) {
     const hit = (pack.items ?? []).find((i) => i.name.toLowerCase() === lower)
     if (hit) return hit
   }
-  return undefined
+  return db.items.where('name').equalsIgnoreCase(trimmed).first()
 }
 
 /** Case-insensitive rules-glossary lookup. */
@@ -114,17 +112,19 @@ export async function findRuleByName(name: string): Promise<Rule | undefined> {
   return db.rules.where('name').equalsIgnoreCase(name.trim()).first()
 }
 
-/** Case-insensitive monster lookup: SRD, then packs, then homebrew. */
+/** Case-insensitive monster lookup: homebrew, then packs, then SRD — mirrors the
+ *  browse-list precedence (homebrew > pack > SRD) so a tapped link resolves to the
+ *  same entry the compendium shows. */
 export async function findMonsterByName(name: string): Promise<Statblock | undefined> {
   const trimmed = name.trim()
-  const srd = await db.monsters.where('name').equalsIgnoreCase(trimmed).first()
-  if (srd) return srd
   const lower = trimmed.toLowerCase()
+  const homebrew = await db.homebrew.toArray()
+  const hb = homebrew.find((h) => h.statblock.name.toLowerCase() === lower)?.statblock
+  if (hb) return hb
   const packs = await db.packs.toArray()
   for (const pack of packs) {
     const hit = (pack.monsters ?? []).find((m) => m.name.toLowerCase() === lower)
     if (hit) return hit
   }
-  const homebrew = await db.homebrew.toArray()
-  return homebrew.find((h) => h.statblock.name.toLowerCase() === lower)?.statblock
+  return db.monsters.where('name').equalsIgnoreCase(trimmed).first()
 }

@@ -27,7 +27,7 @@ const pack: ContentPack = {
   packId: 'spell-pack',
   name: 'Spell Pack',
   version: '1.0.0',
-  spells: [makeSpell('sp-frostbolt', 'Frost Bolt')],
+  spells: [makeSpell('sp-frostbolt', 'Frost Bolt'), makeSpell('pack-fireball', 'Fireball')],
 }
 
 describe('findSpellByName', () => {
@@ -36,14 +36,20 @@ describe('findSpellByName', () => {
     await db.packs.put(pack)
   })
 
-  it('finds SRD spells case-insensitively', async () => {
-    expect((await findSpellByName('Fireball'))?.id).toBe('srd-fireball')
-    expect((await findSpellByName('fIREBALL'))?.id).toBe('srd-fireball')
-    expect((await findSpellByName(' Fireball '))?.id).toBe('srd-fireball')
+  it('finds spells case-insensitively', async () => {
+    expect((await findSpellByName('frost bolt'))?.id).toBe('sp-frostbolt')
+    expect((await findSpellByName('FROST BOLT'))?.id).toBe('sp-frostbolt')
+    expect((await findSpellByName(' Frost Bolt '))?.id).toBe('sp-frostbolt')
   })
 
-  it('falls back to pack spells', async () => {
-    expect((await findSpellByName('frost bolt'))?.id).toBe('sp-frostbolt')
+  it('prefers the pack variant over SRD (mirrors browse-list precedence)', async () => {
+    expect((await findSpellByName('Fireball'))?.id).toBe('pack-fireball')
+  })
+
+  it('falls back to SRD when no pack has the spell', async () => {
+    await db.packs.clear()
+    expect((await findSpellByName('Fireball'))?.id).toBe('srd-fireball')
+    await db.packs.put(pack)
   })
 
   it('returns undefined for unknown spells', async () => {
