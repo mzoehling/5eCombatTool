@@ -1,0 +1,7 @@
+[
+  { "code": "XPHB", "packId": "xphb-2024", "name": "Player's Handbook (2024)" },
+  { "code": "XDMG", "packId": "xdmg-2024", "name": "Dungeon Master's Guide (2024)" },
+  { "code": "XMM", "packId": "xmm-2024", "name": "Monster Manual (2024)" },
+  { "code": "EFA", "packId": "efa", "name": "Forge of the Artificer" },
+  { "code": "FRHoF", "packId": "frhof", "name": "Heroes of Faerûn" }
+]
