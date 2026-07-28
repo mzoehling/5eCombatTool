@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { db } from '../db'
 import type { ContentPack, Rule, Spell } from '../types'
-import { dedupeByName, findRuleByName, findSpellByName } from './compendium'
+import { dedupeByName, findRuleByName, findSpellByName, originBadgeLabel, originLabel } from './compendium'
 import type { CompendiumEntry, Origin } from './compendium'
 
 function makeSpell(id: string, name: string): Spell {
@@ -37,18 +37,24 @@ describe('findSpellByName', () => {
   })
 
   it('finds spells case-insensitively', async () => {
-    expect((await findSpellByName('frost bolt'))?.id).toBe('sp-frostbolt')
-    expect((await findSpellByName('FROST BOLT'))?.id).toBe('sp-frostbolt')
-    expect((await findSpellByName(' Frost Bolt '))?.id).toBe('sp-frostbolt')
+    expect((await findSpellByName('frost bolt'))?.entry.id).toBe('sp-frostbolt')
+    expect((await findSpellByName('FROST BOLT'))?.entry.id).toBe('sp-frostbolt')
+    expect((await findSpellByName(' Frost Bolt '))?.entry.id).toBe('sp-frostbolt')
   })
 
   it('prefers the pack variant over SRD (mirrors browse-list precedence)', async () => {
-    expect((await findSpellByName('Fireball'))?.id).toBe('pack-fireball')
+    expect((await findSpellByName('Fireball'))?.entry.id).toBe('pack-fireball')
+  })
+
+  it('reports the pack it came from so detail views can name the provenance', async () => {
+    expect((await findSpellByName('Fireball'))?.origin).toEqual({ kind: 'pack', packName: 'Spell Pack' })
   })
 
   it('falls back to SRD when no pack has the spell', async () => {
     await db.packs.clear()
-    expect((await findSpellByName('Fireball'))?.id).toBe('srd-fireball')
+    const hit = await findSpellByName('Fireball')
+    expect(hit?.entry.id).toBe('srd-fireball')
+    expect(hit?.origin.kind).toBe('srd')
     await db.packs.put(pack)
   })
 
@@ -100,12 +106,32 @@ describe('findRuleByName', () => {
   })
 
   it('finds rules case-insensitively', async () => {
-    expect((await findRuleByName('Cover'))?.id).toBe('srd-cover')
-    expect((await findRuleByName('cOVER'))?.id).toBe('srd-cover')
-    expect((await findRuleByName(' Cover '))?.id).toBe('srd-cover')
+    expect((await findRuleByName('Cover'))?.entry.id).toBe('srd-cover')
+    expect((await findRuleByName('cOVER'))?.entry.id).toBe('srd-cover')
+    expect((await findRuleByName(' Cover '))?.entry.id).toBe('srd-cover')
+  })
+
+  it('reports rules as SRD — content packs carry no rules', async () => {
+    expect((await findRuleByName('Cover'))?.origin.kind).toBe('srd')
   })
 
   it('returns undefined for unknown rules', async () => {
     expect(await findRuleByName('Nonexistent Rule')).toBeUndefined()
+  })
+})
+
+describe('origin labels', () => {
+  it('names the badge variant compactly', () => {
+    expect(originBadgeLabel({ kind: 'srd' })).toBe('SRD')
+    expect(originBadgeLabel({ kind: 'pack', packName: 'PHB 2024' })).toBe('PHB 2024')
+    expect(originBadgeLabel({ kind: 'homebrew', isPC: false })).toBe('HB')
+    expect(originBadgeLabel({ kind: 'homebrew', isPC: true })).toBe('PC')
+  })
+
+  it('spells the provenance out for detail views', () => {
+    expect(originLabel({ kind: 'srd' })).toBe('SRD 5.2.1')
+    expect(originLabel({ kind: 'pack', packName: 'PHB 2024' })).toBe('PHB 2024')
+    expect(originLabel({ kind: 'homebrew', isPC: false })).toBe('Homebrew')
+    expect(originLabel({ kind: 'homebrew', isPC: true })).toBe('Player character')
   })
 })

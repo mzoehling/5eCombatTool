@@ -1,8 +1,9 @@
 import { mdiPin, mdiPinOutline, mdiRestore } from '@mdi/js'
 import { Fragment, useState } from 'react'
+import { originLabel, type Origin } from '../data/compendium'
 import { describeCondition } from '../data/conditionInfo'
 import { parseDiceExpression } from '../lib/diceExpr'
-import { sourceLabel } from '../lib/format'
+import { provenanceLabel, sourceLabel } from '../lib/format'
 import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
 import { abilityMod, type Ability, type Combatant, type Statblock, type StatblockEntry } from '../types'
@@ -33,6 +34,9 @@ interface StatblockPanelProps {
   onTogglePin: () => void
   /** Combatants pre-checked when applying a condition (AoE selection). */
   preselectIds?: ReadonlySet<string>
+  /** Where the statblock was looked up. Set by the compendium/reference views;
+   *  omitted for tracker combatants, which have no compendium provenance. */
+  origin?: Origin
 }
 
 const ABILITIES: Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha']
@@ -79,14 +83,16 @@ function EntryList({ entries, title, actions }: { entries: StatblockEntry[]; tit
   )
 }
 
-function GeneralTab({ sb, actions }: { sb: Statblock; actions: TextActions }) {
+function GeneralTab({ sb, actions, origin }: { sb: Statblock; actions: TextActions; origin?: Origin }) {
   const hpFormula = sb.hp.formula
   return (
     <>
       <p className="sb-meta">
         {sb.size.map((s) => SIZE_NAMES[s] ?? s).join(' or ')} {sb.type}
         {sb.typeTags.length > 0 && ` (${sb.typeTags.join(', ')})`}, {sb.alignment}
-        {sb.source && ` · ${sourceLabel(sb.source, sb.page)}`}
+        {origin
+          ? ` · ${provenanceLabel(originLabel(origin), sb.source, sb.page)}`
+          : sb.source && ` · ${sourceLabel(sb.source, sb.page)}`}
       </p>
       <div className="sb-statline">
         <span>
@@ -309,7 +315,7 @@ function UsesTab({ combatant }: { combatant: Combatant }) {
   )
 }
 
-export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }: StatblockPanelProps) {
+export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds, origin }: StatblockPanelProps) {
   const [tab, setTab] = useState<Tab>('general')
   const [rollExpr, setRollExpr] = useState<string | null>(null)
   const [conditionFor, setConditionFor] = useState<string | null>(null)
@@ -367,7 +373,7 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds }:
       <div className="sb-content">
         {shownTab === 'general' &&
           (sb ? (
-            <GeneralTab sb={sb} actions={actions} />
+            <GeneralTab sb={sb} actions={actions} origin={origin} />
           ) : (
             <dl className="sb-details">
               <dt>AC</dt>

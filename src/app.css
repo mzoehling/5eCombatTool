@@ -189,6 +189,9 @@
 .badge.group { background: var(--bg-raised); color: var(--text-dim); }
 .badge.hb { background: var(--warn); color: var(--on-accent); }
 .badge.pack { background: var(--ok); color: var(--on-accent); }
+/* SRD is the baseline, so it stays muted — it marks an entry rather than
+   highlighting it. */
+.badge.srd { background: var(--bg-raised); color: var(--text-dim); }
 
 .row-conditions {
   display: flex;
@@ -786,6 +789,21 @@ label.check {
 }
 
 /* ---------- compendium ---------- */
+
+/* Tabs + filters stay put; only .compendium-results scrolls, so the search
+   box never scrolls out of reach. Requires the dialog's `modal-split` class. */
+.compendium-controls {
+  flex: none;
+}
+
+.compendium-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* bleed the scrollbar into the modal body padding so rows keep full width */
+  margin-right: -0.5rem;
+  padding-right: 0.5rem;
+}
 
 .compendium-filters {
   display: flex;

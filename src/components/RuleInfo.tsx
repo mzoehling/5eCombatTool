@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { findRuleByName } from '../data/compendium'
-import { sourceLabel } from '../lib/format'
+import { findRuleByName, originLabel } from '../data/compendium'
+import { provenanceLabel } from '../lib/format'
 import { Modal } from './Modal'
 import { TaggedText } from './TaggedText'
 
@@ -20,9 +20,9 @@ interface RuleInfoProps {
 /** Full rules-glossary text for a term, looked up in the compendium (SRD). */
 export function RuleInfo({ name, onClose, ...handlers }: RuleInfoProps) {
   // null = looked up and missing; undefined = query still pending
-  const rule = useLiveQuery(async () => (await findRuleByName(name)) ?? null, [name])
+  const found = useLiveQuery(async () => (await findRuleByName(name)) ?? null, [name])
 
-  if (rule === undefined) {
+  if (found === undefined) {
     return (
       <Modal title={name} onClose={onClose}>
         <p className="dim">Loading…</p>
@@ -30,7 +30,7 @@ export function RuleInfo({ name, onClose, ...handlers }: RuleInfoProps) {
     )
   }
 
-  if (rule === null) {
+  if (found === null) {
     return (
       <Modal title={name} onClose={onClose}>
         <p className="dim">This rule isn’t in the rules glossary (SRD).</p>
@@ -38,9 +38,11 @@ export function RuleInfo({ name, onClose, ...handlers }: RuleInfoProps) {
     )
   }
 
+  const { entry: rule, origin } = found
+
   return (
     <Modal title={rule.name} onClose={onClose}>
-      <p className="spell-meta dim">{sourceLabel(rule.source, rule.page)}</p>
+      <p className="spell-meta dim">{provenanceLabel(originLabel(origin), rule.source, rule.page)}</p>
       {rule.text.map((t, i) => (
         <p key={i}>
           <TaggedText text={t} {...handlers} />
