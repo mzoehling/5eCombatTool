@@ -1,6 +1,6 @@
 import type { CombatDb } from '../db'
 import { db } from '../db'
-import type { ContentPack } from '../types'
+import { HOMEBREW_PACK_ID, PACK_SECTIONS, type ContentPack } from '../types'
 
 /** Validates an imported content-pack JSON structure; throws a descriptive error if invalid. */
 export function validatePack(data: unknown): ContentPack {
@@ -13,7 +13,14 @@ export function validatePack(data: unknown): ContentPack {
       throw new Error(`Content pack is missing the "${field}" field.`)
     }
   }
-  for (const section of ['monsters', 'spells', 'items'] as const) {
+  // The Homebrew pack is authored in the app and holds content that exists
+  // nowhere else. Importing over it would destroy that, so the id is refused
+  // outright rather than merged — a merge would still be guesswork about which
+  // side of a same-id collision the user meant to keep.
+  if (pack.packId === HOMEBREW_PACK_ID) {
+    throw new Error(`"${HOMEBREW_PACK_ID}" is a reserved pack id. Give this pack a different packId to import it.`)
+  }
+  for (const section of PACK_SECTIONS) {
     const entries = pack[section]
     if (entries === undefined) continue
     if (!Array.isArray(entries)) throw new Error(`"${section}" must be an array.`)
@@ -27,8 +34,8 @@ export function validatePack(data: unknown): ContentPack {
       }
     })
   }
-  if (!pack.monsters && !pack.spells && !pack.items) {
-    throw new Error('Content pack contains no monsters, spells, or items.')
+  if (!PACK_SECTIONS.some((section) => pack[section])) {
+    throw new Error('Content pack contains no monsters, PCs, spells, or items.')
   }
   return data as unknown as ContentPack
 }
@@ -46,7 +53,12 @@ export async function importPack(json: string, dbi: CombatDb = db): Promise<Cont
   return pack
 }
 
+/** Deletes an imported pack. The Homebrew pack is not removable — its entries are
+ *  deleted one at a time through the editor (see data/homebrewPack.ts). */
 export async function removePack(packId: string, dbi: CombatDb = db): Promise<void> {
+  if (packId === HOMEBREW_PACK_ID) {
+    throw new Error('The Homebrew pack cannot be removed.')
+  }
   await dbi.packs.delete(packId)
 }
 

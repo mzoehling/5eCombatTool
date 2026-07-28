@@ -19,6 +19,7 @@ export function PacksManager({ onClose }: { onClose: () => void }) {
       const pack = await importPack(await file.text())
       const counts = [
         pack.monsters?.length && `${pack.monsters.length} monsters`,
+        pack.pcs?.length && `${pack.pcs.length} PCs`,
         pack.spells?.length && `${pack.spells.length} spells`,
         pack.items?.length && `${pack.items.length} items`,
       ]
@@ -58,8 +59,8 @@ export function PacksManager({ onClose }: { onClose: () => void }) {
               <span className="dim-wrap">
                 <b>{pack.name}</b>{' '}
                 <span className="dim">
-                  v{pack.version} · {pack.monsters?.length ?? 0}M / {pack.spells?.length ?? 0}S /{' '}
-                  {pack.items?.length ?? 0}I
+                  v{pack.version} · {pack.monsters?.length ?? 0}M / {pack.pcs?.length ?? 0}P /{' '}
+                  {pack.spells?.length ?? 0}S / {pack.items?.length ?? 0}I
                 </span>
               </span>
               <button

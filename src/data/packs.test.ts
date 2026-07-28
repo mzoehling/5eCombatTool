@@ -28,6 +28,20 @@ describe('validatePack', () => {
     expect(() => validatePack({ ...validPack, monsters: 'many' })).toThrow('must be an array')
     expect(() => validatePack({ ...validPack, monsters: [{ name: 'No Id' }] })).toThrow('monsters[0]')
   })
+
+  it('accepts a pack that carries only PCs', () => {
+    const party = { packId: 'party', name: 'The Party', version: '1', pcs: [{ id: 'p-bob', name: 'Bob' }] }
+    expect(validatePack(party).pcs).toHaveLength(1)
+  })
+
+  it('validates the pcs section like every other section', () => {
+    expect(() => validatePack({ ...validPack, pcs: 'many' })).toThrow('must be an array')
+    expect(() => validatePack({ ...validPack, pcs: [{ name: 'No Id' }] })).toThrow('pcs[0]')
+  })
+
+  it('refuses the reserved Homebrew pack id', () => {
+    expect(() => validatePack({ ...validPack, packId: 'homebrew' })).toThrow('reserved pack id')
+  })
 })
 
 describe('pack import lifecycle', () => {
@@ -54,6 +68,20 @@ describe('pack import lifecycle', () => {
     const db = new CombatDb(`test-${crypto.randomUUID()}`)
     try {
       await expect(importPack('{not json', db)).rejects.toThrow('not valid JSON')
+    } finally {
+      await db.delete()
+    }
+  })
+
+  it('never lets an import or a removal touch the Homebrew pack', async () => {
+    const db = new CombatDb(`test-${crypto.randomUUID()}`)
+    try {
+      await db.packs.put({ packId: 'homebrew', name: 'Homebrew', version: '1', monsters: [], pcs: [] })
+      await expect(importPack(JSON.stringify({ ...validPack, packId: 'homebrew' }), db)).rejects.toThrow(
+        'reserved pack id',
+      )
+      await expect(removePack('homebrew', db)).rejects.toThrow('cannot be removed')
+      expect(await db.packs.get('homebrew')).toBeDefined()
     } finally {
       await db.delete()
     }
