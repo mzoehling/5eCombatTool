@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { findItemByName, originLabel } from '../data/compendium'
 import { provenanceLabel } from '../lib/format'
+import { ItemPrice } from './ItemPrice'
 import { Modal } from './Modal'
 import { TaggedText } from './TaggedText'
 
@@ -45,6 +46,7 @@ export function ItemInfo({ name, onClose, ...handlers }: ItemInfoProps) {
       <p className="spell-meta dim">
         {item.typeName}
         {item.rarity && ` · ${item.rarity}`}
+        <ItemPrice item={item} prefix=" · " />
         {` · ${provenanceLabel(originLabel(origin), item.source, item.page)}`}
       </p>
       {item.attunement && (

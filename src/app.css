@@ -193,6 +193,16 @@
    highlighting it. */
 .badge.srd { background: var(--bg-raised); color: var(--text-dim); }
 
+/* Item prices. Tabular figures keep the digits from jittering between rows;
+   an estimate derived from rarity is italicised so it reads differently from a
+   price actually printed in the source (it also carries a "≈" and a tooltip). */
+.price {
+  font-variant-numeric: tabular-nums;
+}
+.price.est {
+  font-style: italic;
+}
+
 .row-conditions {
   display: flex;
   flex-wrap: wrap;

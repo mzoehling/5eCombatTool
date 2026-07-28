@@ -1,5 +1,5 @@
 import { mdiArrowLeft } from '@mdi/js'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { originBadgeLabel, useCompendium, type CompendiumEntry, type Origin } from '../data/compendium'
 import { sourceLabel } from '../lib/format'
 import { rankByName, stripPostfix, suffixedNames } from '../lib/search'
@@ -11,6 +11,7 @@ import { CreatureInfo } from './CreatureInfo'
 import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
 import { ItemInfo } from './ItemInfo'
+import { ItemPrice } from './ItemPrice'
 import { Modal } from './Modal'
 import { RuleInfo } from './RuleInfo'
 import { SpellInfo } from './SpellInfo'
@@ -254,7 +255,15 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
               <TextRow
                 key={i.entry.id + i.origin.kind}
                 name={i.entry.name}
-                meta={`${i.entry.typeName}${i.entry.rarity ? ` · ${i.entry.rarity}` : ''}${i.entry.attunement ? ' · Attunement' : ''} · ${sourceLabel(i.entry.source, i.entry.page)}`}
+                meta={
+                  <>
+                    {i.entry.typeName}
+                    {i.entry.rarity && ` · ${i.entry.rarity}`}
+                    {i.entry.attunement && ' · Attunement'}
+                    <ItemPrice item={i.entry} prefix=" · " />
+                    {` · ${sourceLabel(i.entry.source, i.entry.page)}`}
+                  </>
+                }
                 origin={i.origin}
                 detail={i.entry.text}
                 actions={actions}
@@ -339,7 +348,8 @@ function TextRow({
   actions,
 }: {
   name: string
-  meta: string
+  /** ReactNode rather than string so the items row can style its price segment. */
+  meta: ReactNode
   origin: Origin
   detail: string[]
   actions: DetailActions
