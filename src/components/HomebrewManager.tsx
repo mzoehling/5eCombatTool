@@ -2,22 +2,34 @@ import { mdiDelete, mdiPlus } from '@mdi/js'
 import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { exportBackup, importBackup } from '../data/backup'
-import { db } from '../db'
+import { deleteHomebrewEntry, getHomebrewPack, type HomebrewSection } from '../data/homebrewPack'
 import { suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
-import type { HomebrewEntry, HomebrewKind } from '../types'
+import type { Statblock } from '../types'
 import { HomebrewEditor } from './HomebrewEditor'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 
+/** A homebrew entry paired with the section it lives in. */
+interface HomebrewRow {
+  section: HomebrewSection
+  statblock: Statblock
+}
+
 export function HomebrewManager({ onClose }: { onClose: () => void }) {
   const entries = useLiveQuery(
-    async () => (await db.homebrew.toArray()).sort((a, b) => a.statblock.name.localeCompare(b.statblock.name)),
+    async (): Promise<HomebrewRow[]> => {
+      const pack = await getHomebrewPack()
+      return [
+        ...(pack.pcs ?? []).map((statblock) => ({ section: 'pcs' as const, statblock })),
+        ...(pack.monsters ?? []).map((statblock) => ({ section: 'monsters' as const, statblock })),
+      ].sort((a, b) => a.statblock.name.localeCompare(b.statblock.name))
+    },
     [],
     [],
   )
-  const [editor, setEditor] = useState<{ kind: HomebrewKind; existing?: HomebrewEntry } | null>(null)
+  const [editor, setEditor] = useState<{ section: HomebrewSection; existing?: Statblock } | null>(null)
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -48,17 +60,17 @@ export function HomebrewManager({ onClose }: { onClose: () => void }) {
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  const addToBattle = (entry: HomebrewEntry) => {
+  const addToBattle = (row: HomebrewRow) => {
     const existing = battleStore.getState().combatants.map((c) => c.name)
-    const [name] = suffixedNames(entry.statblock.name, 1, existing)
+    const [name] = suffixedNames(row.statblock.name, 1, existing)
     battleStore.dispatch({
       type: 'addCombatant',
-      combatant: combatantFromStatblock(entry.statblock, name, entry.kind === 'pc'),
+      combatant: combatantFromStatblock(row.statblock, name, row.section === 'pcs'),
     })
   }
 
   if (editor) {
-    return <HomebrewEditor kind={editor.kind} existing={editor.existing} onClose={() => setEditor(null)} />
+    return <HomebrewEditor section={editor.section} existing={editor.existing} onClose={() => setEditor(null)} />
   }
 
   return (
@@ -66,10 +78,10 @@ export function HomebrewManager({ onClose }: { onClose: () => void }) {
       {/* Fixed band: the actions and their outcome stay put while the list scrolls. */}
       <div className="modal-controls">
         <div className="modal-actions">
-          <button type="button" className="primary icon-label" onClick={() => setEditor({ kind: 'pc' })}>
+          <button type="button" className="primary icon-label" onClick={() => setEditor({ section: 'pcs' })}>
             <Icon path={mdiPlus} /> New PC
           </button>
-          <button type="button" className="primary icon-label" onClick={() => setEditor({ kind: 'monster' })}>
+          <button type="button" className="primary icon-label" onClick={() => setEditor({ section: 'monsters' })}>
             <Icon path={mdiPlus} /> New monster
           </button>
         </div>
@@ -93,33 +105,35 @@ export function HomebrewManager({ onClose }: { onClose: () => void }) {
 
       <div className="modal-scroll">
         <ul className="group-list">
-          {entries.map((entry) => (
-            <li key={entry.id}>
+          {entries.map((row) => (
+            <li key={row.statblock.id}>
               <button
                 type="button"
                 className="result-main"
-                onClick={() => setEditor({ kind: entry.kind, existing: entry })}
+                onClick={() => setEditor({ section: row.section, existing: row.statblock })}
               >
                 <span className="result-name">
-                  {entry.statblock.name}
-                  <span className={`badge ${entry.kind === 'pc' ? 'pc' : 'hb'}`}>
-                    {entry.kind === 'pc' ? 'PC' : 'HB'}
+                  {row.statblock.name}
+                  <span className={`badge ${row.section === 'pcs' ? 'pc' : 'hb'}`}>
+                    {row.section === 'pcs' ? 'PC' : 'HB'}
                   </span>
                 </span>
                 <span className="result-meta dim">
-                  AC {entry.statblock.ac} · HP {entry.statblock.hp.average}
-                  {entry.statblock.cr && ` · CR ${entry.statblock.cr}`}
+                  AC {row.statblock.ac} · HP {row.statblock.hp.average}
+                  {row.statblock.cr && ` · CR ${row.statblock.cr}`}
                 </span>
               </button>
-              <button type="button" className="icon-label" onClick={() => addToBattle(entry)}>
+              <button type="button" className="icon-label" onClick={() => addToBattle(row)}>
                 <Icon path={mdiPlus} /> Battle
               </button>
               <button
                 type="button"
                 className="ghost"
-                aria-label={`Delete ${entry.statblock.name}`}
+                aria-label={`Delete ${row.statblock.name}`}
                 onClick={() => {
-                  if (confirm(`Delete "${entry.statblock.name}"?`)) db.homebrew.delete(entry.id)
+                  if (confirm(`Delete "${row.statblock.name}"?`)) {
+                    deleteHomebrewEntry(row.section, row.statblock.id)
+                  }
                 }}
               >
                 <Icon path={mdiDelete} />

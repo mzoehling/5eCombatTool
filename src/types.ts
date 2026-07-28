@@ -226,8 +226,14 @@ export interface Battle {
   groups: Group[]
 }
 
+/** @deprecated Superseded by the pack section an entry lives in. See HomebrewEntry. */
 export type HomebrewKind = 'monster' | 'pc'
 
+/**
+ * @deprecated Homebrew is stored as the reserved "Homebrew" content pack since
+ * database v4. This shape survives only to read pre-v4 databases (see the v4
+ * upgrade in db.ts) and version 1 and 2 backup files.
+ */
 export interface HomebrewEntry {
   id: string
   kind: HomebrewKind

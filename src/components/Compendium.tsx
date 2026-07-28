@@ -1,6 +1,13 @@
 import { mdiArrowLeft } from '@mdi/js'
 import { useMemo, useState, type ReactNode } from 'react'
-import { originBadgeLabel, useCompendium, type CompendiumEntry, type Origin } from '../data/compendium'
+import {
+  entryKey,
+  originBadgeClass,
+  originBadgeLabel,
+  useCompendium,
+  type CompendiumEntry,
+  type Origin,
+} from '../data/compendium'
 import { sourceLabel } from '../lib/format'
 import { rankByName, stripPostfix, suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
@@ -28,7 +35,7 @@ interface DetailActions {
   onRule: (name: string) => void
 }
 
-type Tab = 'monsters' | 'spells' | 'items' | 'rules'
+type Tab = 'monsters' | 'pcs' | 'spells' | 'items' | 'rules'
 
 const CR_BUCKETS: { label: string; min: number; max: number }[] = [
   { label: 'Any CR', min: -1, max: 99 },
@@ -42,8 +49,7 @@ const CR_BUCKETS: { label: string; min: number; max: number }[] = [
 /** Provenance next to the name. The meta line carries the book citation, which
  *  reads the same for SRD and for a pack — this is what distinguishes them. */
 function OriginBadge({ origin }: { origin: Origin }) {
-  const cls = origin.kind === 'homebrew' ? 'hb' : origin.kind
-  return <span className={`badge ${cls}`}>{originBadgeLabel(origin)}</span>
+  return <span className={`badge ${originBadgeClass(origin)}`}>{originBadgeLabel(origin)}</span>
 }
 
 export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void; initialQuery?: string }) {
@@ -55,7 +61,9 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   const [school, setSchool] = useState('')
   const [itemType, setItemType] = useState('')
   const [rarity, setRarity] = useState('')
-  const [preview, setPreview] = useState<CompendiumEntry<Statblock> | null>(null)
+  // isPC travels with the previewed entry: the preview's "Add to battle" needs
+  // it, and the entry alone no longer says which section it came from.
+  const [preview, setPreview] = useState<{ entry: CompendiumEntry<Statblock>; isPC: boolean } | null>(null)
   const [notice, setNotice] = useState('')
   const [rollExpr, setRollExpr] = useState<string | null>(null)
   const [conditionFor, setConditionFor] = useState<string | null>(null)
@@ -100,6 +108,14 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
     return rankByName(filtered, query, (i) => i.entry.name).slice(0, 100)
   }, [data, query, itemType, rarity])
 
+  // PCs have no CR, level or rarity to filter on — the search box is the whole
+  // filter row. The list is deliberately not grouped or filtered by pack: PCs
+  // are looked up by player name, whichever pack happens to hold them.
+  const pcs = useMemo(() => {
+    if (!data) return []
+    return rankByName(data.pcs, query, (m) => m.entry.name).slice(0, 100)
+  }, [data, query])
+
   const rules = useMemo(() => {
     if (!data) return []
     return rankByName(data.rules, query, (r) => r.entry.name).slice(0, 100)
@@ -122,12 +138,24 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
     setTimeout(() => setNotice(''), 2000)
   }
 
+  // The PC tab only exists once there are PCs to put in it, so the selected tab
+  // can vanish under the user (deleting the last PC). Fall back rather than
+  // render a tab body with nothing behind it.
+  const tabs: { id: Tab; label: string; show: boolean }[] = [
+    { id: 'monsters', label: 'Monsters', show: true },
+    { id: 'pcs', label: 'PCs', show: (data?.pcs.length ?? 0) > 0 },
+    { id: 'spells', label: 'Spells', show: true },
+    { id: 'items', label: 'Items', show: true },
+    { id: 'rules', label: 'Rules', show: true },
+  ]
+  const shownTab: Tab = tabs.some((t) => t.id === tab && t.show) ? tab : 'monsters'
+
   if (preview) {
     return (
-      <Modal title={preview.entry.name} className="modal-wide" onClose={() => setPreview(null)}>
+      <Modal title={preview.entry.entry.name} className="modal-wide" onClose={() => setPreview(null)}>
         <StatblockPanel
-          combatant={combatantFromStatblock(preview.entry)}
-          origin={preview.origin}
+          combatant={combatantFromStatblock(preview.entry.entry)}
+          origin={preview.entry.origin}
           pinned={false}
           onTogglePin={() => {}}
         />
@@ -139,7 +167,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
             type="button"
             className="primary"
             onClick={() => {
-              addMonster(preview.entry, 1, false)
+              addMonster(preview.entry.entry, 1, preview.isPC)
               setPreview(null)
             }}
           >
@@ -155,11 +183,18 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
       {/* Fixed band: tabs and filters stay put while only the results scroll. */}
       <div className="modal-controls">
         <div className="sb-tabs">
-          {(['monsters', 'spells', 'items', 'rules'] as const).map((t) => (
-            <button key={t} type="button" className={tab === t ? 'primary' : ''} onClick={() => setTab(t)}>
-              {t[0].toUpperCase() + t.slice(1)}
-            </button>
-          ))}
+          {tabs
+            .filter((t) => t.show)
+            .map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={shownTab === t.id ? 'primary' : ''}
+                onClick={() => setTab(t.id)}
+              >
+                {t.label}
+              </button>
+            ))}
         </div>
 
         <div className="compendium-filters">
@@ -170,7 +205,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
             autoFocus
             onChange={(e) => setQuery(e.target.value)}
           />
-          {tab === 'monsters' && (
+          {shownTab === 'monsters' && (
             <select value={crBucket} onChange={(e) => setCrBucket(Number(e.target.value))}>
               {CR_BUCKETS.map((b, i) => (
                 <option key={b.label} value={i}>
@@ -179,7 +214,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
               ))}
             </select>
           )}
-          {tab === 'spells' && (
+          {shownTab === 'spells' && (
             <>
               <select value={level} onChange={(e) => setLevel(Number(e.target.value))}>
                 <option value={-1}>Any level</option>
@@ -197,7 +232,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
               </select>
             </>
           )}
-          {tab === 'items' && (
+          {shownTab === 'items' && (
             <>
               <select value={itemType} onChange={(e) => setItemType(e.target.value)}>
                 <option value="">Any type</option>
@@ -219,20 +254,41 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
       <div className="modal-scroll">
         {!data && <p className="dim">Loading compendium…</p>}
 
-        {tab === 'monsters' && (
+        {shownTab === 'monsters' && (
           <ul className="result-list">
             {monsters.map((m) => (
-              <MonsterRow key={m.entry.id + m.origin.kind} entry={m} onPreview={() => setPreview(m)} onAdd={addMonster} />
+              <MonsterRow
+                key={entryKey(m.origin, m.entry.id)}
+                entry={m}
+                isPC={false}
+                onPreview={() => setPreview({ entry: m, isPC: false })}
+                onAdd={addMonster}
+              />
             ))}
             {data && monsters.length === 0 && <li className="dim">No matches.</li>}
           </ul>
         )}
 
-        {tab === 'spells' && (
+        {shownTab === 'pcs' && (
+          <ul className="result-list">
+            {pcs.map((p) => (
+              <MonsterRow
+                key={entryKey(p.origin, p.entry.id)}
+                entry={p}
+                isPC
+                onPreview={() => setPreview({ entry: p, isPC: true })}
+                onAdd={addMonster}
+              />
+            ))}
+            {data && pcs.length === 0 && <li className="dim">No matches.</li>}
+          </ul>
+        )}
+
+        {shownTab === 'spells' && (
           <ul className="result-list">
             {spells.map((s) => (
               <TextRow
-                key={s.entry.id + s.origin.kind}
+                key={entryKey(s.origin, s.entry.id)}
                 name={s.entry.name}
                 meta={`${s.entry.level === 0 ? 'Cantrip' : `Level ${s.entry.level}`} · ${s.entry.school}${s.entry.concentration ? ' · Conc.' : ''} · ${sourceLabel(s.entry.source, s.entry.page)}`}
                 origin={s.origin}
@@ -249,11 +305,11 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
           </ul>
         )}
 
-        {tab === 'items' && (
+        {shownTab === 'items' && (
           <ul className="result-list">
             {items.map((i) => (
               <TextRow
-                key={i.entry.id + i.origin.kind}
+                key={entryKey(i.origin, i.entry.id)}
                 name={i.entry.name}
                 meta={
                   <>
@@ -273,11 +329,11 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
           </ul>
         )}
 
-        {tab === 'rules' && (
+        {shownTab === 'rules' && (
           <ul className="result-list">
             {rules.map((r) => (
               <TextRow
-                key={r.entry.id + r.origin.kind}
+                key={entryKey(r.origin, r.entry.id)}
                 name={r.entry.name}
                 meta={sourceLabel(r.entry.source, r.entry.page)}
                 origin={r.origin}
@@ -303,17 +359,21 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   )
 }
 
+/** One creature row, shared by the Monsters and PCs tabs. `isPC` comes from the
+ *  section the row was rendered for, not from the entry — the same statblock
+ *  shape is used for both. */
 function MonsterRow({
   entry: { entry: sb, origin },
+  isPC,
   onPreview,
   onAdd,
 }: {
   entry: CompendiumEntry<Statblock>
+  isPC: boolean
   onPreview: () => void
   onAdd: (sb: Statblock, count: number, isPC: boolean) => void
 }) {
   const [count, setCount] = useState(1)
-  const isPC = origin.kind === 'homebrew' && origin.isPC
   return (
     <li className="result-row">
       <button type="button" className="result-main" onClick={onPreview}>

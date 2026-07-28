@@ -12,7 +12,7 @@ describe('clearSrdCache', () => {
       await db.items.put({ id: 'srd-dagger', name: 'Dagger' } as never)
       await db.rules.put({ id: 'xphb-speed', name: 'Speed', source: 'XPHB', page: 374, text: [] })
       await db.meta.put({ key: 'srdDataVersion', value: 'abc123' })
-      await db.homebrew.put({ id: 'hb-1', kind: 'npc', statblock: { name: 'Bob' } } as never)
+      await db.packs.put({ packId: 'homebrew', name: 'Homebrew', version: '1', monsters: [], pcs: [] })
       await db.encounters.put({ id: 'enc-1', name: 'Ambush' } as never)
 
       await clearSrdCache(db)
@@ -23,7 +23,7 @@ describe('clearSrdCache', () => {
       expect(await db.rules.count()).toBe(0)
       expect(await db.meta.get('srdDataVersion')).toBeUndefined()
 
-      expect(await db.homebrew.count()).toBe(1)
+      expect(await db.packs.count()).toBe(1)
       expect(await db.encounters.count()).toBe(1)
     } finally {
       await db.delete()

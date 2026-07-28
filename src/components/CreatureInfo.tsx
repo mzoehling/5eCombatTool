@@ -41,12 +41,16 @@ export function CreatureInfo({ name, onClose }: CreatureInfoProps) {
     )
   }
 
-  const { entry: statblock, origin } = found
+  const { entry: statblock, origin, section } = found
 
   const addToBattle = () => {
     const existing = battleStore.getState().combatants.map((c) => c.name)
     const [uniqueName] = suffixedNames(statblock.name, 1, existing)
-    battleStore.dispatch({ type: 'addCombatant', combatant: combatantFromStatblock(statblock, uniqueName) })
+    // A link can resolve to a PC as easily as to a monster; the section says which.
+    battleStore.dispatch({
+      type: 'addCombatant',
+      combatant: combatantFromStatblock(statblock, uniqueName, section === 'pcs'),
+    })
     setNotice(`Added ${uniqueName}`)
     setTimeout(() => setNotice(''), 2000)
   }

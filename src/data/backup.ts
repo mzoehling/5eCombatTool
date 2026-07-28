@@ -1,16 +1,19 @@
 import type { CombatDb } from '../db'
 import { db } from '../db'
-import type { Battle, Combatant, ContentPack, HomebrewEntry, SavedEncounter } from '../types'
+import { HOMEBREW_PACK_ID, type Battle, type Combatant, type ContentPack, type HomebrewEntry, type SavedEncounter } from '../types'
+import { getHomebrewPack, homebrewCount, mergeHomebrew } from './homebrewPack'
 
 const BACKUP_FORMAT = '5eCombatTool-backup'
 export const BACKUP_REMINDER_DAYS = 14
 
 interface BackupFile {
   format: typeof BACKUP_FORMAT
-  /** 1: homebrew only. 2: adds packs, saved encounters and the current battle. */
-  version: 1 | 2
+  /** 1: homebrew only. 2: adds packs, saved encounters and the current battle.
+   *  3: homebrew moved into `packs` as the reserved "Homebrew" pack. */
+  version: 1 | 2 | 3
   exportedAt: string
-  homebrew: HomebrewEntry[]
+  /** @deprecated Version 1 and 2 only — homebrew now travels inside `packs`. */
+  homebrew?: HomebrewEntry[]
   packs?: ContentPack[]
   encounters?: SavedEncounter[]
   combatants?: Combatant[]
@@ -27,8 +30,7 @@ export interface ImportSummary {
 
 /** Serializes homebrew, imported packs and the current battle; records the export time. */
 export async function exportBackup(dbi: CombatDb = db, now = Date.now()): Promise<string> {
-  const [homebrew, packs, encounters, combatants, battle] = await Promise.all([
-    dbi.homebrew.toArray(),
+  const [packs, encounters, combatants, battle] = await Promise.all([
     dbi.packs.toArray(),
     dbi.encounters.toArray(),
     dbi.combatants.toArray(),
@@ -36,9 +38,9 @@ export async function exportBackup(dbi: CombatDb = db, now = Date.now()): Promis
   ])
   const backup: BackupFile = {
     format: BACKUP_FORMAT,
-    version: 2,
+    version: 3,
     exportedAt: new Date(now).toISOString(),
-    homebrew,
+    // Homebrew is one of the packs now; there is no separate section to write.
     packs,
     encounters,
     combatants,
@@ -49,9 +51,11 @@ export async function exportBackup(dbi: CombatDb = db, now = Date.now()): Promis
 }
 
 /**
- * Imports a backup file (v1 or v2). Homebrew and packs merge by id (existing
- * ids are overwritten). The battle is restored only when the tracker is
- * currently empty — a running encounter is never silently replaced.
+ * Imports a backup file (v1, v2 or v3). Packs and encounters merge by id
+ * (existing ids are overwritten), and homebrew merges entry by entry so
+ * restoring an old backup adds to what the user has rather than replacing it.
+ * The battle is restored only when the tracker is currently empty — a running
+ * encounter is never silently replaced.
  */
 export async function importBackup(json: string, dbi: CombatDb = db): Promise<ImportSummary> {
   let data: unknown
@@ -61,22 +65,46 @@ export async function importBackup(json: string, dbi: CombatDb = db): Promise<Im
     throw new Error('File is not valid JSON.')
   }
   const backup = data as Partial<BackupFile>
-  if (backup.format !== BACKUP_FORMAT || !Array.isArray(backup.homebrew)) {
+  // v3 files have no `homebrew` section at all, so its presence cannot be part
+  // of the format check — only its shape, when it is there.
+  if (backup.format !== BACKUP_FORMAT) {
     throw new Error('Not a 5e Combat Tool backup file.')
   }
-  for (const entry of backup.homebrew) {
+  const legacy = backup.homebrew
+  if (legacy !== undefined && !Array.isArray(legacy)) {
+    throw new Error('Not a 5e Combat Tool backup file.')
+  }
+  for (const entry of legacy ?? []) {
     if (typeof entry.id !== 'string' || typeof entry.statblock?.name !== 'string') {
       throw new Error('Backup contains a malformed homebrew entry.')
     }
   }
-  const homebrew = backup.homebrew
-  const packs = (backup.packs ?? []).filter((p) => typeof p?.packId === 'string')
+
+  const allPacks = (backup.packs ?? []).filter((p) => typeof p?.packId === 'string')
+  // The Homebrew pack never goes through bulkPut — it is merged below so an old
+  // backup cannot wipe content authored since it was taken.
+  const packs = allPacks.filter((p) => p.packId !== HOMEBREW_PACK_ID)
+  const incomingHomebrew = allPacks.find((p) => p.packId === HOMEBREW_PACK_ID)
+  const homebrewMonsters = [
+    ...(incomingHomebrew?.monsters ?? []),
+    ...(legacy ?? []).filter((e) => e.kind !== 'pc').map((e) => e.statblock),
+  ]
+  const homebrewPcs = [
+    ...(incomingHomebrew?.pcs ?? []),
+    ...(legacy ?? []).filter((e) => e.kind === 'pc').map((e) => e.statblock),
+  ]
+
   const encounters = (backup.encounters ?? []).filter((e) => typeof e?.id === 'string' && Array.isArray(e.combatants))
   const combatants = Array.isArray(backup.combatants) ? backup.combatants : []
 
   let battleRestored = false
-  await dbi.transaction('rw', [dbi.homebrew, dbi.packs, dbi.encounters, dbi.combatants, dbi.battle], async () => {
-    await dbi.homebrew.bulkPut(homebrew)
+  await dbi.transaction('rw', [dbi.packs, dbi.encounters, dbi.combatants, dbi.battle], async () => {
+    if (homebrewMonsters.length || homebrewPcs.length) {
+      let pack = await getHomebrewPack(dbi)
+      pack = mergeHomebrew(pack, 'monsters', homebrewMonsters)
+      pack = mergeHomebrew(pack, 'pcs', homebrewPcs)
+      await dbi.packs.put(pack)
+    }
     if (packs.length) await dbi.packs.bulkPut(packs)
     if (encounters.length) await dbi.encounters.bulkPut(encounters)
     if (backup.battle && combatants.length && (await dbi.combatants.count()) === 0) {
@@ -85,7 +113,12 @@ export async function importBackup(json: string, dbi: CombatDb = db): Promise<Im
       battleRestored = true
     }
   })
-  return { homebrew: homebrew.length, packs: packs.length, encounters: encounters.length, battleRestored }
+  return {
+    homebrew: homebrewMonsters.length + homebrewPcs.length,
+    packs: packs.length,
+    encounters: encounters.length,
+    battleRestored,
+  }
 }
 
 /** Meta row set when the user opts out of the backup reminder for good. */
@@ -105,8 +138,9 @@ export async function setBackupReminderOff(off: boolean, dbi: CombatDb = db): Pr
 /** True when homebrew exists and the last export is missing or older than 14 days. */
 export async function needsBackupReminder(dbi: CombatDb = db, now = Date.now()): Promise<boolean> {
   if (await isBackupReminderOff(dbi)) return false
-  const count = await dbi.homebrew.count()
-  if (count === 0) return false
+  // Only app-authored content is worth nagging about — imported packs can be
+  // imported again from the file they came from.
+  if ((await homebrewCount(dbi)) === 0) return false
   const last = await dbi.meta.get('lastBackupExport')
   if (!last) return true
   return now - Number(last.value) > BACKUP_REMINDER_DAYS * 24 * 60 * 60 * 1000
