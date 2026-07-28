@@ -1,7 +1,7 @@
 import { mdiChevronDown, mdiChevronRight, mdiDelete, mdiPlus } from '@mdi/js'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
-import { deleteHomebrewEntry, type HomebrewSection } from '../data/homebrewPack'
+import { deleteHomebrewEntry, homebrewAsShareablePack, type HomebrewSection } from '../data/homebrewPack'
 import { importPack, removePack } from '../data/packs'
 import { db } from '../db'
 import { suffixedNames } from '../lib/search'
@@ -72,6 +72,18 @@ export function ContentManager({ onClose }: { onClose: () => void }) {
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  const exportHomebrew = () => {
+    if (!homebrew) return
+    const shared = homebrewAsShareablePack(homebrew)
+    const url = URL.createObjectURL(new Blob([JSON.stringify(shared)], { type: 'application/json' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${shared.packId}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    setMessage({ text: `Exported "${shared.name}" (${packCounts(shared)}) — import it like any other pack.` })
+  }
+
   const addToBattle = (row: HomebrewRow) => {
     const existing = battleStore.getState().combatants.map((c) => c.name)
     const [name] = suffixedNames(row.statblock.name, 1, existing)
@@ -108,6 +120,13 @@ export function ContentManager({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={() => fileRef.current?.click()}>
             Import pack…
           </button>
+          {/* Nothing to share until something is authored, and an all-empty
+              pack would not be importable anyway. */}
+          {rows.length > 0 && (
+            <button type="button" onClick={exportHomebrew}>
+              Share homebrew…
+            </button>
+          )}
         </div>
         {message && <p className={message.error ? 'error-text' : 'ok-text'}>{message.text}</p>}
       </div>

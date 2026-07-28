@@ -152,6 +152,7 @@ export function HomebrewEditor({ existing, section, onClose }: HomebrewEditorPro
         {!isPC && text('speedFly', 'Fly')}
         {!isPC && text('speedSwim', 'Swim')}
         {!isPC && text('speedClimb', 'Climb')}
+        {!isPC && text('speedBurrow', 'Burrow')}
         {!isPC && text('immunities', 'Immunities')}
         {!isPC && text('resistances', 'Resistances')}
         {!isPC && text('vulnerabilities', 'Vulnerabilities')}

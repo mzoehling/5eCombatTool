@@ -6,10 +6,12 @@ import { HOMEBREW_PACK_ID } from '../types'
 import {
   deleteHomebrewEntry,
   getHomebrewPack,
+  homebrewAsShareablePack,
   homebrewCount,
   moveHomebrewEntry,
   saveHomebrewEntry,
 } from './homebrewPack'
+import { validatePack } from './packs'
 
 const sb = (name: string, over: Record<string, unknown> = {}) => ({
   ...formToStatblock({ ...emptyForm, name }, `hb-${name.toLowerCase()}`),
@@ -78,6 +80,41 @@ describe('deleteHomebrewEntry', () => {
       await saveHomebrewEntry('monsters', sb('Beta'), db)
       await deleteHomebrewEntry('monsters', 'hb-alpha', db)
       expect((await getHomebrewPack(db)).monsters?.map((m) => m.name)).toEqual(['Beta'])
+    })
+  })
+
+  it('drops the pack row entirely once the last entry is gone', async () => {
+    await withDb(async (db) => {
+      await saveHomebrewEntry('monsters', sb('Alpha'), db)
+      await saveHomebrewEntry('pcs', sb('Thoric'), db)
+      await deleteHomebrewEntry('monsters', 'hb-alpha', db)
+      expect(await db.packs.get(HOMEBREW_PACK_ID)).toBeDefined()
+      await deleteHomebrewEntry('pcs', 'hb-thoric', db)
+      expect(await db.packs.get(HOMEBREW_PACK_ID)).toBeUndefined()
+      // …and the empty view still works, same as first run.
+      expect((await getHomebrewPack(db)).monsters).toEqual([])
+    })
+  })
+})
+
+describe('homebrewAsShareablePack', () => {
+  it('renames the pack off the reserved id so it can be imported', async () => {
+    await withDb(async (db) => {
+      await saveHomebrewEntry('pcs', sb('Thoric'), db)
+      const shared = homebrewAsShareablePack(await getHomebrewPack(db), new Date('2026-07-28T10:00:00Z'))
+      expect(shared.packId).toBe('homebrew-2026-07-28')
+      expect(shared.packId).not.toBe(HOMEBREW_PACK_ID)
+      expect(shared.name).toBe('Homebrew (2026-07-28)')
+      expect(() => validatePack(shared)).not.toThrow()
+    })
+  })
+
+  it('drops empty sections so the file reads like a generated pack', async () => {
+    await withDb(async (db) => {
+      await saveHomebrewEntry('pcs', sb('Thoric'), db)
+      const shared = homebrewAsShareablePack(await getHomebrewPack(db))
+      expect(shared.pcs).toHaveLength(1)
+      expect(shared).not.toHaveProperty('monsters')
     })
   })
 })

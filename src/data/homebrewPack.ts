@@ -41,7 +41,15 @@ async function updateHomebrewPack(
 ): Promise<void> {
   await dbi.transaction('rw', dbi.packs, async () => {
     const pack = (await dbi.packs.get(HOMEBREW_PACK_ID)) ?? emptyPack()
-    await dbi.packs.put(update(pack))
+    const next = update(pack)
+    // Deleting the last entry removes the row rather than leaving an empty
+    // husk, so "no homebrew yet" is one state reached one way — whether the
+    // user has never authored anything or has just cleared it out.
+    if (!next.monsters?.length && !next.pcs?.length) {
+      await dbi.packs.delete(HOMEBREW_PACK_ID)
+      return
+    }
+    await dbi.packs.put(next)
   })
 }
 
@@ -81,6 +89,26 @@ export async function moveHomebrewEntry(
     const moved = mergeHomebrew(pack, to, [entry])
     return { ...moved, [from]: (moved[from] ?? []).filter((sb) => sb.id !== id) }
   })
+}
+
+/**
+ * The Homebrew pack rewritten as an importable content pack.
+ *
+ * The packId has to change: `homebrew` is reserved, so a file carrying it would
+ * be refused on import — including by the person you shared it with, whose own
+ * Homebrew pack it must not become. Empty sections are dropped so the result
+ * reads like a pack the build script would produce.
+ */
+export function homebrewAsShareablePack(pack: ContentPack, now = new Date()): ContentPack {
+  const date = now.toISOString().slice(0, 10)
+  const shared: ContentPack = {
+    packId: `homebrew-${date}`,
+    name: `Homebrew (${date})`,
+    version: pack.version,
+  }
+  if (pack.monsters?.length) shared.monsters = pack.monsters
+  if (pack.pcs?.length) shared.pcs = pack.pcs
+  return shared
 }
 
 /** How much the user has authored. Drives the backup reminder. */
