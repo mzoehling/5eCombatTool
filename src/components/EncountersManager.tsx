@@ -68,64 +68,73 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Encounters" onClose={onClose}>
-      <div className="inline-form">
-        <input
-          placeholder="Name (e.g. Goblin Ambush, Party)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && save()}
-        />
-        <button
-          type="button"
-          className="ok icon-label"
-          disabled={!name.trim() || state.combatants.length === 0}
-          title="Save the current tracker under this name"
-          onClick={save}
-        >
-          <Icon path={mdiContentSave} /> Save current
-        </button>
-        <button
-          type="button"
-          className="danger icon-label"
-          disabled={state.combatants.length === 0}
-          title="Remove all combatants and the combat log from the tracker"
-          onClick={clear}
-        >
-          <Icon path={mdiTrashCanOutline} /> Clear
-        </button>
+    <Modal title="Encounters" className="modal-split" onClose={onClose}>
+      {/* Fixed band: the save form and its outcome stay put while the list scrolls. */}
+      <div className="modal-controls">
+        <div className="inline-form">
+          <input
+            placeholder="Name (e.g. Goblin Ambush, Party)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && save()}
+          />
+          <button
+            type="button"
+            className="ok icon-label"
+            disabled={!name.trim() || state.combatants.length === 0}
+            title="Save the current tracker under this name"
+            onClick={save}
+          >
+            <Icon path={mdiContentSave} /> Save current
+          </button>
+          <button
+            type="button"
+            className="danger icon-label"
+            disabled={state.combatants.length === 0}
+            title="Remove all combatants and the combat log from the tracker"
+            onClick={clear}
+          >
+            <Icon path={mdiTrashCanOutline} /> Clear
+          </button>
+        </div>
+        {message && <p className="ok-text">{message}</p>}
       </div>
 
-      <ul className="group-list">
-        {encounters.map((e) => (
-          <li key={e.id}>
-            <span className="result-main">
-              <span className="result-name">{e.name}</span>
-              <span className="result-meta dim">
-                {e.combatants.length} combatants
-                {e.combatants.some((c) => c.isPC) && ` (${e.combatants.filter((c) => c.isPC).length} PCs)`} ·{' '}
-                {new Date(e.updatedAt).toLocaleDateString()}
+      <div className="modal-scroll">
+        <ul className="group-list">
+          {encounters.map((e) => (
+            <li key={e.id}>
+              <span className="result-main">
+                <span className="result-name">{e.name}</span>
+                <span className="result-meta dim">
+                  {e.combatants.length} combatants
+                  {e.combatants.some((c) => c.isPC) && ` (${e.combatants.filter((c) => c.isPC).length} PCs)`} ·{' '}
+                  {new Date(e.updatedAt).toLocaleDateString()}
+                </span>
               </span>
-            </span>
-            <button type="button" className="icon-label" title="Replace the tracker with this encounter" onClick={() => load(e)}>
-              <Icon path={mdiSwapHorizontal} /> Load
-            </button>
-            <button type="button" className="icon-label" title="Merge into the current tracker" onClick={() => add(e)}>
-              <Icon path={mdiPlus} /> Add
-            </button>
-            <button type="button" className="ghost" aria-label={`Delete ${e.name}`} onClick={() => remove(e)}>
-              <Icon path={mdiDelete} />
-            </button>
-          </li>
-        ))}
-        {encounters.length === 0 && (
-          <li className="dim">
-            No saved encounters yet. Build a fight (or just your party) in the tracker, then save it here for later.
-          </li>
-        )}
-      </ul>
-
-      {message && <p className="ok-text">{message}</p>}
+              <button
+                type="button"
+                className="icon-label"
+                title="Replace the tracker with this encounter"
+                onClick={() => load(e)}
+              >
+                <Icon path={mdiSwapHorizontal} /> Load
+              </button>
+              <button type="button" className="icon-label" title="Merge into the current tracker" onClick={() => add(e)}>
+                <Icon path={mdiPlus} /> Add
+              </button>
+              <button type="button" className="ghost" aria-label={`Delete ${e.name}`} onClick={() => remove(e)}>
+                <Icon path={mdiDelete} />
+              </button>
+            </li>
+          ))}
+          {encounters.length === 0 && (
+            <li className="dim">
+              No saved encounters yet. Build a fight (or just your party) in the tracker, then save it here for later.
+            </li>
+          )}
+        </ul>
+      </div>
     </Modal>
   )
 }

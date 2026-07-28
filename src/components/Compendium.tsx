@@ -152,7 +152,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   return (
     <Modal title="Compendium" className="modal-wide modal-split" onClose={onClose}>
       {/* Fixed band: tabs and filters stay put while only the results scroll. */}
-      <div className="compendium-controls">
+      <div className="modal-controls">
         <div className="sb-tabs">
           {(['monsters', 'spells', 'items', 'rules'] as const).map((t) => (
             <button key={t} type="button" className={tab === t ? 'primary' : ''} onClick={() => setTab(t)}>
@@ -215,7 +215,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
         </div>
       </div>
 
-      <div className="compendium-results">
+      <div className="modal-scroll">
         {!data && <p className="dim">Loading compendium…</p>}
 
         {tab === 'monsters' && (

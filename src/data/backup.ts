@@ -88,8 +88,23 @@ export async function importBackup(json: string, dbi: CombatDb = db): Promise<Im
   return { homebrew: homebrew.length, packs: packs.length, encounters: encounters.length, battleRestored }
 }
 
+/** Meta row set when the user opts out of the backup reminder for good. */
+const BACKUP_REMINDER_OFF_KEY = 'backupReminderOff'
+
+/** True when the user turned the backup reminder off (banner "Ignore", or the
+ *  matching checkbox in Settings — both write this one row). */
+export async function isBackupReminderOff(dbi: CombatDb = db): Promise<boolean> {
+  return (await dbi.meta.get(BACKUP_REMINDER_OFF_KEY)) !== undefined
+}
+
+export async function setBackupReminderOff(off: boolean, dbi: CombatDb = db): Promise<void> {
+  if (off) await dbi.meta.put({ key: BACKUP_REMINDER_OFF_KEY, value: '1' })
+  else await dbi.meta.delete(BACKUP_REMINDER_OFF_KEY)
+}
+
 /** True when homebrew exists and the last export is missing or older than 14 days. */
 export async function needsBackupReminder(dbi: CombatDb = db, now = Date.now()): Promise<boolean> {
+  if (await isBackupReminderOff(dbi)) return false
   const count = await dbi.homebrew.count()
   if (count === 0) return false
   const last = await dbi.meta.get('lastBackupExport')
