@@ -52,8 +52,20 @@ describe('itemPrice', () => {
     expect(itemPrice(item({ rarity: ' rare ' }))?.derivedCp).toBe(4_000_00)
   })
 
-  it('has no price for artifacts', () => {
-    expect(itemPrice(item({ rarity: 'artifact' }))).toBeUndefined()
+  it('treats legendary items and artifacts as priceless', () => {
+    expect(itemPrice(item({ rarity: 'legendary' }))?.priceless).toBe(true)
+    expect(itemPrice(item({ rarity: 'artifact' }))?.priceless).toBe(true)
+  })
+
+  it('still prices legendary consumables — a level 9 scroll is bought and sold', () => {
+    const scroll = itemPrice(item({ rarity: 'legendary', typeName: 'Scroll' }))
+    expect(scroll?.priceless).toBeUndefined()
+    expect(scroll?.derivedCp).toBe(100_000_00)
+    expect(itemPrice(item({ rarity: 'legendary', typeName: 'Potion' }))?.priceless).toBeUndefined()
+  })
+
+  it('never calls an item priceless when the source prints a number', () => {
+    expect(itemPrice(item({ rarity: 'legendary', valueCp: 1234 }))?.priceless).toBeUndefined()
   })
 
   it('has no price for an unpriced item with no usable rarity', () => {
@@ -95,8 +107,13 @@ describe('itemPriceShort', () => {
     expect(itemPriceShort(item({ rarity: 'uncommon' }))).toBe('≈ 400 GP')
   })
 
-  it('is undefined when the item has no price', () => {
-    expect(itemPriceShort(item({ rarity: 'artifact' }))).toBeUndefined()
+  it('says Priceless instead of a number for legendary items and artifacts', () => {
+    expect(itemPriceShort(item({ rarity: 'legendary' }))).toBe('Priceless')
+    expect(itemPriceShort(item({ rarity: 'artifact' }))).toBe('Priceless')
+  })
+
+  it('is undefined when the item has no price at all', () => {
+    expect(itemPriceShort(item())).toBeUndefined()
   })
 })
 
@@ -109,8 +126,16 @@ describe('itemPriceSortValue', () => {
     expect(itemPriceSortValue(item({ rarity: 'rare' }))).toBe(4_000_00)
   })
 
-  it('is undefined for an unpriced item, so it can sort last', () => {
-    expect(itemPriceSortValue(item({ rarity: 'artifact' }))).toBeUndefined()
+  it('ranks priceless items at the top rather than dropping them to the bottom', () => {
+    const legendary = itemPriceSortValue(item({ rarity: 'legendary' }))!
+    const veryRare = itemPriceSortValue(item({ rarity: 'very rare' }))!
+    const artifact = itemPriceSortValue(item({ rarity: 'artifact' }))!
+    expect(veryRare).toBeLessThan(legendary)
+    expect(legendary).toBeLessThan(artifact)
+  })
+
+  it('is undefined for an item with no price, so it can sort last', () => {
+    expect(itemPriceSortValue(item())).toBeUndefined()
   })
 })
 
@@ -130,14 +155,18 @@ describe('itemStatsLine', () => {
     expect(itemStatsLine(item({ rarity: 'uncommon' }))).toBe('Price: ≈ 400 GP (estimated from rarity)')
   })
 
+  it('says Priceless rather than quoting the rarity table', () => {
+    expect(itemStatsLine(item({ rarity: 'legendary' }))).toBe('Price: Priceless')
+    expect(itemStatsLine(item({ rarity: 'artifact', weight: 6 }))).toBe('Price: Priceless · Weight: 6 lb.')
+  })
+
   it('includes weight, and works with weight alone', () => {
     expect(itemStatsLine(item({ valueCp: 2500, weight: 1 }))).toBe('Price: 25 GP · Weight: 1 lb.')
-    expect(itemStatsLine(item({ rarity: 'artifact', weight: 6 }))).toBe('Weight: 6 lb.')
+    expect(itemStatsLine(item({ weight: 6 }))).toBe('Weight: 6 lb.')
   })
 
   it('is undefined when there is nothing to report', () => {
     expect(itemStatsLine(item())).toBeUndefined()
-    expect(itemStatsLine(item({ rarity: 'artifact' }))).toBeUndefined()
   })
 
   it('keeps fractional weights readable', () => {

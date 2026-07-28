@@ -21,11 +21,25 @@ const RARITY_GP: Record<string, number> = {
  */
 const CONSUMABLE_TYPES = new Set(['Potion', 'Scroll'])
 
+/**
+ * Rarities whose items are treasure rather than stock: they are not something a
+ * shop prices up, so they read as priceless instead of carrying a number.
+ *
+ * Consumables are excluded even at these rarities — a Spell Scroll (Level 9) is
+ * still a thing you buy, craft or sell, and pricing it is the point.
+ */
+const PRICELESS_RARITIES = new Set(['legendary', 'artifact'])
+
+/** How a priceless item is rendered wherever a price would go. */
+export const PRICELESS_LABEL = 'Priceless'
+
 export interface ItemPrice {
   /** Price printed in the source, in copper pieces. */
   listedCp?: number
   /** Price derived from rarity, in copper pieces. */
   derivedCp?: number
+  /** Beyond a market price — show PRICELESS_LABEL rather than coins. */
+  priceless?: boolean
 }
 
 /** The subset of an item pricing depends on, so callers can pass a literal. */
@@ -46,11 +60,19 @@ export function itemPrice(item: Priceable): ItemPrice | undefined {
   if (valueCp != null && Number.isFinite(valueCp) && valueCp > 0) price.listedCp = valueCp
   // Note: the compendium's rarity filter substitutes a synthetic "mundane" for
   // items with no rarity. That value is a UI label and never reaches here.
-  const gp = RARITY_GP[item.rarity?.trim().toLowerCase() ?? '']
-  if (gp !== undefined) {
-    price.derivedCp = (CONSUMABLE_TYPES.has(item.typeName) ? gp / 2 : gp) * 100
+  const rarity = item.rarity?.trim().toLowerCase() ?? ''
+  const consumable = CONSUMABLE_TYPES.has(item.typeName)
+  const gp = RARITY_GP[rarity]
+  // Kept even for priceless items: it is what orders them against the rest of
+  // the list when sorting by price. Only the display suppresses it.
+  if (gp !== undefined) price.derivedCp = (consumable ? gp / 2 : gp) * 100
+  // A price printed in the source always wins — nothing a book puts a number on
+  // is priceless.
+  if (price.listedCp === undefined && !consumable && PRICELESS_RARITIES.has(rarity)) {
+    price.priceless = true
   }
-  return price.listedCp === undefined && price.derivedCp === undefined ? undefined : price
+  const empty = price.listedCp === undefined && price.derivedCp === undefined && !price.priceless
+  return empty ? undefined : price
 }
 
 /** 1234567 -> "1,234,567". Hand-rolled: toLocaleString would follow the device
@@ -78,13 +100,23 @@ export function itemPriceShort(item: Priceable): string | undefined {
   const price = itemPrice(item)
   if (!price) return undefined
   if (price.listedCp !== undefined) return formatCoins(price.listedCp)
+  if (price.priceless) return PRICELESS_LABEL
   return `≈ ${formatCoins(price.derivedCp!)}`
 }
 
-/** What to order an item by when sorting on price. Undefined items sort last. */
+/**
+ * What to order an item by when sorting on price. Unpriced items sort last.
+ *
+ * Priceless items still sort by what their rarity implies, so they land at the
+ * top of a priciest-first list where they belong rather than falling off the
+ * end — an artifact outranks everything, having no rarity price at all.
+ */
 export function itemPriceSortValue(item: Priceable): number | undefined {
   const price = itemPrice(item)
-  return price && (price.listedCp ?? price.derivedCp)
+  if (!price) return undefined
+  if (price.listedCp !== undefined) return price.listedCp
+  if (price.derivedCp !== undefined) return price.derivedCp
+  return price.priceless ? Infinity : undefined
 }
 
 /** "1 lb." — items are weighed in pounds, whole or fractional. */
@@ -108,6 +140,8 @@ export function itemStatsLine(item: Priceable & Pick<Item, 'weight'>): string | 
     if (price.derivedCp !== undefined && price.derivedCp !== price.listedCp) {
       parts.push(`rarity estimate ≈ ${formatCoins(price.derivedCp)}`)
     }
+  } else if (price?.priceless) {
+    parts.push(`Price: ${PRICELESS_LABEL}`)
   } else if (price?.derivedCp !== undefined) {
     parts.push(`Price: ≈ ${formatCoins(price.derivedCp)} (estimated from rarity)`)
   }
