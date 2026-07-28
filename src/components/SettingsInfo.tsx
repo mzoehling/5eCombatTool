@@ -1,7 +1,15 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useRef, useState } from 'react'
 import { db } from '../db'
-import { BACKUP_REMINDER_DAYS, isBackupReminderOff, setBackupReminderOff } from '../data/backup'
+import {
+  BACKUP_REMINDER_DAYS,
+  exportBackup,
+  importBackup,
+  isBackupReminderOff,
+  setBackupReminderOff,
+} from '../data/backup'
 import { clearCacheAndReload } from '../data/clearCache'
+import { battleStore } from '../store/battleStore'
 import { Modal } from './Modal'
 
 const REPO_URL = 'https://github.com/mzoehling/5eCombatTool'
@@ -9,6 +17,35 @@ const REPO_URL = 'https://github.com/mzoehling/5eCombatTool'
 export function SettingsInfo({ onClose }: { onClose: () => void }) {
   const srdVersion = useLiveQuery(() => db.meta.get('srdDataVersion'), [])
   const reminderOff = useLiveQuery(() => isBackupReminderOff(), [], false)
+  const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const doExport = async () => {
+    const json = await exportBackup()
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `5eCombatTool-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    setMessage({ text: 'Backup exported.' })
+  }
+
+  const doImport = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      const summary = await importBackup(await file.text())
+      if (summary.battleRestored) await battleStore.hydrate()
+      const parts = [`${summary.homebrew} homebrew entries`]
+      if (summary.packs) parts.push(`${summary.packs} packs`)
+      if (summary.encounters) parts.push(`${summary.encounters} encounters`)
+      if (summary.battleRestored) parts.push('the saved battle')
+      setMessage({ text: `Imported ${parts.join(', ')}.` })
+    } catch (err) {
+      setMessage({ text: err instanceof Error ? err.message : String(err), error: true })
+    }
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
   const clearCache = () => {
     if (!confirm("Clear the app's cached data and reload? Your homebrew, packs and encounters are kept.")) return
@@ -29,6 +66,26 @@ export function SettingsInfo({ onClose }: { onClose: () => void }) {
       </section>
       <section>
         <h3>Backups</h3>
+        <p className="dim">
+          A backup holds your homebrew, imported packs, saved encounters and the current battle. Importing merges
+          into what you already have; a running battle is never replaced.
+        </p>
+        <div className="modal-actions">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => doImport(e.target.files?.[0])}
+          />
+          <button type="button" onClick={() => fileRef.current?.click()}>
+            Import backup…
+          </button>
+          <button type="button" onClick={doExport}>
+            Export backup
+          </button>
+        </div>
+        {message && <p className={message.error ? 'error-text' : 'ok-text'}>{message.text}</p>}
         <label className="check">
           <input
             type="checkbox"

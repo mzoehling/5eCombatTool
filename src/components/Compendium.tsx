@@ -380,8 +380,10 @@ function MonsterRow({
         <span className="result-name">
           {sb.name} <OriginBadge origin={origin} />
         </span>
+        {/* CR is a monster's threat rating and says nothing about a PC. */}
         <span className="result-meta dim">
-          CR {sb.cr ?? '—'} · {sb.type} · AC {sb.ac} · HP {sb.hp.average} · {sourceLabel(sb.source, sb.page)}
+          {!isPC && `CR ${sb.cr ?? '—'} · `}
+          {sb.type} · AC {sb.ac} · HP {sb.hp.average} · {sourceLabel(sb.source, sb.page)}
         </span>
       </button>
       <span className="stepper">
