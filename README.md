@@ -12,8 +12,8 @@ Install to the home screen on iPadOS: open the URL in Safari → Share → **Add
 - HP / AC tracking: temp HP, arithmetic input ("10+3"), HP-ratio colors, multi-select AoE damage/heal
 - Conditions: full 2024 condition set + concentration + exhaustion, with optional round durations that tick down automatically; turn-start automation surfaces expiry and concentration-break prompts
 - Statblocks in the 2024 layout with limited-use tracking (X/Day, recharge, legendary actions) and interactive links to referenced spells/items/creatures/rules
-- Compendium: bundled SRD 5.2 content (monsters, spells, items, rules glossary) with fuzzy search and filters; import of external content packs (JSON)
-- Homebrew editor for custom monsters and lightweight PC entries, with JSON backup export/import
+- Compendium: bundled SRD 5.2 content (monsters, spells, items, rules glossary) with fuzzy search and filters; item prices, derived from rarity and marked with "≈" where the source prints none; a PC tab that appears once any content pack holds player characters and lists them all, whichever pack they came from
+- Content: one place for the built-in Homebrew pack — custom monsters and lightweight PC entries, edited in the app — and imported content packs (JSON). Backup export/import lives in Settings
 - Encounter library: save the current tracker as a named encounter, load or merge it back in later, or clear the tracker in one step
 - Dice roller: free-form expressions and tappable to-hit/damage buttons from statblocks, ADV/DIS/CRIT, apply rolled totals straight to combatants
 - Undo and a persistent combat log
