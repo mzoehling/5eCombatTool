@@ -1,9 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <rect width="100" height="100" rx="20" fill="#16161e"/>
+  <!-- A d20 seen face-on: the number's face in the middle, ringed by nine more.
+       The apex of the middle face meets the two upper corners, so the edges
+       14,29–50,26–86,29 draw the horizontal line above the number. Faces are
+       shaded as if lit from above: the top row catches the light, the bottom
+       row falls away. -->
+  <g fill="#7aa2f7">
+    <polygon points="50,8 14,29 50,26" fill-opacity="0.18"/>
+    <polygon points="50,8 86,29 50,26" fill-opacity="0.14"/>
+    <polygon points="14,29 26,62 50,26" fill-opacity="0.10"/>
+    <polygon points="86,29 74,62 50,26" fill-opacity="0.07"/>
+    <polygon points="14,29 14,71 26,62" fill-opacity="0.07"/>
+    <polygon points="86,29 86,71 74,62" fill-opacity="0.05"/>
+    <polygon points="14,71 50,92 26,62" fill-opacity="0.04"/>
+    <polygon points="86,71 50,92 74,62" fill-opacity="0.03"/>
+    <polygon points="26,62 74,62 50,92" fill-opacity="0.02"/>
+    <!-- The number's face, brightest so it reads first. -->
+    <polygon points="50,26 74,62 26,62" fill-opacity="0.25"/>
+  </g>
   <g stroke="#7aa2f7" stroke-width="3" stroke-linejoin="round" fill="none">
     <polygon points="50,8 86,29 86,71 50,92 14,71 14,29"/>
-    <polygon points="50,26 74,62 26,62" fill="#7aa2f7" fill-opacity="0.25"/>
-    <path d="M50,8 L50,26 M86,29 L74,62 M14,29 L26,62 M50,92 L74,62 M50,92 L26,62 M86,71 L74,62 M14,71 L26,62 M50,8 L86,29 M50,8 L14,29"/>
+    <polygon points="50,26 74,62 26,62"/>
+    <path d="M50,8 L50,26 M50,26 L14,29 M50,26 L86,29 M86,29 L74,62 M14,29 L26,62 M50,92 L74,62 M50,92 L26,62 M86,71 L74,62 M14,71 L26,62"/>
   </g>
   <text x="50" y="55" font-family="Georgia, serif" font-size="20" font-weight="bold" fill="#c0caf5" text-anchor="middle">20</text>
 </svg>
