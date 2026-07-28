@@ -127,40 +127,45 @@ function GeneralTab({ sb, actions, origin }: { sb: Statblock; actions: TextActio
           {sb.speed.map((s) => `${s.mode === 'walk' ? '' : `${s.mode} `}${s.value} ft.${s.condition ? ` ${s.condition}` : ''}`).join(', ') || '—'}
         </span>
       </div>
-      <table className="sb-abilities">
-        <thead>
-          <tr>
-            <th />
-            {ABILITIES.map((a) => (
-              <th key={a}>{a.toUpperCase()}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th>Score</th>
-            {ABILITIES.map((a) => (
-              <td key={a}>{sb.abilities[a]}</td>
-            ))}
-          </tr>
-          <tr>
-            <th>Mod</th>
-            {ABILITIES.map((a) => (
-              <td key={a}>
-                <D20Link bonus={abilityMod(sb.abilities[a])} onDice={actions.onDice} />
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <th>Save</th>
-            {ABILITIES.map((a) => (
-              <td key={a}>
-                <D20Link bonus={sb.saves[a] ?? abilityMod(sb.abilities[a])} onDice={actions.onDice} />
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
+      {/* Scrolls itself rather than the pane: the six ability columns have a
+          floor below which they cannot shrink, and a homebrew monster or a
+          larger system font can push past even a full-width pane. */}
+      <div className="sb-abilities-scroll">
+        <table className="sb-abilities">
+          <thead>
+            <tr>
+              <th />
+              {ABILITIES.map((a) => (
+                <th key={a}>{a.toUpperCase()}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Score</th>
+              {ABILITIES.map((a) => (
+                <td key={a}>{sb.abilities[a]}</td>
+              ))}
+            </tr>
+            <tr>
+              <th>Mod</th>
+              {ABILITIES.map((a) => (
+                <td key={a}>
+                  <D20Link bonus={abilityMod(sb.abilities[a])} onDice={actions.onDice} />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <th>Save</th>
+              {ABILITIES.map((a) => (
+                <td key={a}>
+                  <D20Link bonus={sb.saves[a] ?? abilityMod(sb.abilities[a])} onDice={actions.onDice} />
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <dl className="sb-details">
         {Object.keys(sb.skills).length > 0 && (
           <>

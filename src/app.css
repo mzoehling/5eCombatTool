@@ -739,16 +739,27 @@ label.check {
   margin-bottom: 0.8rem;
 }
 
+/* Last resort if the table still cannot fit — it scrolls here rather than
+   pushing the statblock pane, which would clip the last ability column. */
+.sb-abilities-scroll {
+  overflow-x: auto;
+}
+
 .sb-abilities {
   border-collapse: collapse;
   width: 100%;
   margin-bottom: 0.8rem;
 }
 
+/* The horizontal padding is what sets this table's minimum width, and seven
+   columns of it did not fit the statblock pane on an iPad in portrait — the
+   last column ended up clipped. Since the table is width:100%, a narrower
+   padding only lowers that floor: on a wide pane the cells still stretch to
+   fill, so nothing changes there. */
 .sb-abilities th,
 .sb-abilities td {
   border: 1px solid var(--border);
-  padding: 0.3rem 0.4rem;
+  padding: 0.3rem 0.2rem;
   text-align: center;
   font-size: 0.9rem;
 }
