@@ -32,44 +32,48 @@ export function PacksManager({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Content packs" onClose={onClose}>
-      <ul className="group-list">
-        {packs.map((pack) => (
-          <li key={pack.packId}>
-            <span className="dim-wrap">
-              <b>{pack.name}</b>{' '}
-              <span className="dim">
-                v{pack.version} · {pack.monsters?.length ?? 0}M / {pack.spells?.length ?? 0}S /{' '}
-                {pack.items?.length ?? 0}I
+    <Modal title="Content packs" className="modal-split" onClose={onClose}>
+      {/* Fixed band: the import action and its outcome stay put while the list scrolls. */}
+      <div className="modal-controls">
+        <div className="modal-actions">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => onFile(e.target.files?.[0])}
+          />
+          <button type="button" className="primary" onClick={() => fileRef.current?.click()}>
+            Import pack (JSON)…
+          </button>
+        </div>
+        {error && <p className="error-text">{error}</p>}
+        {notice && <p className="ok-text">{notice}</p>}
+      </div>
+
+      <div className="modal-scroll">
+        <ul className="group-list">
+          {packs.map((pack) => (
+            <li key={pack.packId}>
+              <span className="dim-wrap">
+                <b>{pack.name}</b>{' '}
+                <span className="dim">
+                  v{pack.version} · {pack.monsters?.length ?? 0}M / {pack.spells?.length ?? 0}S /{' '}
+                  {pack.items?.length ?? 0}I
+                </span>
               </span>
-            </span>
-            <button
-              type="button"
-              className="ghost"
-              aria-label={`Remove pack ${pack.name}`}
-              onClick={() => removePack(pack.packId)}
-            >
-              <Icon path={mdiDelete} />
-            </button>
-          </li>
-        ))}
-        {packs.length === 0 && <li className="dim">No content packs imported.</li>}
-      </ul>
-
-      {error && <p className="error-text">{error}</p>}
-      {notice && <p className="ok-text">{notice}</p>}
-
-      <div className="modal-actions">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(e) => onFile(e.target.files?.[0])}
-        />
-        <button type="button" className="primary" onClick={() => fileRef.current?.click()}>
-          Import pack (JSON)…
-        </button>
+              <button
+                type="button"
+                className="ghost"
+                aria-label={`Remove pack ${pack.name}`}
+                onClick={() => removePack(pack.packId)}
+              >
+                <Icon path={mdiDelete} />
+              </button>
+            </li>
+          ))}
+          {packs.length === 0 && <li className="dim">No content packs imported.</li>}
+        </ul>
       </div>
     </Modal>
   )

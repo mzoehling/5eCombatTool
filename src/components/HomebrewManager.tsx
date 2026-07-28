@@ -62,61 +62,72 @@ export function HomebrewManager({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Homebrew & PCs" onClose={onClose}>
-      <ul className="group-list">
-        {entries.map((entry) => (
-          <li key={entry.id}>
-            <button type="button" className="result-main" onClick={() => setEditor({ kind: entry.kind, existing: entry })}>
-              <span className="result-name">
-                {entry.statblock.name}
-                <span className={`badge ${entry.kind === 'pc' ? 'pc' : 'hb'}`}>{entry.kind === 'pc' ? 'PC' : 'HB'}</span>
-              </span>
-              <span className="result-meta dim">
-                AC {entry.statblock.ac} · HP {entry.statblock.hp.average}
-                {entry.statblock.cr && ` · CR ${entry.statblock.cr}`}
-              </span>
-            </button>
-            <button type="button" className="icon-label" onClick={() => addToBattle(entry)}>
-              <Icon path={mdiPlus} /> Battle
-            </button>
-            <button
-              type="button"
-              className="ghost"
-              aria-label={`Delete ${entry.statblock.name}`}
-              onClick={() => {
-                if (confirm(`Delete "${entry.statblock.name}"?`)) db.homebrew.delete(entry.id)
-              }}
-            >
-              <Icon path={mdiDelete} />
-            </button>
-          </li>
-        ))}
-        {entries.length === 0 && <li className="dim">No homebrew entries yet.</li>}
-      </ul>
-      {message && <p className={message.error ? 'error-text' : 'ok-text'}>{message.text}</p>}
-
-      <div className="modal-actions">
-        <button type="button" className="icon-label" onClick={() => setEditor({ kind: 'pc' })}>
-          <Icon path={mdiPlus} /> New PC
-        </button>
-        <button type="button" className="primary icon-label" onClick={() => setEditor({ kind: 'monster' })}>
-          <Icon path={mdiPlus} /> New monster
-        </button>
+    <Modal title="Homebrew & PCs" className="modal-split" onClose={onClose}>
+      {/* Fixed band: the actions and their outcome stay put while the list scrolls. */}
+      <div className="modal-controls">
+        <div className="modal-actions">
+          <button type="button" className="primary icon-label" onClick={() => setEditor({ kind: 'pc' })}>
+            <Icon path={mdiPlus} /> New PC
+          </button>
+          <button type="button" className="primary icon-label" onClick={() => setEditor({ kind: 'monster' })}>
+            <Icon path={mdiPlus} /> New monster
+          </button>
+        </div>
+        <div className="modal-actions">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(e) => doImport(e.target.files?.[0])}
+          />
+          <button type="button" onClick={() => fileRef.current?.click()}>
+            Import backup…
+          </button>
+          <button type="button" onClick={doExport}>
+            Export backup
+          </button>
+        </div>
+        {message && <p className={message.error ? 'error-text' : 'ok-text'}>{message.text}</p>}
       </div>
-      <div className="modal-actions">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(e) => doImport(e.target.files?.[0])}
-        />
-        <button type="button" onClick={() => fileRef.current?.click()}>
-          Import backup…
-        </button>
-        <button type="button" onClick={doExport}>
-          Export backup
-        </button>
+
+      <div className="modal-scroll">
+        <ul className="group-list">
+          {entries.map((entry) => (
+            <li key={entry.id}>
+              <button
+                type="button"
+                className="result-main"
+                onClick={() => setEditor({ kind: entry.kind, existing: entry })}
+              >
+                <span className="result-name">
+                  {entry.statblock.name}
+                  <span className={`badge ${entry.kind === 'pc' ? 'pc' : 'hb'}`}>
+                    {entry.kind === 'pc' ? 'PC' : 'HB'}
+                  </span>
+                </span>
+                <span className="result-meta dim">
+                  AC {entry.statblock.ac} · HP {entry.statblock.hp.average}
+                  {entry.statblock.cr && ` · CR ${entry.statblock.cr}`}
+                </span>
+              </button>
+              <button type="button" className="icon-label" onClick={() => addToBattle(entry)}>
+                <Icon path={mdiPlus} /> Battle
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                aria-label={`Delete ${entry.statblock.name}`}
+                onClick={() => {
+                  if (confirm(`Delete "${entry.statblock.name}"?`)) db.homebrew.delete(entry.id)
+                }}
+              >
+                <Icon path={mdiDelete} />
+              </button>
+            </li>
+          ))}
+          {entries.length === 0 && <li className="dim">No homebrew entries yet.</li>}
+        </ul>
       </div>
     </Modal>
   )

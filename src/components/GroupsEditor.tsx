@@ -21,52 +21,63 @@ export function GroupsEditor({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Groups" onClose={onClose}>
-      <ul className="group-list">
-        {battle.groups.map((g) => {
-          const members = combatants.filter((c) => c.groupId === g.id).length
-          return (
-            <li key={g.id}>
-              <input
-                type="color"
-                className="group-color"
-                value={g.color ?? DEFAULT_COLOR}
-                aria-label={`Color for group ${g.name}`}
-                onChange={(e) => dispatch({ type: 'updateGroup', id: g.id, patch: { color: e.target.value } })}
-              />
-              <label className="check">
+    <Modal title="Groups" className="modal-split" onClose={onClose}>
+      {/* Fixed band: the add form stays put while the list scrolls. */}
+      <div className="modal-controls">
+        <div className="inline-form">
+          <input
+            type="color"
+            className="group-color"
+            value={color}
+            aria-label="Color for new group"
+            onChange={(e) => setColor(e.target.value)}
+          />
+          <input
+            placeholder="New group name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+          />
+          <button type="button" className="primary" onClick={add}>
+            Add
+          </button>
+        </div>
+      </div>
+
+      <div className="modal-scroll">
+        <ul className="group-list">
+          {battle.groups.map((g) => {
+            const members = combatants.filter((c) => c.groupId === g.id).length
+            return (
+              <li key={g.id}>
                 <input
-                  type="checkbox"
-                  checked={g.inBattle}
-                  onChange={(e) => dispatch({ type: 'setGroupInBattle', id: g.id, inBattle: e.target.checked })}
+                  type="color"
+                  className="group-color"
+                  value={g.color ?? DEFAULT_COLOR}
+                  aria-label={`Color for group ${g.name}`}
+                  onChange={(e) => dispatch({ type: 'updateGroup', id: g.id, patch: { color: e.target.value } })}
                 />
-                {g.name} <span className="dim">({members} members, {g.inBattle ? 'in battle' : 'out'})</span>
-              </label>
-              <button type="button" className="ghost" aria-label={`Delete group ${g.name}`} onClick={() => dispatch({ type: 'removeGroup', id: g.id })}>
-                <Icon path={mdiDelete} />
-              </button>
-            </li>
-          )
-        })}
-        {battle.groups.length === 0 && <li className="dim">No groups yet.</li>}
-      </ul>
-      <div className="inline-form">
-        <input
-          type="color"
-          className="group-color"
-          value={color}
-          aria-label="Color for new group"
-          onChange={(e) => setColor(e.target.value)}
-        />
-        <input
-          placeholder="New group name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-        />
-        <button type="button" className="primary" onClick={add}>
-          Add
-        </button>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={g.inBattle}
+                    onChange={(e) => dispatch({ type: 'setGroupInBattle', id: g.id, inBattle: e.target.checked })}
+                  />
+                  {g.name} <span className="dim">({members} members, {g.inBattle ? 'in battle' : 'out'})</span>
+                </label>
+                <button
+                  type="button"
+                  className="ghost"
+                  aria-label={`Delete group ${g.name}`}
+                  onClick={() => dispatch({ type: 'removeGroup', id: g.id })}
+                >
+                  <Icon path={mdiDelete} />
+                </button>
+              </li>
+            )
+          })}
+          {battle.groups.length === 0 && <li className="dim">No groups yet.</li>}
+        </ul>
       </div>
     </Modal>
   )

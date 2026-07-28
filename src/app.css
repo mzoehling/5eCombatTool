@@ -376,6 +376,15 @@ button.ok {
   font-weight: 600;
 }
 
+/* Caution, not danger: a disruptive action that destroys nothing the user
+   authored (clearing the cache keeps homebrew, packs and encounters). */
+button.warn {
+  background: var(--warn);
+  border-color: var(--warn);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
 button.ghost {
   background: none;
   border: none;
@@ -415,7 +424,11 @@ select {
   grid-column: 1 / -1;
 }
 
+/* `display: flex` so the gap applies wherever the label is used — outside
+   .form-grid / .apply-list it is otherwise a plain inline label and the box
+   sits flush against its text. */
 label.check {
+  display: flex;
   flex-direction: row;
   align-items: center;
   gap: 0.5rem;
@@ -790,26 +803,12 @@ label.check {
 
 /* ---------- compendium ---------- */
 
-/* Tabs + filters stay put; only .compendium-results scrolls, so the search
-   box never scrolls out of reach. Requires the dialog's `modal-split` class. */
-.compendium-controls {
-  flex: none;
-}
-
-.compendium-results {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  /* bleed the scrollbar into the modal body padding so rows keep full width */
-  margin-right: -0.5rem;
-  padding-right: 0.5rem;
-}
-
+/* Tabs and filters sit in the shared .modal-controls band, so only the results
+   scroll and the search box never moves out of reach. */
 .compendium-filters {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  margin-bottom: 0.8rem;
 }
 
 .compendium-filters input[type='search'] {

@@ -40,6 +40,33 @@
   min-height: 0;
 }
 
+/* Fixed band above a scrolling pane. Pair with the dialog's `modal-split`
+   class: the band never moves, only `.modal-scroll` below it scrolls. */
+.modal-controls {
+  flex: none;
+  margin-bottom: 0.9rem;
+}
+
+/* The rows inside carry their own top margin; the band supplies the outer gap. */
+.modal-controls > :first-child {
+  margin-top: 0;
+}
+
+/* A lone primary button right-aligns via `.modal-actions .primary:only-child`,
+   which reads wrong above a list. */
+.modal-controls .modal-actions .primary:only-child {
+  margin-left: 0;
+}
+
+.modal-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* bleed the scrollbar into the modal body padding so rows keep full width */
+  margin-right: -0.5rem;
+  padding-right: 0.5rem;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -94,6 +121,15 @@
 .modal button.ok {
   background: var(--ok);
   border-color: var(--ok);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+/* Caution, not danger: a disruptive action that destroys nothing the user
+   authored (clearing the cache keeps homebrew, packs and encounters). */
+.modal button.warn {
+  background: var(--warn);
+  border-color: var(--warn);
   color: var(--on-accent);
   font-weight: 600;
 }

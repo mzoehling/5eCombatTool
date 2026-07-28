@@ -3,7 +3,13 @@ import { describe, expect, it } from 'vitest'
 import { CombatDb } from '../db'
 import { emptyForm, formToStatblock } from '../lib/homebrewForm'
 import type { HomebrewEntry } from '../types'
-import { exportBackup, importBackup, needsBackupReminder } from './backup'
+import {
+  exportBackup,
+  importBackup,
+  isBackupReminderOff,
+  needsBackupReminder,
+  setBackupReminderOff,
+} from './backup'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -133,6 +139,36 @@ describe('backup', () => {
       await exportBackup(dbi, now)
       expect(await needsBackupReminder(dbi, now + DAY)).toBe(false)
       expect(await needsBackupReminder(dbi, now + 15 * DAY)).toBe(true)
+    } finally {
+      await dbi.delete()
+    }
+  })
+
+  it('stays silent once the reminder is turned off, and returns when turned back on', async () => {
+    const dbi = new CombatDb(`test-${crypto.randomUUID()}`)
+    try {
+      await dbi.homebrew.put(makeEntry('Alpha'))
+      expect(await needsBackupReminder(dbi)).toBe(true)
+      expect(await isBackupReminderOff(dbi)).toBe(false)
+
+      await setBackupReminderOff(true, dbi)
+      expect(await isBackupReminderOff(dbi)).toBe(true)
+      expect(await needsBackupReminder(dbi)).toBe(false)
+
+      await setBackupReminderOff(false, dbi)
+      expect(await isBackupReminderOff(dbi)).toBe(false)
+      expect(await needsBackupReminder(dbi)).toBe(true)
+    } finally {
+      await dbi.delete()
+    }
+  })
+
+  it('keeps the opt-out out of the exported backup file', async () => {
+    const dbi = new CombatDb(`test-${crypto.randomUUID()}`)
+    try {
+      await dbi.homebrew.put(makeEntry('Alpha'))
+      await setBackupReminderOff(true, dbi)
+      expect(JSON.parse(await exportBackup(dbi))).not.toHaveProperty('meta')
     } finally {
       await dbi.delete()
     }
