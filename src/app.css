@@ -177,7 +177,16 @@
   max-width: 100%;
 }
 
+/* Pack badges carry the pack's own name, and a generated book pack is called
+   things like "Dungeon Master's Guide (2024)". Unconstrained, that wraps to
+   three lines on a phone and drags the whole page into horizontal scroll, so
+   the badge is capped and elided — OriginBadge puts the full name in a title. */
 .badge {
+  display: inline-block;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.7rem;
   padding: 0.1rem 0.4rem;
   border-radius: 6px;
@@ -193,14 +202,11 @@
    highlighting it. */
 .badge.srd { background: var(--bg-raised); color: var(--text-dim); }
 
-/* Item prices. Tabular figures keep the digits from jittering between rows;
-   an estimate derived from rarity is italicised so it reads differently from a
-   price actually printed in the source (it also carries a "≈" and a tooltip). */
+/* Item prices, shown in a list row only while it is sorted by price. Tabular
+   figures keep the digits from jittering between rows. */
 .price {
   font-variant-numeric: tabular-nums;
-}
-.price.est {
-  font-style: italic;
+  white-space: nowrap;
 }
 
 .row-conditions {

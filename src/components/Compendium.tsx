@@ -9,6 +9,7 @@ import {
   type Origin,
 } from '../data/compendium'
 import { sourceLabel } from '../lib/format'
+import { itemPriceShort, itemPriceSortValue, itemStatsLine } from '../lib/itemPrice'
 import { rankByName, stripPostfix, suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
@@ -18,7 +19,6 @@ import { CreatureInfo } from './CreatureInfo'
 import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
 import { ItemInfo } from './ItemInfo'
-import { ItemPrice } from './ItemPrice'
 import { Modal } from './Modal'
 import { RuleInfo } from './RuleInfo'
 import { SpellInfo } from './SpellInfo'
@@ -37,6 +37,15 @@ interface DetailActions {
 
 type Tab = 'monsters' | 'pcs' | 'spells' | 'items' | 'rules'
 
+/** Items list order. "name" is the fuzzy-search ranking used by every tab. */
+type ItemSort = 'name' | 'priceAsc' | 'priceDesc'
+
+const ITEM_SORTS: { id: ItemSort; label: string }[] = [
+  { id: 'name', label: 'By name' },
+  { id: 'priceAsc', label: 'Cheapest first' },
+  { id: 'priceDesc', label: 'Priciest first' },
+]
+
 const CR_BUCKETS: { label: string; min: number; max: number }[] = [
   { label: 'Any CR', min: -1, max: 99 },
   { label: 'CR 0–1', min: 0, max: 1 },
@@ -49,7 +58,13 @@ const CR_BUCKETS: { label: string; min: number; max: number }[] = [
 /** Provenance next to the name. The meta line carries the book citation, which
  *  reads the same for SRD and for a pack — this is what distinguishes them. */
 function OriginBadge({ origin }: { origin: Origin }) {
-  return <span className={`badge ${originBadgeClass(origin)}`}>{originBadgeLabel(origin)}</span>
+  const label = originBadgeLabel(origin)
+  // The badge elides a long pack name; the title keeps it readable.
+  return (
+    <span className={`badge ${originBadgeClass(origin)}`} title={label}>
+      {label}
+    </span>
+  )
 }
 
 export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void; initialQuery?: string }) {
@@ -61,6 +76,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   const [school, setSchool] = useState('')
   const [itemType, setItemType] = useState('')
   const [rarity, setRarity] = useState('')
+  const [itemSort, setItemSort] = useState<ItemSort>('name')
   // isPC travels with the previewed entry: the preview's "Add to battle" needs
   // it, and the entry alone no longer says which section it came from.
   const [preview, setPreview] = useState<{ entry: CompendiumEntry<Statblock>; isPC: boolean } | null>(null)
@@ -105,8 +121,22 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
       ({ entry }) =>
         (!itemType || entry.typeName === itemType) && (!rarity || (entry.rarity ?? 'mundane') === rarity),
     )
-    return rankByName(filtered, query, (i) => i.entry.name).slice(0, 100)
-  }, [data, query, itemType, rarity])
+    const ranked = rankByName(filtered, query, (i) => i.entry.name)
+    if (itemSort === 'name') return ranked.slice(0, 100)
+    // Sort before capping, so "cheapest 100" is the cheapest overall and not
+    // whichever 100 the name ranking happened to surface first. Unpriced items
+    // (artifacts) sort last either way — they have no place on a price list.
+    const dir = itemSort === 'priceAsc' ? 1 : -1
+    return [...ranked]
+      .sort((a, b) => {
+        const av = itemPriceSortValue(a.entry)
+        const bv = itemPriceSortValue(b.entry)
+        if (av === undefined) return bv === undefined ? 0 : 1
+        if (bv === undefined) return -1
+        return (av - bv) * dir
+      })
+      .slice(0, 100)
+  }, [data, query, itemType, rarity, itemSort])
 
   // PCs have no CR, level or rarity to filter on — the search box is the whole
   // filter row. The list is deliberately not grouped or filtered by pack: PCs
@@ -246,6 +276,13 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
                   <option key={r}>{r}</option>
                 ))}
               </select>
+              <select value={itemSort} onChange={(e) => setItemSort(e.target.value as ItemSort)}>
+                {ITEM_SORTS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
             </>
           )}
         </div>
@@ -316,12 +353,18 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
                     {i.entry.typeName}
                     {i.entry.rarity && ` · ${i.entry.rarity}`}
                     {i.entry.attunement && ' · Attunement'}
-                    <ItemPrice item={i.entry} prefix=" · " />
+                    {/* Price is detail, not scanning material — except while
+                        sorting by it, where hiding it would make the order
+                        unreadable. */}
+                    {itemSort !== 'name' && (
+                      <span className="price"> · {itemPriceShort(i.entry) ?? '—'}</span>
+                    )}
                     {` · ${sourceLabel(i.entry.source, i.entry.page)}`}
                   </>
                 }
                 origin={i.origin}
                 detail={i.entry.text}
+                stats={itemStatsLine(i.entry)}
                 actions={actions}
               />
             ))}
@@ -407,6 +450,7 @@ function TextRow({
   meta,
   origin,
   detail,
+  stats,
   actions,
 }: {
   name: string
@@ -414,6 +458,8 @@ function TextRow({
   meta: ReactNode
   origin: Origin
   detail: string[]
+  /** Price and weight, shown above the rules text when the entry has them. */
+  stats?: string
   actions: DetailActions
 }) {
   const [open, setOpen] = useState(false)
@@ -427,6 +473,7 @@ function TextRow({
       </button>
       {open && (
         <div className="result-detail">
+          {stats && <p className="dim">{stats}</p>}
           {detail.map((t, i) => (
             <p key={i}>
               <TaggedText text={t} {...actions} />

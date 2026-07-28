@@ -1,51 +1,55 @@
 import { describe, expect, it } from 'vitest'
-import { formatCoins, itemPrice, itemPriceLabel } from './itemPrice'
+import {
+  formatCoins,
+  formatWeight,
+  itemPrice,
+  itemPriceShort,
+  itemPriceSortValue,
+  itemStatsLine,
+} from './itemPrice'
 
-/** Only the three fields the price depends on. */
-const item = (over: Partial<Parameters<typeof itemPrice>[0]> = {}) => ({
+/** Only the fields pricing depends on. */
+const item = (over: Partial<Parameters<typeof itemStatsLine>[0]> = {}) => ({
   valueCp: undefined,
   rarity: undefined,
+  weight: undefined,
   typeName: 'Wondrous Item',
   ...over,
 })
 
 describe('itemPrice', () => {
-  it('prefers the price printed in the source over the rarity table', () => {
-    // Potion of Healing: the derived value happens to agree (common consumable).
-    expect(itemPrice(item({ valueCp: 5000, rarity: 'common', typeName: 'Potion' }))).toEqual({
-      cp: 5000,
-      estimated: false,
-    })
-    // Spell Scroll (Cantrip): 30 GP printed, where the rarity would derive 50.
+  it('reports a printed price and a rarity estimate separately', () => {
+    // Spell Scroll (Cantrip): 30 GP printed, 50 GP derived — they disagree, and
+    // keeping both is the whole point of the split.
     expect(itemPrice(item({ valueCp: 3000, rarity: 'common', typeName: 'Scroll' }))).toEqual({
-      cp: 3000,
-      estimated: false,
+      listedCp: 3000,
+      derivedCp: 5000,
     })
+  })
+
+  it('reports only the printed price for mundane gear', () => {
+    expect(itemPrice(item({ valueCp: 2500 }))).toEqual({ listedCp: 2500 })
   })
 
   it('derives permanent-item prices from rarity', () => {
-    const gp = (rarity: string) => itemPrice(item({ rarity }))?.cp
-    expect(gp('common')).toBe(100_00)
-    expect(gp('uncommon')).toBe(400_00)
-    expect(gp('rare')).toBe(4_000_00)
-    expect(gp('very rare')).toBe(40_000_00)
-    expect(gp('legendary')).toBe(200_000_00)
-  })
-
-  it('marks derived prices as estimates', () => {
-    expect(itemPrice(item({ rarity: 'rare' }))?.estimated).toBe(true)
+    const cp = (rarity: string) => itemPrice(item({ rarity }))?.derivedCp
+    expect(cp('common')).toBe(100_00)
+    expect(cp('uncommon')).toBe(400_00)
+    expect(cp('rare')).toBe(4_000_00)
+    expect(cp('very rare')).toBe(40_000_00)
+    expect(cp('legendary')).toBe(200_000_00)
   })
 
   it('halves the price of potions and scrolls', () => {
-    expect(itemPrice(item({ rarity: 'uncommon', typeName: 'Potion' }))?.cp).toBe(200_00)
-    expect(itemPrice(item({ rarity: 'rare', typeName: 'Scroll' }))?.cp).toBe(2_000_00)
+    expect(itemPrice(item({ rarity: 'uncommon', typeName: 'Potion' }))?.derivedCp).toBe(200_00)
+    expect(itemPrice(item({ rarity: 'rare', typeName: 'Scroll' }))?.derivedCp).toBe(2_000_00)
     // Same rarity, permanent item — full price.
-    expect(itemPrice(item({ rarity: 'rare', typeName: 'Ring' }))?.cp).toBe(4_000_00)
+    expect(itemPrice(item({ rarity: 'rare', typeName: 'Ring' }))?.derivedCp).toBe(4_000_00)
   })
 
   it('normalizes rarity casing and stray whitespace', () => {
-    expect(itemPrice(item({ rarity: 'Very Rare' }))?.cp).toBe(40_000_00)
-    expect(itemPrice(item({ rarity: ' rare ' }))?.cp).toBe(4_000_00)
+    expect(itemPrice(item({ rarity: 'Very Rare' }))?.derivedCp).toBe(40_000_00)
+    expect(itemPrice(item({ rarity: ' rare ' }))?.derivedCp).toBe(4_000_00)
   })
 
   it('has no price for artifacts', () => {
@@ -82,13 +86,61 @@ describe('formatCoins', () => {
   })
 })
 
-describe('itemPriceLabel', () => {
-  it('formats the price and reports whether it was derived', () => {
-    expect(itemPriceLabel(item({ valueCp: 2500 }))).toEqual({ text: '25 GP', estimated: false })
-    expect(itemPriceLabel(item({ rarity: 'uncommon' }))).toEqual({ text: '400 GP', estimated: true })
+describe('itemPriceShort', () => {
+  it('prefers the printed price, unmarked', () => {
+    expect(itemPriceShort(item({ valueCp: 2500, rarity: 'common', typeName: 'Potion' }))).toBe('25 GP')
+  })
+
+  it('marks a rarity estimate', () => {
+    expect(itemPriceShort(item({ rarity: 'uncommon' }))).toBe('≈ 400 GP')
   })
 
   it('is undefined when the item has no price', () => {
-    expect(itemPriceLabel(item({ rarity: 'artifact' }))).toBeUndefined()
+    expect(itemPriceShort(item({ rarity: 'artifact' }))).toBeUndefined()
+  })
+})
+
+describe('itemPriceSortValue', () => {
+  it('orders by the printed price when there is one', () => {
+    expect(itemPriceSortValue(item({ valueCp: 3000, rarity: 'common', typeName: 'Scroll' }))).toBe(3000)
+  })
+
+  it('falls back to the rarity estimate', () => {
+    expect(itemPriceSortValue(item({ rarity: 'rare' }))).toBe(4_000_00)
+  })
+
+  it('is undefined for an unpriced item, so it can sort last', () => {
+    expect(itemPriceSortValue(item({ rarity: 'artifact' }))).toBeUndefined()
+  })
+})
+
+describe('itemStatsLine', () => {
+  it('shows both prices when they disagree', () => {
+    expect(itemStatsLine(item({ valueCp: 3000, rarity: 'common', typeName: 'Scroll' }))).toBe(
+      'Price: 30 GP · rarity estimate ≈ 50 GP',
+    )
+  })
+
+  it('shows one price when both agree, rather than repeating it', () => {
+    // Potion of Healing: 50 GP printed, and common-consumable derives the same.
+    expect(itemStatsLine(item({ valueCp: 5000, rarity: 'common', typeName: 'Potion' }))).toBe('Price: 50 GP')
+  })
+
+  it('says so when the price is only an estimate', () => {
+    expect(itemStatsLine(item({ rarity: 'uncommon' }))).toBe('Price: ≈ 400 GP (estimated from rarity)')
+  })
+
+  it('includes weight, and works with weight alone', () => {
+    expect(itemStatsLine(item({ valueCp: 2500, weight: 1 }))).toBe('Price: 25 GP · Weight: 1 lb.')
+    expect(itemStatsLine(item({ rarity: 'artifact', weight: 6 }))).toBe('Weight: 6 lb.')
+  })
+
+  it('is undefined when there is nothing to report', () => {
+    expect(itemStatsLine(item())).toBeUndefined()
+    expect(itemStatsLine(item({ rarity: 'artifact' }))).toBeUndefined()
+  })
+
+  it('keeps fractional weights readable', () => {
+    expect(formatWeight(0.5)).toBe('0.5 lb.')
   })
 })
