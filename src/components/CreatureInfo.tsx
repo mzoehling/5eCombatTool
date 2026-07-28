@@ -22,10 +22,10 @@ interface CreatureInfoProps {
  */
 export function CreatureInfo({ name, onClose }: CreatureInfoProps) {
   // null = looked up and missing; undefined = query still pending
-  const statblock = useLiveQuery(async () => (await findMonsterByName(name)) ?? null, [name])
+  const found = useLiveQuery(async () => (await findMonsterByName(name)) ?? null, [name])
   const [notice, setNotice] = useState('')
 
-  if (statblock === undefined) {
+  if (found === undefined) {
     return (
       <Modal title={name} onClose={onClose}>
         <p className="dim">Loading…</p>
@@ -33,13 +33,15 @@ export function CreatureInfo({ name, onClose }: CreatureInfoProps) {
     )
   }
 
-  if (statblock === null) {
+  if (found === null) {
     return (
       <Modal title={name} onClose={onClose}>
         <p className="dim">This creature isn’t in the compendium (SRD + imported packs + homebrew).</p>
       </Modal>
     )
   }
+
+  const { entry: statblock, origin } = found
 
   const addToBattle = () => {
     const existing = battleStore.getState().combatants.map((c) => c.name)
@@ -51,7 +53,12 @@ export function CreatureInfo({ name, onClose }: CreatureInfoProps) {
 
   return (
     <Modal title={statblock.name} onClose={onClose}>
-      <StatblockPanel combatant={combatantFromStatblock(statblock)} pinned={false} onTogglePin={() => {}} />
+      <StatblockPanel
+        combatant={combatantFromStatblock(statblock)}
+        origin={origin}
+        pinned={false}
+        onTogglePin={() => {}}
+      />
       <div className="modal-actions">
         <button type="button" className="primary icon-label" onClick={addToBattle}>
           <Icon path={mdiPlus} /> Add to battle

@@ -9,6 +9,27 @@ export interface CompendiumEntry<T> {
   origin: Origin
 }
 
+/** The bundled ruleset. Entries carry the original book code and page, so the
+ *  provenance has to be spelled out separately to distinguish the CC-BY subset
+ *  from the same passage in a purchased pack. */
+export const SRD_LABEL = 'SRD 5.2.1'
+
+const SRD_ORIGIN = { kind: 'srd' } as const
+
+/** Compact provenance for a badge next to an entry name. */
+export function originBadgeLabel(origin: Origin): string {
+  if (origin.kind === 'homebrew') return origin.isPC ? 'PC' : 'HB'
+  if (origin.kind === 'pack') return origin.packName
+  return 'SRD'
+}
+
+/** Spelled-out provenance for detail views, which have no badge. */
+export function originLabel(origin: Origin): string {
+  if (origin.kind === 'homebrew') return origin.isPC ? 'Player character' : 'Homebrew'
+  if (origin.kind === 'pack') return origin.packName
+  return SRD_LABEL
+}
+
 export interface CompendiumData {
   monsters: CompendiumEntry<Statblock>[]
   spells: CompendiumEntry<Spell>[]
@@ -49,11 +70,10 @@ export function useCompendium(): CompendiumData | undefined {
       db.packs.toArray(),
       db.homebrew.toArray(),
     ])
-    const srd = { kind: 'srd' } as const
-    const srdMonsters = monsters.map((entry) => ({ entry, origin: srd }))
-    const srdSpells = spells.map((entry) => ({ entry, origin: srd }))
-    const srdItems = items.map((entry) => ({ entry, origin: srd }))
-    const srdRules = rules.map((entry) => ({ entry, origin: srd }))
+    const srdMonsters = monsters.map((entry) => ({ entry, origin: SRD_ORIGIN }))
+    const srdSpells = spells.map((entry) => ({ entry, origin: SRD_ORIGIN }))
+    const srdItems = items.map((entry) => ({ entry, origin: SRD_ORIGIN }))
+    const srdRules = rules.map((entry) => ({ entry, origin: SRD_ORIGIN }))
 
     const packMonsters: CompendiumEntry<Statblock>[] = []
     const packSpells: CompendiumEntry<Spell>[] = []
@@ -81,50 +101,59 @@ export function useCompendium(): CompendiumData | undefined {
   })
 }
 
+/* The lookups below return the matching entry together with its origin, so the
+   reference dialogs can name the provenance the way the browse list's badge
+   does. */
+
 /** Case-insensitive spell lookup: imported packs first, then SRD — mirrors the
  *  browse-list precedence (pack overrides SRD) so a tapped link resolves to the
  *  same entry the compendium shows. */
-export async function findSpellByName(name: string): Promise<Spell | undefined> {
+export async function findSpellByName(name: string): Promise<CompendiumEntry<Spell> | undefined> {
   const trimmed = name.trim()
   const lower = trimmed.toLowerCase()
   const packs = await db.packs.toArray()
   for (const pack of packs) {
     const hit = (pack.spells ?? []).find((s) => s.name.toLowerCase() === lower)
-    if (hit) return hit
+    if (hit) return { entry: hit, origin: { kind: 'pack', packName: pack.name } }
   }
-  return db.spells.where('name').equalsIgnoreCase(trimmed).first()
+  const srd = await db.spells.where('name').equalsIgnoreCase(trimmed).first()
+  return srd && { entry: srd, origin: SRD_ORIGIN }
 }
 
 /** Case-insensitive item lookup: imported packs first, then SRD (see findSpellByName). */
-export async function findItemByName(name: string): Promise<Item | undefined> {
+export async function findItemByName(name: string): Promise<CompendiumEntry<Item> | undefined> {
   const trimmed = name.trim()
   const lower = trimmed.toLowerCase()
   const packs = await db.packs.toArray()
   for (const pack of packs) {
     const hit = (pack.items ?? []).find((i) => i.name.toLowerCase() === lower)
-    if (hit) return hit
+    if (hit) return { entry: hit, origin: { kind: 'pack', packName: pack.name } }
   }
-  return db.items.where('name').equalsIgnoreCase(trimmed).first()
+  const srd = await db.items.where('name').equalsIgnoreCase(trimmed).first()
+  return srd && { entry: srd, origin: SRD_ORIGIN }
 }
 
-/** Case-insensitive rules-glossary lookup. */
-export async function findRuleByName(name: string): Promise<Rule | undefined> {
-  return db.rules.where('name').equalsIgnoreCase(name.trim()).first()
+/** Case-insensitive rules-glossary lookup. Rules are SRD-only — ContentPack
+ *  carries no rules, so there is no pack path here. */
+export async function findRuleByName(name: string): Promise<CompendiumEntry<Rule> | undefined> {
+  const srd = await db.rules.where('name').equalsIgnoreCase(name.trim()).first()
+  return srd && { entry: srd, origin: SRD_ORIGIN }
 }
 
 /** Case-insensitive monster lookup: homebrew, then packs, then SRD — mirrors the
  *  browse-list precedence (homebrew > pack > SRD) so a tapped link resolves to the
  *  same entry the compendium shows. */
-export async function findMonsterByName(name: string): Promise<Statblock | undefined> {
+export async function findMonsterByName(name: string): Promise<CompendiumEntry<Statblock> | undefined> {
   const trimmed = name.trim()
   const lower = trimmed.toLowerCase()
   const homebrew = await db.homebrew.toArray()
-  const hb = homebrew.find((h) => h.statblock.name.toLowerCase() === lower)?.statblock
-  if (hb) return hb
+  const hb = homebrew.find((h) => h.statblock.name.toLowerCase() === lower)
+  if (hb) return { entry: hb.statblock, origin: { kind: 'homebrew', isPC: hb.kind === 'pc' } }
   const packs = await db.packs.toArray()
   for (const pack of packs) {
     const hit = (pack.monsters ?? []).find((m) => m.name.toLowerCase() === lower)
-    if (hit) return hit
+    if (hit) return { entry: hit, origin: { kind: 'pack', packName: pack.name } }
   }
-  return db.monsters.where('name').equalsIgnoreCase(trimmed).first()
+  const srd = await db.monsters.where('name').equalsIgnoreCase(trimmed).first()
+  return srd && { entry: srd, origin: SRD_ORIGIN }
 }

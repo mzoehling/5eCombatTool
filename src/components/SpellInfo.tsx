@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { findSpellByName } from '../data/compendium'
-import { sourceLabel } from '../lib/format'
+import { findSpellByName, originLabel } from '../data/compendium'
+import { provenanceLabel } from '../lib/format'
 import { Modal } from './Modal'
 import { TaggedText } from './TaggedText'
 
@@ -20,9 +20,9 @@ interface SpellInfoProps {
 /** Full rules text for a spell, looked up in the compendium (SRD + packs). */
 export function SpellInfo({ name, onClose, ...handlers }: SpellInfoProps) {
   // null = looked up and missing; undefined = query still pending
-  const spell = useLiveQuery(async () => (await findSpellByName(name)) ?? null, [name])
+  const found = useLiveQuery(async () => (await findSpellByName(name)) ?? null, [name])
 
-  if (spell === undefined) {
+  if (found === undefined) {
     return (
       <Modal title={name} onClose={onClose}>
         <p className="dim">Loading…</p>
@@ -30,7 +30,7 @@ export function SpellInfo({ name, onClose, ...handlers }: SpellInfoProps) {
     )
   }
 
-  if (spell === null) {
+  if (found === null) {
     return (
       <Modal title={name} onClose={onClose}>
         <p className="dim">This spell isn’t in the compendium (SRD + imported packs).</p>
@@ -38,13 +38,15 @@ export function SpellInfo({ name, onClose, ...handlers }: SpellInfoProps) {
     )
   }
 
+  const { entry: spell, origin } = found
+
   return (
     <Modal title={spell.name} onClose={onClose}>
       <p className="spell-meta dim">
         {spell.level === 0 ? 'Cantrip' : `Level ${spell.level}`} · {spell.school}
         {spell.concentration && ' · Concentration'}
         {spell.ritual && ' · Ritual'}
-        {spell.source && ` · ${sourceLabel(spell.source, spell.page)}`}
+        {` · ${provenanceLabel(originLabel(origin), spell.source, spell.page)}`}
       </p>
       <p className="spell-meta">
         Casting Time: {spell.castingTime} · Range: {spell.range} · Duration: {spell.duration}

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { findItemByName } from '../data/compendium'
-import { sourceLabel } from '../lib/format'
+import { findItemByName, originLabel } from '../data/compendium'
+import { provenanceLabel } from '../lib/format'
 import { Modal } from './Modal'
 import { TaggedText } from './TaggedText'
 
@@ -20,9 +20,9 @@ interface ItemInfoProps {
 /** Full rules text for an item, looked up in the compendium (SRD + packs). */
 export function ItemInfo({ name, onClose, ...handlers }: ItemInfoProps) {
   // null = looked up and missing; undefined = query still pending
-  const item = useLiveQuery(async () => (await findItemByName(name)) ?? null, [name])
+  const found = useLiveQuery(async () => (await findItemByName(name)) ?? null, [name])
 
-  if (item === undefined) {
+  if (found === undefined) {
     return (
       <Modal title={name} onClose={onClose}>
         <p className="dim">Loading…</p>
@@ -30,7 +30,7 @@ export function ItemInfo({ name, onClose, ...handlers }: ItemInfoProps) {
     )
   }
 
-  if (item === null) {
+  if (found === null) {
     return (
       <Modal title={name} onClose={onClose}>
         <p className="dim">This item isn’t in the compendium (SRD + imported packs).</p>
@@ -38,12 +38,14 @@ export function ItemInfo({ name, onClose, ...handlers }: ItemInfoProps) {
     )
   }
 
+  const { entry: item, origin } = found
+
   return (
     <Modal title={item.name} onClose={onClose}>
       <p className="spell-meta dim">
         {item.typeName}
         {item.rarity && ` · ${item.rarity}`}
-        {item.source && ` · ${sourceLabel(item.source, item.page)}`}
+        {` · ${provenanceLabel(originLabel(origin), item.source, item.page)}`}
       </p>
       {item.attunement && (
         <p className="spell-meta dim">

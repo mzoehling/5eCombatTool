@@ -1,6 +1,6 @@
 import { mdiArrowLeft } from '@mdi/js'
 import { useMemo, useState } from 'react'
-import { useCompendium, type CompendiumEntry, type Origin } from '../data/compendium'
+import { originBadgeLabel, useCompendium, type CompendiumEntry, type Origin } from '../data/compendium'
 import { sourceLabel } from '../lib/format'
 import { rankByName, stripPostfix, suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
@@ -38,10 +38,11 @@ const CR_BUCKETS: { label: string; min: number; max: number }[] = [
   { label: 'CR 17+', min: 17, max: 99 },
 ]
 
+/** Provenance next to the name. The meta line carries the book citation, which
+ *  reads the same for SRD and for a pack — this is what distinguishes them. */
 function OriginBadge({ origin }: { origin: Origin }) {
-  if (origin.kind === 'homebrew') return <span className="badge hb">{origin.isPC ? 'PC' : 'HB'}</span>
-  if (origin.kind === 'pack') return <span className="badge pack">{origin.packName}</span>
-  return null
+  const cls = origin.kind === 'homebrew' ? 'hb' : origin.kind
+  return <span className={`badge ${cls}`}>{originBadgeLabel(origin)}</span>
 }
 
 export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void; initialQuery?: string }) {
@@ -53,7 +54,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   const [school, setSchool] = useState('')
   const [itemType, setItemType] = useState('')
   const [rarity, setRarity] = useState('')
-  const [preview, setPreview] = useState<Statblock | null>(null)
+  const [preview, setPreview] = useState<CompendiumEntry<Statblock> | null>(null)
   const [notice, setNotice] = useState('')
   const [rollExpr, setRollExpr] = useState<string | null>(null)
   const [conditionFor, setConditionFor] = useState<string | null>(null)
@@ -122,8 +123,13 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
 
   if (preview) {
     return (
-      <Modal title={preview.name} onClose={() => setPreview(null)}>
-        <StatblockPanel combatant={combatantFromStatblock(preview)} pinned={false} onTogglePin={() => {}} />
+      <Modal title={preview.entry.name} className="modal-wide" onClose={() => setPreview(null)}>
+        <StatblockPanel
+          combatant={combatantFromStatblock(preview.entry)}
+          origin={preview.origin}
+          pinned={false}
+          onTogglePin={() => {}}
+        />
         <div className="modal-actions">
           <button type="button" className="ghost icon-label" onClick={() => setPreview(null)}>
             <Icon path={mdiArrowLeft} /> Back
@@ -132,7 +138,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
             type="button"
             className="primary"
             onClick={() => {
-              addMonster(preview, 1, false)
+              addMonster(preview.entry, 1, false)
               setPreview(null)
             }}
           >
@@ -144,131 +150,136 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   }
 
   return (
-    <Modal title="Compendium" onClose={onClose}>
-      <div className="sb-tabs">
-        {(['monsters', 'spells', 'items', 'rules'] as const).map((t) => (
-          <button key={t} type="button" className={tab === t ? 'primary' : ''} onClick={() => setTab(t)}>
-            {t[0].toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
+    <Modal title="Compendium" className="modal-wide modal-split" onClose={onClose}>
+      {/* Fixed band: tabs and filters stay put while only the results scroll. */}
+      <div className="compendium-controls">
+        <div className="sb-tabs">
+          {(['monsters', 'spells', 'items', 'rules'] as const).map((t) => (
+            <button key={t} type="button" className={tab === t ? 'primary' : ''} onClick={() => setTab(t)}>
+              {t[0].toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
 
-      <div className="compendium-filters">
-        <input
-          type="search"
-          placeholder="Search…"
-          value={query}
-          autoFocus
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {tab === 'monsters' && (
-          <select value={crBucket} onChange={(e) => setCrBucket(Number(e.target.value))}>
-            {CR_BUCKETS.map((b, i) => (
-              <option key={b.label} value={i}>
-                {b.label}
-              </option>
-            ))}
-          </select>
-        )}
-        {tab === 'spells' && (
-          <>
-            <select value={level} onChange={(e) => setLevel(Number(e.target.value))}>
-              <option value={-1}>Any level</option>
-              {Array.from({ length: 10 }, (_, i) => (
-                <option key={i} value={i}>
-                  {i === 0 ? 'Cantrip' : `Level ${i}`}
+        <div className="compendium-filters">
+          <input
+            type="search"
+            placeholder="Search…"
+            value={query}
+            autoFocus
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {tab === 'monsters' && (
+            <select value={crBucket} onChange={(e) => setCrBucket(Number(e.target.value))}>
+              {CR_BUCKETS.map((b, i) => (
+                <option key={b.label} value={i}>
+                  {b.label}
                 </option>
               ))}
             </select>
-            <select value={school} onChange={(e) => setSchool(e.target.value)}>
-              <option value="">Any school</option>
-              {schools.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </>
-        )}
-        {tab === 'items' && (
-          <>
-            <select value={itemType} onChange={(e) => setItemType(e.target.value)}>
-              <option value="">Any type</option>
-              {itemTypes.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-            <select value={rarity} onChange={(e) => setRarity(e.target.value)}>
-              <option value="">Any rarity</option>
-              {rarities.map((r) => (
-                <option key={r}>{r}</option>
-              ))}
-            </select>
-          </>
-        )}
+          )}
+          {tab === 'spells' && (
+            <>
+              <select value={level} onChange={(e) => setLevel(Number(e.target.value))}>
+                <option value={-1}>Any level</option>
+                {Array.from({ length: 10 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {i === 0 ? 'Cantrip' : `Level ${i}`}
+                  </option>
+                ))}
+              </select>
+              <select value={school} onChange={(e) => setSchool(e.target.value)}>
+                <option value="">Any school</option>
+                {schools.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </>
+          )}
+          {tab === 'items' && (
+            <>
+              <select value={itemType} onChange={(e) => setItemType(e.target.value)}>
+                <option value="">Any type</option>
+                {itemTypes.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+              <select value={rarity} onChange={(e) => setRarity(e.target.value)}>
+                <option value="">Any rarity</option>
+                {rarities.map((r) => (
+                  <option key={r}>{r}</option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
       </div>
 
-      {!data && <p className="dim">Loading compendium…</p>}
+      <div className="compendium-results">
+        {!data && <p className="dim">Loading compendium…</p>}
 
-      {tab === 'monsters' && (
-        <ul className="result-list">
-          {monsters.map((m) => (
-            <MonsterRow key={m.entry.id + m.origin.kind} entry={m} onPreview={() => setPreview(m.entry)} onAdd={addMonster} />
-          ))}
-          {data && monsters.length === 0 && <li className="dim">No matches.</li>}
-        </ul>
-      )}
+        {tab === 'monsters' && (
+          <ul className="result-list">
+            {monsters.map((m) => (
+              <MonsterRow key={m.entry.id + m.origin.kind} entry={m} onPreview={() => setPreview(m)} onAdd={addMonster} />
+            ))}
+            {data && monsters.length === 0 && <li className="dim">No matches.</li>}
+          </ul>
+        )}
 
-      {tab === 'spells' && (
-        <ul className="result-list">
-          {spells.map((s) => (
-            <TextRow
-              key={s.entry.id + s.origin.kind}
-              name={s.entry.name}
-              meta={`${s.entry.level === 0 ? 'Cantrip' : `Level ${s.entry.level}`} · ${s.entry.school}${s.entry.concentration ? ' · Conc.' : ''} · ${sourceLabel(s.entry.source, s.entry.page)}`}
-              origin={s.origin}
-              detail={[
-                `Casting Time: ${s.entry.castingTime} · Range: ${s.entry.range} · Duration: ${s.entry.duration}`,
-                `Components: ${s.entry.components}`,
-                ...s.entry.text,
-                ...s.entry.higherLevel,
-              ]}
-              actions={actions}
-            />
-          ))}
-          {data && spells.length === 0 && <li className="dim">No matches.</li>}
-        </ul>
-      )}
+        {tab === 'spells' && (
+          <ul className="result-list">
+            {spells.map((s) => (
+              <TextRow
+                key={s.entry.id + s.origin.kind}
+                name={s.entry.name}
+                meta={`${s.entry.level === 0 ? 'Cantrip' : `Level ${s.entry.level}`} · ${s.entry.school}${s.entry.concentration ? ' · Conc.' : ''} · ${sourceLabel(s.entry.source, s.entry.page)}`}
+                origin={s.origin}
+                detail={[
+                  `Casting Time: ${s.entry.castingTime} · Range: ${s.entry.range} · Duration: ${s.entry.duration}`,
+                  `Components: ${s.entry.components}`,
+                  ...s.entry.text,
+                  ...s.entry.higherLevel,
+                ]}
+                actions={actions}
+              />
+            ))}
+            {data && spells.length === 0 && <li className="dim">No matches.</li>}
+          </ul>
+        )}
 
-      {tab === 'items' && (
-        <ul className="result-list">
-          {items.map((i) => (
-            <TextRow
-              key={i.entry.id + i.origin.kind}
-              name={i.entry.name}
-              meta={`${i.entry.typeName}${i.entry.rarity ? ` · ${i.entry.rarity}` : ''}${i.entry.attunement ? ' · Attunement' : ''} · ${sourceLabel(i.entry.source, i.entry.page)}`}
-              origin={i.origin}
-              detail={i.entry.text}
-              actions={actions}
-            />
-          ))}
-          {data && items.length === 0 && <li className="dim">No matches.</li>}
-        </ul>
-      )}
+        {tab === 'items' && (
+          <ul className="result-list">
+            {items.map((i) => (
+              <TextRow
+                key={i.entry.id + i.origin.kind}
+                name={i.entry.name}
+                meta={`${i.entry.typeName}${i.entry.rarity ? ` · ${i.entry.rarity}` : ''}${i.entry.attunement ? ' · Attunement' : ''} · ${sourceLabel(i.entry.source, i.entry.page)}`}
+                origin={i.origin}
+                detail={i.entry.text}
+                actions={actions}
+              />
+            ))}
+            {data && items.length === 0 && <li className="dim">No matches.</li>}
+          </ul>
+        )}
 
-      {tab === 'rules' && (
-        <ul className="result-list">
-          {rules.map((r) => (
-            <TextRow
-              key={r.entry.id + r.origin.kind}
-              name={r.entry.name}
-              meta={sourceLabel(r.entry.source, r.entry.page)}
-              origin={r.origin}
-              detail={r.entry.text}
-              actions={actions}
-            />
-          ))}
-          {data && rules.length === 0 && <li className="dim">No matches.</li>}
-        </ul>
-      )}
+        {tab === 'rules' && (
+          <ul className="result-list">
+            {rules.map((r) => (
+              <TextRow
+                key={r.entry.id + r.origin.kind}
+                name={r.entry.name}
+                meta={sourceLabel(r.entry.source, r.entry.page)}
+                origin={r.origin}
+                detail={r.entry.text}
+                actions={actions}
+              />
+            ))}
+            {data && rules.length === 0 && <li className="dim">No matches.</li>}
+          </ul>
+        )}
+      </div>
 
       {/* reference modals stack over the compendium; dice/condition dialogs above those */}
       {creatureFor !== null && <CreatureInfo name={creatureFor} onClose={() => setCreatureFor(null)} />}

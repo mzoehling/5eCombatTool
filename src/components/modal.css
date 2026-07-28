@@ -25,6 +25,21 @@
   font-size: 1rem;
 }
 
+/* +20% over the 30rem default, for content-dense dialogs. */
+.modal.modal-wide {
+  width: min(36rem, 100%);
+}
+
+/* The body stops scrolling so a designated child can scroll instead; that
+   child must set `flex: 1; min-height: 0; overflow-y: auto`. Lets a dialog
+   keep its controls fixed while only the results move. */
+.modal.modal-split .modal-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -65,6 +80,20 @@
 .modal button.primary {
   background: var(--accent);
   border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.modal button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.modal button.ok {
+  background: var(--ok);
+  border-color: var(--ok);
   color: var(--on-accent);
   font-weight: 600;
 }
