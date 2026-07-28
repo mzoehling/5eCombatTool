@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { db } from '../db'
+import { saveHomebrewEntry } from '../data/homebrewPack'
 import { newId } from '../lib/id'
 import {
   emptyForm,
@@ -9,13 +9,14 @@ import {
   type HomebrewForm,
 } from '../lib/homebrewForm'
 import { mdiClose, mdiPlus } from '@mdi/js'
-import type { HomebrewEntry, HomebrewKind } from '../types'
+import type { CreatureSection, Statblock } from '../types'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 
 interface HomebrewEditorProps {
-  existing?: HomebrewEntry
-  kind: HomebrewKind
+  existing?: Statblock
+  /** Which section of the Homebrew pack the entry belongs to. */
+  section: CreatureSection
   onClose: () => void
 }
 
@@ -67,23 +68,22 @@ function EntryListEditor({
   )
 }
 
-export function HomebrewEditor({ existing, kind, onClose }: HomebrewEditorProps) {
-  const [form, setForm] = useState<HomebrewForm>(existing ? statblockToForm(existing.statblock) : emptyForm)
-  const isPC = kind === 'pc'
+export function HomebrewEditor({ existing, section, onClose }: HomebrewEditorProps) {
+  const [form, setForm] = useState<HomebrewForm>(existing ? statblockToForm(existing) : emptyForm)
+  // Which section the entry is saved to. Editable, so an entry created as a
+  // monster can be turned into a PC without being retyped.
+  const [target, setTarget] = useState<CreatureSection>(section)
+  const isPC = target === 'pcs'
   const set = (patch: Partial<HomebrewForm>) => setForm((f) => ({ ...f, ...patch }))
 
   const save = async () => {
     if (!form.name.trim()) return
     const id = existing?.id ?? `hb-${newId()}`
-    const now = Date.now()
-    const entry: HomebrewEntry = {
-      id,
-      kind,
+    await saveHomebrewEntry({
+      section: target,
       statblock: formToStatblock(form, id),
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-    }
-    await db.homebrew.put(entry)
+      removeFrom: existing && target !== section ? section : undefined,
+    })
     onClose()
   }
 
@@ -99,9 +99,16 @@ export function HomebrewEditor({ existing, kind, onClose }: HomebrewEditorProps)
   )
 
   return (
-    <Modal title={existing ? `Edit — ${existing.statblock.name}` : isPC ? 'New PC' : 'New homebrew monster'} onClose={onClose}>
+    <Modal title={existing ? `Edit — ${existing.name}` : isPC ? 'New PC' : 'New homebrew monster'} onClose={onClose}>
       <div className="form-grid">
         {text('name', 'Name')}
+        <label>
+          Kind
+          <select value={target} onChange={(e) => setTarget(e.target.value as CreatureSection)}>
+            <option value="monsters">Monster</option>
+            <option value="pcs">Player character</option>
+          </select>
+        </label>
         {text('ac', 'AC')}
         {text('hpAverage', 'Max HP')}
         {text('initiativeBonus', 'Initiative bonus', 'blank = DEX mod')}
@@ -148,6 +155,7 @@ export function HomebrewEditor({ existing, kind, onClose }: HomebrewEditorProps)
         {!isPC && text('speedFly', 'Fly')}
         {!isPC && text('speedSwim', 'Swim')}
         {!isPC && text('speedClimb', 'Climb')}
+        {!isPC && text('speedBurrow', 'Burrow')}
         {!isPC && text('immunities', 'Immunities')}
         {!isPC && text('resistances', 'Resistances')}
         {!isPC && text('vulnerabilities', 'Vulnerabilities')}

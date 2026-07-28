@@ -8,9 +8,8 @@ import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
 import { CombatantRow } from './CombatantRow'
 import { Compendium } from './Compendium'
+import { ContentManager } from './ContentManager'
 import { EncountersManager } from './EncountersManager'
-import { HomebrewManager } from './HomebrewManager'
-import { PacksManager } from './PacksManager'
 import { ConditionEditor } from './ConditionEditor'
 import { DiceRoller } from './DiceRoller'
 import { EditCombatant } from './EditCombatant'
@@ -38,7 +37,7 @@ export function TrackerPane({
   const { dispatch } = battleStore
   const state = useBattleState()
   const [modal, setModal] = useState<
-    'groups' | 'compendium' | 'packs' | 'homebrew' | 'dice' | 'encounters' | null
+    'groups' | 'compendium' | 'content' | 'dice' | 'encounters' | null
   >(null)
   const [conditionsFor, setConditionsFor] = useState<string | null>(null)
   const [editFor, setEditFor] = useState<string | null>(null)
@@ -125,8 +124,7 @@ export function TrackerPane({
           </button>
         )}
         <button type="button" onClick={() => setModal('groups')}>Groups</button>
-        <button type="button" onClick={() => setModal('homebrew')}>Homebrew</button>
-        <button type="button" onClick={() => setModal('packs')}>Packs</button>
+        <button type="button" onClick={() => setModal('content')}>Content</button>
         <button type="button" className={multiSelect ? 'primary' : ''} onClick={() => onMultiSelectChange(!multiSelect)}>
           AoE
         </button>
@@ -195,8 +193,7 @@ export function TrackerPane({
       {modal === 'encounters' && <EncountersManager onClose={() => setModal(null)} />}
       {modal === 'groups' && <GroupsEditor onClose={() => setModal(null)} />}
       {modal === 'compendium' && <Compendium onClose={() => setModal(null)} />}
-      {modal === 'packs' && <PacksManager onClose={() => setModal(null)} />}
-      {modal === 'homebrew' && <HomebrewManager onClose={() => setModal(null)} />}
+      {modal === 'content' && <ContentManager onClose={() => setModal(null)} />}
       {modal === 'dice' && <DiceRoller allowApply onClose={() => setModal(null)} />}
       {conditionsCombatant && <ConditionEditor combatant={conditionsCombatant} onClose={() => setConditionsFor(null)} />}
       {editCombatant && <EditCombatant combatant={editCombatant} onClose={() => setEditFor(null)} />}

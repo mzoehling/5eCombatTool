@@ -1,0 +1,155 @@
+import type { Item } from '../types'
+
+/**
+ * Magic-item prices by rarity, in gold pieces, for non-consumables (2024 rules).
+ * "artifact" is deliberately absent — artifacts carry no listed price.
+ */
+const RARITY_GP: Record<string, number> = {
+  common: 100,
+  uncommon: 400,
+  rare: 4_000,
+  'very rare': 40_000,
+  legendary: 200_000,
+}
+
+/**
+ * Consumables cost half. Neither the parsed data nor the upstream source carries
+ * a "consumable" flag, so the item type stands in for it: potions are drunk and
+ * scrolls are burned. This misses consumable Wondrous Items (Dust of
+ * Disappearance and friends), which fall back to the permanent-item price — one
+ * of the reasons a derived price is always labelled as an estimate.
+ */
+const CONSUMABLE_TYPES = new Set(['Potion', 'Scroll'])
+
+/**
+ * Rarities whose items are treasure rather than stock: they are not something a
+ * shop prices up, so they read as priceless instead of carrying a number.
+ *
+ * Consumables are excluded even at these rarities — a Spell Scroll (Level 9) is
+ * still a thing you buy, craft or sell, and pricing it is the point.
+ */
+const PRICELESS_RARITIES = new Set(['legendary', 'artifact'])
+
+/** How a priceless item is rendered wherever a price would go. */
+export const PRICELESS_LABEL = 'Priceless'
+
+export interface ItemPrice {
+  /** Price printed in the source, in copper pieces. */
+  listedCp?: number
+  /** Price derived from rarity, in copper pieces. */
+  derivedCp?: number
+  /** Beyond a market price — show PRICELESS_LABEL rather than coins. */
+  priceless?: boolean
+}
+
+/** The subset of an item pricing depends on, so callers can pass a literal. */
+type Priceable = Pick<Item, 'valueCp' | 'rarity' | 'typeName'>
+
+/**
+ * Both prices an item can have, or undefined when it has neither (artifacts,
+ * and mundane gear the source leaves unpriced).
+ *
+ * The two are kept apart rather than resolved to one number: where a source
+ * prints a price *and* the rarity implies one, they can disagree — a Spell
+ * Scroll (Cantrip) lists 30 GP where its rarity derives 50 — and which to
+ * charge is the DM's call, not this function's.
+ */
+export function itemPrice(item: Priceable): ItemPrice | undefined {
+  const price: ItemPrice = {}
+  const { valueCp } = item
+  if (valueCp != null && Number.isFinite(valueCp) && valueCp > 0) price.listedCp = valueCp
+  // Note: the compendium's rarity filter substitutes a synthetic "mundane" for
+  // items with no rarity. That value is a UI label and never reaches here.
+  const rarity = item.rarity?.trim().toLowerCase() ?? ''
+  const consumable = CONSUMABLE_TYPES.has(item.typeName)
+  const gp = RARITY_GP[rarity]
+  // Kept even for priceless items: it is what orders them against the rest of
+  // the list when sorting by price. Only the display suppresses it.
+  if (gp !== undefined) price.derivedCp = (consumable ? gp / 2 : gp) * 100
+  // A price printed in the source always wins — nothing a book puts a number on
+  // is priceless.
+  if (price.listedCp === undefined && !consumable && PRICELESS_RARITIES.has(rarity)) {
+    price.priceless = true
+  }
+  const empty = price.listedCp === undefined && price.derivedCp === undefined && !price.priceless
+  return empty ? undefined : price
+}
+
+/** 1234567 -> "1,234,567". Hand-rolled: toLocaleString would follow the device
+ *  locale, which swaps "." and "," in much of Europe and would make the output
+ *  — and the tests — machine-dependent. */
+function group(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
+/** Copper pieces as coins, in the largest denomination that divides evenly:
+ *  2500 -> "25 GP", 50 -> "5 SP", 2 -> "2 CP". A handful of items are priced
+ *  below a copper (a Sling Bullet is 0.2 CP), so fractions are kept as decimals. */
+export function formatCoins(cp: number): string {
+  if (cp % 100 === 0) return `${group(cp / 100)} GP`
+  if (cp % 10 === 0) return `${group(cp / 10)} SP`
+  if (Number.isInteger(cp)) return `${group(cp)} CP`
+  return `${cp.toFixed(2).replace(/\.?0+$/, '')} CP`
+}
+
+/**
+ * The price as one short string, for a list row: the printed price when there
+ * is one, otherwise the rarity estimate marked with "≈".
+ */
+export function itemPriceShort(item: Priceable): string | undefined {
+  const price = itemPrice(item)
+  if (!price) return undefined
+  if (price.listedCp !== undefined) return formatCoins(price.listedCp)
+  if (price.priceless) return PRICELESS_LABEL
+  return `≈ ${formatCoins(price.derivedCp!)}`
+}
+
+/** What an item with no price at all — an artifact — sorts as: above every
+ *  real price, but finite. Infinity would subtract to NaN when two artifacts
+ *  are compared, and a NaN comparator leaves their order unspecified. */
+const ABOVE_ANY_PRICE = Number.MAX_SAFE_INTEGER
+
+/**
+ * What to order an item by when sorting on price. Unpriced items sort last.
+ *
+ * Priceless items still sort by what their rarity implies, so they land at the
+ * top of a priciest-first list where they belong rather than falling off the
+ * end — an artifact outranks everything, having no rarity price at all.
+ */
+export function itemPriceSortValue(item: Priceable): number | undefined {
+  const price = itemPrice(item)
+  if (!price) return undefined
+  if (price.listedCp !== undefined) return price.listedCp
+  if (price.derivedCp !== undefined) return price.derivedCp
+  return price.priceless ? ABOVE_ANY_PRICE : undefined
+}
+
+/** "1 lb." — items are weighed in pounds, whole or fractional. */
+export function formatWeight(weight: number): string {
+  return `${weight} lb.`
+}
+
+/**
+ * Price and weight for an item's detail view: "Price: 30 GP · rarity estimate
+ * ≈ 50 GP · Weight: 1 lb."
+ *
+ * Both prices are shown when both exist and disagree, so the DM can see the
+ * printed figure and what the rarity table would have charged. When they agree
+ * there is nothing to compare, so only one is shown.
+ */
+export function itemStatsLine(item: Priceable & Pick<Item, 'weight'>): string | undefined {
+  const parts: string[] = []
+  const price = itemPrice(item)
+  if (price?.listedCp !== undefined) {
+    parts.push(`Price: ${formatCoins(price.listedCp)}`)
+    if (price.derivedCp !== undefined && price.derivedCp !== price.listedCp) {
+      parts.push(`rarity estimate ≈ ${formatCoins(price.derivedCp)}`)
+    }
+  } else if (price?.priceless) {
+    parts.push(`Price: ${PRICELESS_LABEL}`)
+  } else if (price?.derivedCp !== undefined) {
+    parts.push(`Price: ≈ ${formatCoins(price.derivedCp)} (estimated from rarity)`)
+  }
+  if (item.weight !== undefined) parts.push(`Weight: ${formatWeight(item.weight)}`)
+  return parts.length ? parts.join(' · ') : undefined
+}

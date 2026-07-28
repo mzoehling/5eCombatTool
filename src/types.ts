@@ -226,16 +226,6 @@ export interface Battle {
   groups: Group[]
 }
 
-export type HomebrewKind = 'monster' | 'pc'
-
-export interface HomebrewEntry {
-  id: string
-  kind: HomebrewKind
-  statblock: Statblock
-  createdAt: number
-  updatedAt: number
-}
-
 /** A saved tracker setup (prepped fight or party) for later loading. */
 export interface SavedEncounter {
   id: string
@@ -246,15 +236,35 @@ export interface SavedEncounter {
   groups: Group[]
 }
 
-/** Versioned content-pack format; produced externally, imported via file picker. */
+/** Versioned content-pack format; produced externally, imported via file picker,
+ *  or — for the built-in "Homebrew" pack — authored in the app. */
 export interface ContentPack {
   packId: string
   name: string
   version: string
   monsters?: Statblock[]
+  /** Player characters. Same shape as monsters: the section an entry lives in,
+   *  not a flag on the entry, is what makes it a PC. */
+  pcs?: Statblock[]
   spells?: Spell[]
   items?: Item[]
 }
+
+/** packId of the built-in Homebrew pack. Reserved: it is authored in the app, so
+ *  an imported file claiming it would replace the user's own content wholesale. */
+export const HOMEBREW_PACK_ID = 'homebrew'
+export const HOMEBREW_PACK_NAME = 'Homebrew'
+
+/** The sections a content pack can carry, and the source of truth for pack
+ *  *validation* — every section listed here is shape-checked on import.
+ *  It is not a loop the readers run: adding a section means touching
+ *  `buildCompendium` (and the `find*ByName` lookups) too, which stay explicit
+ *  per section because the element types differ. */
+export const PACK_SECTIONS = ['monsters', 'pcs', 'spells', 'items'] as const
+export type PackSection = (typeof PACK_SECTIONS)[number]
+
+/** The creature sections. An entry in 'pcs' joins the tracker as a PC. */
+export type CreatureSection = Extract<PackSection, 'monsters' | 'pcs'>
 
 export function abilityMod(score: number): number {
   return Math.floor((score - 10) / 2)

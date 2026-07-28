@@ -31,6 +31,12 @@ describe('CombatDb', () => {
     await db.delete()
   })
 
+  it('has no homebrew table — homebrew is the reserved content pack', async () => {
+    db = makeDb()
+    await db.open()
+    expect(db.tables.map((t) => t.name)).not.toContain('homebrew')
+  })
+
   it('round-trips a combatant', async () => {
     db = makeDb()
     await db.combatants.put(combatant)

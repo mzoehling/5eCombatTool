@@ -1,5 +1,14 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Battle, Combatant, ContentPack, HomebrewEntry, Item, Rule, SavedEncounter, Spell, Statblock } from './types'
+import type {
+  Battle,
+  Combatant,
+  ContentPack,
+  Item,
+  Rule,
+  SavedEncounter,
+  Spell,
+  Statblock,
+} from './types'
 
 /** Key/value store for app metadata (e.g. bundled-data version, last backup export). */
 export interface MetaEntry {
@@ -12,7 +21,6 @@ export class CombatDb extends Dexie {
   spells!: EntityTable<Spell, 'id'>
   items!: EntityTable<Item, 'id'>
   packs!: EntityTable<ContentPack, 'packId'>
-  homebrew!: EntityTable<HomebrewEntry, 'id'>
   combatants!: EntityTable<Combatant, 'id'>
   battle!: EntityTable<Battle, 'id'>
   meta!: EntityTable<MetaEntry, 'key'>
@@ -39,6 +47,9 @@ export class CombatDb extends Dexie {
     this.version(3).stores({
       rules: 'id, name',
     })
+    // v4: homebrew is a content pack now (packId "homebrew"), so the table goes.
+    // Nothing is carried across — see the note in data/homebrewPack.ts.
+    this.version(4).stores({ homebrew: null })
   }
 }
 
