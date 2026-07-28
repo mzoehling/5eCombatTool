@@ -8,11 +8,7 @@ export function validatePack(data: unknown): ContentPack {
     throw new Error('Content pack must be a JSON object.')
   }
   const pack = data as Record<string, unknown>
-  for (const field of ['packId', 'name', 'version'] as const) {
-    if (typeof pack[field] !== 'string' || !pack[field]) {
-      throw new Error(`Content pack is missing the "${field}" field.`)
-    }
-  }
+  validatePackHeader(pack)
   // The Homebrew pack is authored in the app and holds content that exists
   // nowhere else. Importing over it would destroy that, so the id is refused
   // outright rather than merged — a merge would still be guesswork about which
@@ -27,6 +23,19 @@ export function validatePack(data: unknown): ContentPack {
     throw new Error('Content pack contains no monsters, PCs, spells, or items.')
   }
   return data as unknown as ContentPack
+}
+
+/**
+ * Checks the fields every pack must carry. Shared with backup import: a pack
+ * without a name renders as "undefined" in the Content dialog, so the backup
+ * path has to reject it just as the file picker does.
+ */
+export function validatePackHeader(pack: Record<string, unknown>): void {
+  for (const field of ['packId', 'name', 'version'] as const) {
+    if (typeof pack[field] !== 'string' || !pack[field]) {
+      throw new Error(`Content pack is missing the "${field}" field.`)
+    }
+  }
 }
 
 /**

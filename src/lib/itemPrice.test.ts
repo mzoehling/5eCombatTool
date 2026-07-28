@@ -137,6 +137,15 @@ describe('itemPriceSortValue', () => {
   it('is undefined for an item with no price, so it can sort last', () => {
     expect(itemPriceSortValue(item())).toBeUndefined()
   })
+
+  it('keeps two artifacts comparable — a finite value, so subtracting is not NaN', () => {
+    // The compendium's price sort compares with (a - b): Infinity would make
+    // two artifacts subtract to NaN and leave their order unspecified.
+    const a = itemPriceSortValue(item({ rarity: 'artifact' }))!
+    const b = itemPriceSortValue(item({ rarity: 'artifact' }))!
+    expect(Number.isFinite(a)).toBe(true)
+    expect(a - b).toBe(0)
+  })
 })
 
 describe('itemStatsLine', () => {

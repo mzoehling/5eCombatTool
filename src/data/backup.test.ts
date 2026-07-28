@@ -159,6 +159,23 @@ describe('backup', () => {
     }
   })
 
+  it('rejects a pack missing its header fields, as the file picker does', async () => {
+    const dbi = new CombatDb(`test-${crypto.randomUUID()}`)
+    try {
+      // A pack with no name renders as "undefined" in the Content dialog.
+      const noName = JSON.stringify({
+        format: '5eCombatTool-backup',
+        version: 3,
+        exportedAt: new Date().toISOString(),
+        packs: [{ packId: 'p1', version: '1', monsters: [{ id: 'a', name: 'A' }] }],
+      })
+      await expect(importBackup(noName, dbi)).rejects.toThrow('"name"')
+      expect(await dbi.packs.count()).toBe(0)
+    } finally {
+      await dbi.delete()
+    }
+  })
+
   it('rejects a malformed entry inside the homebrew pack', async () => {
     const dbi = new CombatDb(`test-${crypto.randomUUID()}`)
     try {

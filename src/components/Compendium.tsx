@@ -1,5 +1,5 @@
 import { mdiArrowLeft } from '@mdi/js'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   entryKey,
   originBadgeClass,
@@ -179,6 +179,12 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
     { id: 'rules', label: 'Rules', show: true },
   ]
   const shownTab: Tab = tabs.some((t) => t.id === tab && t.show) ? tab : 'monsters'
+  // Write the fallback back, so a tab that disappears is actually left rather
+  // than only hidden — otherwise adding a PC later would jump the user back to
+  // the PCs tab they were bounced off.
+  useEffect(() => {
+    if (shownTab !== tab) setTab(shownTab)
+  }, [shownTab, tab])
 
   if (preview) {
     return (

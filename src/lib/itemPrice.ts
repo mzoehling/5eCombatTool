@@ -104,6 +104,11 @@ export function itemPriceShort(item: Priceable): string | undefined {
   return `≈ ${formatCoins(price.derivedCp!)}`
 }
 
+/** What an item with no price at all — an artifact — sorts as: above every
+ *  real price, but finite. Infinity would subtract to NaN when two artifacts
+ *  are compared, and a NaN comparator leaves their order unspecified. */
+const ABOVE_ANY_PRICE = Number.MAX_SAFE_INTEGER
+
 /**
  * What to order an item by when sorting on price. Unpriced items sort last.
  *
@@ -116,7 +121,7 @@ export function itemPriceSortValue(item: Priceable): number | undefined {
   if (!price) return undefined
   if (price.listedCp !== undefined) return price.listedCp
   if (price.derivedCp !== undefined) return price.derivedCp
-  return price.priceless ? Infinity : undefined
+  return price.priceless ? ABOVE_ANY_PRICE : undefined
 }
 
 /** "1 lb." — items are weighed in pounds, whole or fractional. */

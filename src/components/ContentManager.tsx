@@ -72,17 +72,19 @@ export function ContentManager({ onClose }: { onClose: () => void }) {
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  // The one source of truth for whether there is anything to share: the
+  // function decides, and its result both enables the button and is the file.
+  const shareable = homebrew && homebrewAsShareablePack(homebrew)
+
   const exportHomebrew = () => {
-    if (!homebrew) return
-    const shared = homebrewAsShareablePack(homebrew)
-    if (!shared) return
-    const url = URL.createObjectURL(new Blob([JSON.stringify(shared)], { type: 'application/json' }))
+    if (!shareable) return
+    const url = URL.createObjectURL(new Blob([JSON.stringify(shareable)], { type: 'application/json' }))
     const a = document.createElement('a')
     a.href = url
-    a.download = `${shared.packId}.json`
+    a.download = `${shareable.packId}.json`
     a.click()
     URL.revokeObjectURL(url)
-    setMessage({ text: `Exported "${shared.name}" (${packCounts(shared)}) — import it like any other pack.` })
+    setMessage({ text: `Exported "${shareable.name}" (${packCounts(shareable)}) — import it like any other pack.` })
   }
 
   const addToBattle = (row: HomebrewRow) => {
@@ -121,9 +123,9 @@ export function ContentManager({ onClose }: { onClose: () => void }) {
           <button type="button" onClick={() => fileRef.current?.click()}>
             Import pack…
           </button>
-          {/* Nothing to share until something is authored, and an all-empty
-              pack would not be importable anyway. */}
-          {rows.length > 0 && (
+          {/* Nothing to share until something is authored — homebrewAsShareablePack
+              returns undefined for an empty pack, which would not be importable. */}
+          {shareable && (
             <button type="button" onClick={exportHomebrew}>
               Share homebrew…
             </button>

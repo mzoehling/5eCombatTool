@@ -2,7 +2,7 @@ import type { CombatDb } from '../db'
 import { db } from '../db'
 import { HOMEBREW_PACK_ID, type Battle, type Combatant, type ContentPack, type SavedEncounter } from '../types'
 import { getHomebrewPack, homebrewCount, mergeHomebrew } from './homebrewPack'
-import { validatePackEntries } from './packs'
+import { validatePackEntries, validatePackHeader } from './packs'
 
 const BACKUP_FORMAT = '5eCombatTool-backup'
 export const BACKUP_REMINDER_DAYS = 14
@@ -83,10 +83,14 @@ export async function importBackup(json: string, dbi: CombatDb = db): Promise<Im
     throw new Error('"packs" must be an array.')
   }
 
-  const allPacks = (backup.packs ?? []).filter((p) => typeof p?.packId === 'string')
-  // Every pack gets the same shape check the file picker applies — including
-  // the homebrew pack, which used to be merged with no check at all.
-  for (const pack of allPacks) validatePackEntries(pack as unknown as Record<string, unknown>)
+  const allPacks = (backup.packs ?? []).filter((p) => p !== null && typeof p === 'object')
+  // Every pack gets the same header and shape checks the file picker applies —
+  // including the homebrew pack, which used to be merged with no check at all.
+  for (const pack of allPacks) {
+    const record = pack as unknown as Record<string, unknown>
+    validatePackHeader(record)
+    validatePackEntries(record)
+  }
   // The Homebrew pack never goes through bulkPut — it is merged below so an old
   // backup cannot wipe content authored since it was taken.
   const packs = allPacks.filter((p) => p.packId !== HOMEBREW_PACK_ID)
