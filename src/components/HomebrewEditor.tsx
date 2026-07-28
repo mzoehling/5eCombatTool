@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { moveHomebrewEntry, saveHomebrewEntry, type HomebrewSection } from '../data/homebrewPack'
+import { saveHomebrewEntry } from '../data/homebrewPack'
 import { newId } from '../lib/id'
 import {
   emptyForm,
@@ -9,14 +9,14 @@ import {
   type HomebrewForm,
 } from '../lib/homebrewForm'
 import { mdiClose, mdiPlus } from '@mdi/js'
-import type { Statblock } from '../types'
+import type { CreatureSection, Statblock } from '../types'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 
 interface HomebrewEditorProps {
   existing?: Statblock
   /** Which section of the Homebrew pack the entry belongs to. */
-  section: HomebrewSection
+  section: CreatureSection
   onClose: () => void
 }
 
@@ -72,15 +72,18 @@ export function HomebrewEditor({ existing, section, onClose }: HomebrewEditorPro
   const [form, setForm] = useState<HomebrewForm>(existing ? statblockToForm(existing) : emptyForm)
   // Which section the entry is saved to. Editable, so an entry created as a
   // monster can be turned into a PC without being retyped.
-  const [target, setTarget] = useState<HomebrewSection>(section)
+  const [target, setTarget] = useState<CreatureSection>(section)
   const isPC = target === 'pcs'
   const set = (patch: Partial<HomebrewForm>) => setForm((f) => ({ ...f, ...patch }))
 
   const save = async () => {
     if (!form.name.trim()) return
     const id = existing?.id ?? `hb-${newId()}`
-    if (existing && target !== section) await moveHomebrewEntry(section, target, id)
-    await saveHomebrewEntry(target, formToStatblock(form, id))
+    await saveHomebrewEntry({
+      section: target,
+      statblock: formToStatblock(form, id),
+      removeFrom: existing && target !== section ? section : undefined,
+    })
     onClose()
   }
 
@@ -101,7 +104,7 @@ export function HomebrewEditor({ existing, section, onClose }: HomebrewEditorPro
         {text('name', 'Name')}
         <label>
           Kind
-          <select value={target} onChange={(e) => setTarget(e.target.value as HomebrewSection)}>
+          <select value={target} onChange={(e) => setTarget(e.target.value as CreatureSection)}>
             <option value="monsters">Monster</option>
             <option value="pcs">Player character</option>
           </select>

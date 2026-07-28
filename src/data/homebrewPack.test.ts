@@ -8,7 +8,6 @@ import {
   getHomebrewPack,
   homebrewAsShareablePack,
   homebrewCount,
-  moveHomebrewEntry,
   saveHomebrewEntry,
 } from './homebrewPack'
 import { validatePack } from './packs'
@@ -41,8 +40,8 @@ describe('getHomebrewPack', () => {
 describe('saveHomebrewEntry', () => {
   it('adds entries to the section it is given', async () => {
     await withDb(async (db) => {
-      await saveHomebrewEntry('monsters', sb('Custom Goblin'), db)
-      await saveHomebrewEntry('pcs', sb('Thoric'), db)
+      await saveHomebrewEntry({ section: 'monsters', statblock: sb('Custom Goblin') }, db)
+      await saveHomebrewEntry({ section: 'pcs', statblock: sb('Thoric') }, db)
       const pack = await getHomebrewPack(db)
       expect(pack.monsters?.map((m) => m.name)).toEqual(['Custom Goblin'])
       expect(pack.pcs?.map((p) => p.name)).toEqual(['Thoric'])
@@ -51,8 +50,8 @@ describe('saveHomebrewEntry', () => {
 
   it('replaces an entry with the same id instead of duplicating it', async () => {
     await withDb(async (db) => {
-      await saveHomebrewEntry('monsters', sb('Custom Goblin', { ac: 12 }), db)
-      await saveHomebrewEntry('monsters', sb('Custom Goblin', { ac: 18 }), db)
+      await saveHomebrewEntry({ section: 'monsters', statblock: sb('Custom Goblin', { ac: 12 }) }, db)
+      await saveHomebrewEntry({ section: 'monsters', statblock: sb('Custom Goblin', { ac: 18 }) }, db)
       const monsters = (await getHomebrewPack(db)).monsters
       expect(monsters).toHaveLength(1)
       expect(monsters?.[0].ac).toBe(18)
@@ -64,9 +63,9 @@ describe('saveHomebrewEntry', () => {
       // Everything the user authors lives in one row, so concurrent saves would
       // clobber each other without the transaction in updateHomebrewPack.
       await Promise.all([
-        saveHomebrewEntry('monsters', sb('Alpha'), db),
-        saveHomebrewEntry('monsters', sb('Beta'), db),
-        saveHomebrewEntry('pcs', sb('Gamma'), db),
+        saveHomebrewEntry({ section: 'monsters', statblock: sb('Alpha') }, db),
+        saveHomebrewEntry({ section: 'monsters', statblock: sb('Beta') }, db),
+        saveHomebrewEntry({ section: 'pcs', statblock: sb('Gamma') }, db),
       ])
       expect(await homebrewCount(db)).toBe(3)
     })
@@ -76,8 +75,8 @@ describe('saveHomebrewEntry', () => {
 describe('deleteHomebrewEntry', () => {
   it('removes only the named entry from its section', async () => {
     await withDb(async (db) => {
-      await saveHomebrewEntry('monsters', sb('Alpha'), db)
-      await saveHomebrewEntry('monsters', sb('Beta'), db)
+      await saveHomebrewEntry({ section: 'monsters', statblock: sb('Alpha') }, db)
+      await saveHomebrewEntry({ section: 'monsters', statblock: sb('Beta') }, db)
       await deleteHomebrewEntry('monsters', 'hb-alpha', db)
       expect((await getHomebrewPack(db)).monsters?.map((m) => m.name)).toEqual(['Beta'])
     })
@@ -85,8 +84,8 @@ describe('deleteHomebrewEntry', () => {
 
   it('drops the pack row entirely once the last entry is gone', async () => {
     await withDb(async (db) => {
-      await saveHomebrewEntry('monsters', sb('Alpha'), db)
-      await saveHomebrewEntry('pcs', sb('Thoric'), db)
+      await saveHomebrewEntry({ section: 'monsters', statblock: sb('Alpha') }, db)
+      await saveHomebrewEntry({ section: 'pcs', statblock: sb('Thoric') }, db)
       await deleteHomebrewEntry('monsters', 'hb-alpha', db)
       expect(await db.packs.get(HOMEBREW_PACK_ID)).toBeDefined()
       await deleteHomebrewEntry('pcs', 'hb-thoric', db)
@@ -100,40 +99,57 @@ describe('deleteHomebrewEntry', () => {
 describe('homebrewAsShareablePack', () => {
   it('renames the pack off the reserved id so it can be imported', async () => {
     await withDb(async (db) => {
-      await saveHomebrewEntry('pcs', sb('Thoric'), db)
+      await saveHomebrewEntry({ section: 'pcs', statblock: sb('Thoric') }, db)
       const shared = homebrewAsShareablePack(await getHomebrewPack(db), new Date('2026-07-28T10:00:00Z'))
-      expect(shared.packId).toBe('homebrew-2026-07-28')
-      expect(shared.packId).not.toBe(HOMEBREW_PACK_ID)
-      expect(shared.name).toBe('Homebrew (2026-07-28)')
+      expect(shared?.packId).toBe('homebrew-2026-07-28')
+      expect(shared?.packId).not.toBe(HOMEBREW_PACK_ID)
+      expect(shared?.name).toBe('Homebrew (2026-07-28)')
       expect(() => validatePack(shared)).not.toThrow()
     })
   })
 
   it('drops empty sections so the file reads like a generated pack', async () => {
     await withDb(async (db) => {
-      await saveHomebrewEntry('pcs', sb('Thoric'), db)
+      await saveHomebrewEntry({ section: 'pcs', statblock: sb('Thoric') }, db)
       const shared = homebrewAsShareablePack(await getHomebrewPack(db))
-      expect(shared.pcs).toHaveLength(1)
+      expect(shared?.pcs).toHaveLength(1)
       expect(shared).not.toHaveProperty('monsters')
+    })
+  })
+
+  it('returns undefined for an empty pack — dropping both sections would leave a pack the validator refuses', async () => {
+    await withDb(async (db) => {
+      expect(homebrewAsShareablePack(await getHomebrewPack(db))).toBeUndefined()
     })
   })
 })
 
-describe('moveHomebrewEntry', () => {
-  it('moves an entry between sections, so a monster can become a PC', async () => {
+describe('saveHomebrewEntry — section change', () => {
+  it('moves an entry between sections in one write, so a monster can become a PC', async () => {
     await withDb(async (db) => {
-      await saveHomebrewEntry('monsters', sb('Thoric'), db)
-      await moveHomebrewEntry('monsters', 'pcs', 'hb-thoric', db)
+      await saveHomebrewEntry({ section: 'monsters', statblock: sb('Thoric') }, db)
+      const edited = sb('Thoric', { ac: 17 })
+      await saveHomebrewEntry({ section: 'pcs', statblock: edited, removeFrom: 'monsters' }, db)
       const pack = await getHomebrewPack(db)
+      // One transaction: the entry is in its new section, gone from the old
+      // one, and carries the edits made in the same save.
       expect(pack.monsters).toEqual([])
       expect(pack.pcs?.map((p) => p.name)).toEqual(['Thoric'])
+      expect(pack.pcs?.[0].ac).toBe(17)
+      expect(await homebrewCount(db)).toBe(1)
     })
   })
 
-  it('leaves the pack alone when the entry is not in the source section', async () => {
+  it('ignores removeFrom when it names the section being saved to', async () => {
     await withDb(async (db) => {
-      await saveHomebrewEntry('pcs', sb('Thoric'), db)
-      await moveHomebrewEntry('monsters', 'pcs', 'hb-thoric', db)
+      await saveHomebrewEntry({ section: 'pcs', statblock: sb('Thoric'), removeFrom: 'pcs' }, db)
+      expect((await getHomebrewPack(db)).pcs?.map((p) => p.name)).toEqual(['Thoric'])
+    })
+  })
+
+  it('leaves the other section alone when the entry is not in it', async () => {
+    await withDb(async (db) => {
+      await saveHomebrewEntry({ section: 'pcs', statblock: sb('Thoric'), removeFrom: 'monsters' }, db)
       expect(await homebrewCount(db)).toBe(1)
     })
   })
@@ -143,8 +159,8 @@ describe('homebrewCount', () => {
   it('counts both sections, and is zero before anything is authored', async () => {
     await withDb(async (db) => {
       expect(await homebrewCount(db)).toBe(0)
-      await saveHomebrewEntry('monsters', sb('Alpha'), db)
-      await saveHomebrewEntry('pcs', sb('Thoric'), db)
+      await saveHomebrewEntry({ section: 'monsters', statblock: sb('Alpha') }, db)
+      await saveHomebrewEntry({ section: 'pcs', statblock: sb('Thoric') }, db)
       expect(await homebrewCount(db)).toBe(2)
     })
   })

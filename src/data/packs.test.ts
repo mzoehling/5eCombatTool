@@ -25,6 +25,9 @@ describe('validatePack', () => {
 
   it('rejects empty and malformed content sections', () => {
     expect(() => validatePack({ packId: 'x', name: 'y', version: '1' })).toThrow('no monsters')
+    // Every section present but empty: `[]` is truthy, so this used to import as
+    // a pack that shows nothing.
+    expect(() => validatePack({ packId: 'x', name: 'y', version: '1', monsters: [], pcs: [] })).toThrow('no monsters')
     expect(() => validatePack({ ...validPack, monsters: 'many' })).toThrow('must be an array')
     expect(() => validatePack({ ...validPack, monsters: [{ name: 'No Id' }] })).toThrow('monsters[0]')
   })

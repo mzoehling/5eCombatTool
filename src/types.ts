@@ -226,22 +226,6 @@ export interface Battle {
   groups: Group[]
 }
 
-/** @deprecated Superseded by the pack section an entry lives in. See HomebrewEntry. */
-export type HomebrewKind = 'monster' | 'pc'
-
-/**
- * @deprecated Homebrew is stored as the reserved "Homebrew" content pack since
- * database v4. This shape survives only to read pre-v4 databases (see the v4
- * upgrade in db.ts) and version 1 and 2 backup files.
- */
-export interface HomebrewEntry {
-  id: string
-  kind: HomebrewKind
-  statblock: Statblock
-  createdAt: number
-  updatedAt: number
-}
-
 /** A saved tracker setup (prepped fight or party) for later loading. */
 export interface SavedEncounter {
   id: string
@@ -271,9 +255,16 @@ export interface ContentPack {
 export const HOMEBREW_PACK_ID = 'homebrew'
 export const HOMEBREW_PACK_NAME = 'Homebrew'
 
-/** The sections a content pack can carry. */
+/** The sections a content pack can carry, and the source of truth for pack
+ *  *validation* — every section listed here is shape-checked on import.
+ *  It is not a loop the readers run: adding a section means touching
+ *  `buildCompendium` (and the `find*ByName` lookups) too, which stay explicit
+ *  per section because the element types differ. */
 export const PACK_SECTIONS = ['monsters', 'pcs', 'spells', 'items'] as const
 export type PackSection = (typeof PACK_SECTIONS)[number]
+
+/** The creature sections. An entry in 'pcs' joins the tracker as a PC. */
+export type CreatureSection = Extract<PackSection, 'monsters' | 'pcs'>
 
 export function abilityMod(score: number): number {
   return Math.floor((score - 10) / 2)

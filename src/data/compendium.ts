@@ -1,21 +1,29 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
-import { HOMEBREW_PACK_ID, type ContentPack, type Item, type Rule, type Spell, type Statblock } from '../types'
+import {
+  HOMEBREW_PACK_ID,
+  type ContentPack,
+  type CreatureSection,
+  type Item,
+  type Rule,
+  type Spell,
+  type Statblock,
+} from '../types'
 
 /**
- * Where an entry came from. PC-ness is deliberately *not* here: a player
- * character is identified by the section it lives in, because packs can carry
- * PCs too and a flag on the entry could not say which pack list it belongs to.
+ * Where an entry came from. Homebrew is not a separate kind — it is the pack
+ * whose packId is HOMEBREW_PACK_ID, which only presentation cares about.
+ *
+ * PC-ness is deliberately *not* here: a player character is identified by the
+ * section it lives in, because packs can carry PCs too and a flag on the entry
+ * could not say which pack list it belongs to.
  */
-export type Origin = { kind: 'srd' } | { kind: 'pack'; packId: string; packName: string } | { kind: 'homebrew' }
+export type Origin = { kind: 'srd' } | { kind: 'pack'; packId: string; packName: string }
 
 export interface CompendiumEntry<T> {
   entry: T
   origin: Origin
 }
-
-/** The two creature sections. An entry from 'pcs' joins the battle as a PC. */
-export type CreatureSection = 'monsters' | 'pcs'
 
 /** A creature lookup result. The section travels with it so callers know
  *  whether to add it to the tracker as a PC. */
@@ -30,31 +38,29 @@ export const SRD_LABEL = 'SRD 5.2.1'
 
 const SRD_ORIGIN = { kind: 'srd' } as const
 
-/** The origin for a pack's entries. Homebrew is a pack like any other in
- *  storage, but keeps its own origin kind so its badge stays the compact "HB"
- *  rather than the pack name, and so precedence reads plainly at the call site. */
+/** The origin for a pack's entries. Homebrew is a pack like any other here —
+ *  only the presentation helpers below single it out. */
 export function packOrigin(pack: ContentPack): Origin {
-  if (pack.packId === HOMEBREW_PACK_ID) return { kind: 'homebrew' }
   return { kind: 'pack', packId: pack.packId, packName: pack.name }
 }
 
-/** Compact provenance for a badge next to an entry name. */
+/** Compact provenance for a badge next to an entry name. Homebrew gets "HB"
+ *  rather than its pack name, which would crowd the row. */
 export function originBadgeLabel(origin: Origin): string {
-  if (origin.kind === 'homebrew') return 'HB'
-  if (origin.kind === 'pack') return origin.packName
-  return 'SRD'
+  if (origin.kind !== 'pack') return 'SRD'
+  return origin.packId === HOMEBREW_PACK_ID ? 'HB' : origin.packName
 }
 
 /** The badge's CSS modifier — see `.badge.hb` / `.badge.pack` / `.badge.srd`. */
 export function originBadgeClass(origin: Origin): string {
-  return origin.kind === 'homebrew' ? 'hb' : origin.kind
+  if (origin.kind !== 'pack') return 'srd'
+  return origin.packId === HOMEBREW_PACK_ID ? 'hb' : 'pack'
 }
 
-/** Spelled-out provenance for detail views, which have no badge. */
+/** Spelled-out provenance for detail views, which have no badge. The Homebrew
+ *  pack is named "Homebrew", so it needs no branch of its own. */
 export function originLabel(origin: Origin): string {
-  if (origin.kind === 'homebrew') return 'Homebrew'
-  if (origin.kind === 'pack') return origin.packName
-  return SRD_LABEL
+  return origin.kind === 'pack' ? origin.packName : SRD_LABEL
 }
 
 /** A key that stays unique when two packs hold entries with the same id — which

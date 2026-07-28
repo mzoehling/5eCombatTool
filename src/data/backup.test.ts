@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { describe, expect, it } from 'vitest'
 import { CombatDb } from '../db'
 import { emptyForm, formToStatblock } from '../lib/homebrewForm'
-import { HOMEBREW_PACK_ID, type HomebrewEntry, type Statblock } from '../types'
+import { HOMEBREW_PACK_ID, type Statblock } from '../types'
 import {
   exportBackup,
   importBackup,
@@ -14,14 +14,18 @@ import { saveHomebrewEntry } from './homebrewPack'
 
 const DAY = 24 * 60 * 60 * 1000
 
-function makeStatblock(name: string): Statblock {
-  return formToStatblock({ ...emptyForm, name }, `hb-${name.toLowerCase()}`)
+/** A version 3 backup file carrying the homebrew pack and nothing else. */
+function backupWithHomebrew(monsters: Statblock[]): string {
+  return JSON.stringify({
+    format: '5eCombatTool-backup',
+    version: 3,
+    exportedAt: new Date().toISOString(),
+    packs: [{ packId: HOMEBREW_PACK_ID, name: 'Homebrew', version: '1', monsters }],
+  })
 }
 
-/** A pre-v4 homebrew row, as it still appears in version 1 and 2 backup files. */
-function makeEntry(name: string): HomebrewEntry {
-  const id = `hb-${name.toLowerCase()}`
-  return { id, kind: 'monster', statblock: makeStatblock(name), createdAt: 1, updatedAt: 1 }
+function makeStatblock(name: string): Statblock {
+  return formToStatblock({ ...emptyForm, name }, `hb-${name.toLowerCase()}`)
 }
 
 describe('backup', () => {
@@ -29,8 +33,8 @@ describe('backup', () => {
     const source = new CombatDb(`test-${crypto.randomUUID()}`)
     const target = new CombatDb(`test-${crypto.randomUUID()}`)
     try {
-      await saveHomebrewEntry('monsters', makeStatblock('Alpha'), source)
-      await saveHomebrewEntry('pcs', makeStatblock('Beta'), source)
+      await saveHomebrewEntry({ section: 'monsters', statblock: makeStatblock('Alpha') }, source)
+      await saveHomebrewEntry({ section: 'pcs', statblock: makeStatblock('Beta') }, source)
       await source.packs.put({ packId: 'p1', name: 'Pack One', version: '1', monsters: [] })
       await source.combatants.put({
         id: 'c1',
@@ -100,53 +104,12 @@ describe('backup', () => {
     }
   })
 
-  it('imports legacy v1 backups (homebrew only)', async () => {
-    const target = new CombatDb(`test-${crypto.randomUUID()}`)
-    try {
-      const v1 = JSON.stringify({
-        format: '5eCombatTool-backup',
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        homebrew: [makeEntry('Alpha')],
-      })
-      const summary = await importBackup(v1, target)
-      expect(summary).toEqual({ homebrew: 1, packs: 0, encounters: 0, battleRestored: false })
-      expect((await target.packs.get(HOMEBREW_PACK_ID))?.monsters?.map((m) => m.name)).toEqual(['Alpha'])
-    } finally {
-      await target.delete()
-    }
-  })
-
-  it('splits legacy homebrew into the monsters and PCs sections by kind', async () => {
-    const target = new CombatDb(`test-${crypto.randomUUID()}`)
-    try {
-      const v2 = JSON.stringify({
-        format: '5eCombatTool-backup',
-        version: 2,
-        exportedAt: new Date().toISOString(),
-        homebrew: [makeEntry('Alpha'), { ...makeEntry('Thoric'), kind: 'pc' }],
-      })
-      await importBackup(v2, target)
-      const pack = await target.packs.get(HOMEBREW_PACK_ID)
-      expect(pack?.monsters?.map((m) => m.name)).toEqual(['Alpha'])
-      expect(pack?.pcs?.map((p) => p.name)).toEqual(['Thoric'])
-    } finally {
-      await target.delete()
-    }
-  })
-
   it('merges an imported backup into existing homebrew rather than replacing it', async () => {
     const target = new CombatDb(`test-${crypto.randomUUID()}`)
     try {
       // Content authored since the backup was taken must survive the restore.
-      await saveHomebrewEntry('monsters', makeStatblock('Newer'), target)
-      const v1 = JSON.stringify({
-        format: '5eCombatTool-backup',
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        homebrew: [makeEntry('Alpha')],
-      })
-      await importBackup(v1, target)
+      await saveHomebrewEntry({ section: 'monsters', statblock: makeStatblock('Newer') }, target)
+      await importBackup(backupWithHomebrew([makeStatblock('Alpha')]), target)
       const names = (await target.packs.get(HOMEBREW_PACK_ID))?.monsters?.map((m) => m.name)
       expect(names?.sort()).toEqual(['Alpha', 'Newer'])
     } finally {
@@ -157,19 +120,56 @@ describe('backup', () => {
   it('replaces a homebrew entry the backup also has, without duplicating it', async () => {
     const target = new CombatDb(`test-${crypto.randomUUID()}`)
     try {
-      await saveHomebrewEntry('monsters', { ...makeStatblock('Alpha'), ac: 99 }, target)
-      const v1 = JSON.stringify({
-        format: '5eCombatTool-backup',
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        homebrew: [makeEntry('Alpha')],
-      })
-      await importBackup(v1, target)
+      await saveHomebrewEntry({ section: 'monsters', statblock: { ...makeStatblock('Alpha'), ac: 99 } }, target)
+      await importBackup(backupWithHomebrew([makeStatblock('Alpha')]), target)
       const monsters = (await target.packs.get(HOMEBREW_PACK_ID))?.monsters
       expect(monsters).toHaveLength(1)
       expect(monsters?.[0].ac).not.toBe(99)
     } finally {
       await target.delete()
+    }
+  })
+
+  it('rejects a version 1 or 2 backup with a clear message', async () => {
+    const dbi = new CombatDb(`test-${crypto.randomUUID()}`)
+    try {
+      for (const version of [1, 2]) {
+        const old = JSON.stringify({
+          format: '5eCombatTool-backup',
+          version,
+          exportedAt: new Date().toISOString(),
+          homebrew: [{ id: 'hb-alpha', kind: 'monster', statblock: makeStatblock('Alpha') }],
+        })
+        await expect(importBackup(old, dbi)).rejects.toThrow('no longer supported')
+      }
+    } finally {
+      await dbi.delete()
+    }
+  })
+
+  it('rejects a non-object file without a TypeError', async () => {
+    const dbi = new CombatDb(`test-${crypto.randomUUID()}`)
+    try {
+      for (const json of ['null', '[]', '"a string"', '42']) {
+        await expect(importBackup(json, dbi)).rejects.toThrow('backup file')
+        await expect(importBackup(json, dbi)).rejects.not.toThrow(TypeError)
+      }
+    } finally {
+      await dbi.delete()
+    }
+  })
+
+  it('rejects a malformed entry inside the homebrew pack', async () => {
+    const dbi = new CombatDb(`test-${crypto.randomUUID()}`)
+    try {
+      const withNull = backupWithHomebrew([null as unknown as Statblock])
+      await expect(importBackup(withNull, dbi)).rejects.toThrow('monsters[0] is not an object')
+      const withoutName = backupWithHomebrew([{ id: 'hb-x' } as Statblock])
+      await expect(importBackup(withoutName, dbi)).rejects.toThrow('missing "id" or "name"')
+      // Nothing was written: validation happens before the transaction.
+      expect(await dbi.packs.get(HOMEBREW_PACK_ID)).toBeUndefined()
+    } finally {
+      await dbi.delete()
     }
   })
 
@@ -189,7 +189,7 @@ describe('backup', () => {
       // no homebrew → no reminder
       expect(await needsBackupReminder(dbi)).toBe(false)
 
-      await saveHomebrewEntry('monsters', makeStatblock('Alpha'), dbi)
+      await saveHomebrewEntry({ section: 'monsters', statblock: makeStatblock('Alpha') }, dbi)
       // homebrew but never exported → remind
       expect(await needsBackupReminder(dbi)).toBe(true)
 
@@ -205,7 +205,7 @@ describe('backup', () => {
   it('stays silent once the reminder is turned off, and returns when turned back on', async () => {
     const dbi = new CombatDb(`test-${crypto.randomUUID()}`)
     try {
-      await saveHomebrewEntry('monsters', makeStatblock('Alpha'), dbi)
+      await saveHomebrewEntry({ section: 'monsters', statblock: makeStatblock('Alpha') }, dbi)
       expect(await needsBackupReminder(dbi)).toBe(true)
       expect(await isBackupReminderOff(dbi)).toBe(false)
 
@@ -224,7 +224,7 @@ describe('backup', () => {
   it('keeps the opt-out out of the exported backup file', async () => {
     const dbi = new CombatDb(`test-${crypto.randomUUID()}`)
     try {
-      await saveHomebrewEntry('monsters', makeStatblock('Alpha'), dbi)
+      await saveHomebrewEntry({ section: 'monsters', statblock: makeStatblock('Alpha') }, dbi)
       await setBackupReminderOff(true, dbi)
       expect(JSON.parse(await exportBackup(dbi))).not.toHaveProperty('meta')
     } finally {

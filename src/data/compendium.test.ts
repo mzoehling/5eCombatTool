@@ -103,10 +103,10 @@ describe('dedupeByName', () => {
   })
 
   it('lets a higher-precedence source win across all sources', () => {
-    const hb: Origin = { kind: 'homebrew' }
+    const hb: Origin = { kind: 'pack', packId: HOMEBREW_PACK_ID, packName: 'Homebrew' }
     const out = dedupeByName([wrap('Goblin', hb)], [wrap('Goblin', pack)], [wrap('Goblin', srd)])
     expect(out).toHaveLength(1)
-    expect(out[0].origin.kind).toBe('homebrew')
+    expect(out[0].origin).toEqual(hb)
   })
 })
 
@@ -136,23 +136,25 @@ describe('findRuleByName', () => {
 
 describe('origin labels', () => {
   const packOrigin: Origin = { kind: 'pack', packId: 'phb-2024', packName: 'PHB 2024' }
+  // Homebrew is an ordinary pack origin — only these helpers single it out.
+  const hbOrigin: Origin = { kind: 'pack', packId: HOMEBREW_PACK_ID, packName: 'Homebrew' }
 
   it('names the badge variant compactly', () => {
     expect(originBadgeLabel({ kind: 'srd' })).toBe('SRD')
     expect(originBadgeLabel(packOrigin)).toBe('PHB 2024')
-    expect(originBadgeLabel({ kind: 'homebrew' })).toBe('HB')
+    expect(originBadgeLabel(hbOrigin)).toBe('HB')
   })
 
   it('spells the provenance out for detail views', () => {
     expect(originLabel({ kind: 'srd' })).toBe('SRD 5.2.1')
     expect(originLabel(packOrigin)).toBe('PHB 2024')
-    expect(originLabel({ kind: 'homebrew' })).toBe('Homebrew')
+    expect(originLabel(hbOrigin)).toBe('Homebrew')
   })
 
   it('maps each origin to its badge style', () => {
     expect(originBadgeClass({ kind: 'srd' })).toBe('srd')
     expect(originBadgeClass(packOrigin)).toBe('pack')
-    expect(originBadgeClass({ kind: 'homebrew' })).toBe('hb')
+    expect(originBadgeClass(hbOrigin)).toBe('hb')
   })
 })
 
@@ -164,7 +166,8 @@ describe('entryKey', () => {
   })
 
   it('separates the same id across origin kinds', () => {
-    expect(entryKey({ kind: 'srd' }, 'goblin')).not.toBe(entryKey({ kind: 'homebrew' }, 'goblin'))
+    const hb: Origin = { kind: 'pack', packId: HOMEBREW_PACK_ID, packName: 'Homebrew' }
+    expect(entryKey({ kind: 'srd' }, 'goblin')).not.toBe(entryKey(hb, 'goblin'))
   })
 })
 
@@ -221,9 +224,9 @@ describe('buildCompendium', () => {
     expect(data.pcs).toHaveLength(2)
   })
 
-  it('gives the Homebrew pack its own origin kind and other packs theirs', () => {
+  it('gives every pack — Homebrew included — a uniform pack origin', () => {
     const data = buildCompendium({ ...empty, packs: orderPacks([party, homebrew]) })
-    expect(data.pcs[0].origin).toEqual({ kind: 'homebrew' })
+    expect(data.pcs[0].origin).toEqual({ kind: 'pack', packId: HOMEBREW_PACK_ID, packName: 'Homebrew' })
     expect(data.pcs[1].origin).toEqual({ kind: 'pack', packId: 'party', packName: 'The Party' })
   })
 

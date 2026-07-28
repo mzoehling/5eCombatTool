@@ -1,10 +1,20 @@
 import type { CombatDb } from '../db'
 import { db } from '../db'
-import { HOMEBREW_PACK_ID, HOMEBREW_PACK_NAME, type ContentPack, type Statblock } from '../types'
+import {
+  HOMEBREW_PACK_ID,
+  HOMEBREW_PACK_NAME,
+  type ContentPack,
+  type CreatureSection,
+  type Statblock,
+} from '../types'
 
-/** The sections the Homebrew pack can hold today. Spells and items are a
- *  content-pack section already, so extending this is additive. */
-export type HomebrewSection = 'monsters' | 'pcs'
+/*
+ * Homebrew is stored as the reserved "Homebrew" content pack (packId
+ * HOMEBREW_PACK_ID). There is no migration from the pre-v4 `homebrew` table —
+ * database v4 drops it and reads nothing, so a database predating the pack
+ * starts blank. That is deliberate: a migration path is machinery to maintain
+ * and a failure mode that can leave Dexie unable to open the database at all.
+ */
 
 /** An empty Homebrew pack, used before the user has authored anything. */
 function emptyPack(): ContentPack {
@@ -16,7 +26,7 @@ function emptyPack(): ContentPack {
  * duplicating them. Shared by the editor's save path and by backup import,
  * which must never drop content the user already has.
  */
-export function mergeHomebrew(pack: ContentPack, section: HomebrewSection, incoming: Statblock[]): ContentPack {
+export function mergeHomebrew(pack: ContentPack, section: CreatureSection, incoming: Statblock[]): ContentPack {
   const existing = pack[section] ?? []
   const byId = new Map(existing.map((sb) => [sb.id, sb]))
   for (const sb of incoming) byId.set(sb.id, sb)
@@ -53,17 +63,27 @@ async function updateHomebrewPack(
   })
 }
 
-/** Adds a homebrew entry, or replaces the one with the same id. */
+/**
+ * Adds a homebrew entry, or replaces the one with the same id.
+ *
+ * `removeFrom` names the section the entry is leaving when the user changes its
+ * kind. The move and the write are one transaction: two of them would leave the
+ * entry moved but stale if the second failed.
+ */
 export async function saveHomebrewEntry(
-  section: HomebrewSection,
-  statblock: Statblock,
+  args: { section: CreatureSection; statblock: Statblock; removeFrom?: CreatureSection },
   dbi: CombatDb = db,
 ): Promise<void> {
-  await updateHomebrewPack(dbi, (pack) => mergeHomebrew(pack, section, [statblock]))
+  const { section, statblock, removeFrom } = args
+  await updateHomebrewPack(dbi, (pack) => {
+    const merged = mergeHomebrew(pack, section, [statblock])
+    if (!removeFrom || removeFrom === section) return merged
+    return { ...merged, [removeFrom]: (merged[removeFrom] ?? []).filter((sb) => sb.id !== statblock.id) }
+  })
 }
 
 export async function deleteHomebrewEntry(
-  section: HomebrewSection,
+  section: CreatureSection,
   id: string,
   dbi: CombatDb = db,
 ): Promise<void> {
@@ -74,23 +94,6 @@ export async function deleteHomebrewEntry(
   }))
 }
 
-/** Moves an entry between the Monsters and PCs sections — the successor to
- *  editing a homebrew entry's `kind`, which the old editor could not do. */
-export async function moveHomebrewEntry(
-  from: HomebrewSection,
-  to: HomebrewSection,
-  id: string,
-  dbi: CombatDb = db,
-): Promise<void> {
-  if (from === to) return
-  await updateHomebrewPack(dbi, (pack) => {
-    const entry = (pack[from] ?? []).find((sb) => sb.id === id)
-    if (!entry) return pack
-    const moved = mergeHomebrew(pack, to, [entry])
-    return { ...moved, [from]: (moved[from] ?? []).filter((sb) => sb.id !== id) }
-  })
-}
-
 /**
  * The Homebrew pack rewritten as an importable content pack.
  *
@@ -98,8 +101,12 @@ export async function moveHomebrewEntry(
  * be refused on import — including by the person you shared it with, whose own
  * Homebrew pack it must not become. Empty sections are dropped so the result
  * reads like a pack the build script would produce.
+ *
+ * Returns undefined for an empty pack: with both sections dropped the result
+ * would be a pack the pack validator refuses, so there is nothing to share.
  */
-export function homebrewAsShareablePack(pack: ContentPack, now = new Date()): ContentPack {
+export function homebrewAsShareablePack(pack: ContentPack, now = new Date()): ContentPack | undefined {
+  if (!pack.monsters?.length && !pack.pcs?.length) return undefined
   const date = now.toISOString().slice(0, 10)
   const shared: ContentPack = {
     packId: `homebrew-${date}`,

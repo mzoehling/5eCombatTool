@@ -1,13 +1,13 @@
 import { mdiChevronDown, mdiChevronRight, mdiDelete, mdiPlus } from '@mdi/js'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
-import { deleteHomebrewEntry, homebrewAsShareablePack, type HomebrewSection } from '../data/homebrewPack'
+import { deleteHomebrewEntry, homebrewAsShareablePack } from '../data/homebrewPack'
 import { importPack, removePack } from '../data/packs'
 import { db } from '../db'
 import { suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
-import { HOMEBREW_PACK_ID, type ContentPack, type Statblock } from '../types'
+import { HOMEBREW_PACK_ID, type ContentPack, type CreatureSection, type Statblock } from '../types'
 import { HomebrewEditor } from './HomebrewEditor'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
@@ -15,13 +15,13 @@ import { Modal } from './Modal'
 /** A homebrew entry paired with the section it lives in — the section is what
  *  makes it a PC, so it has to travel with the statblock. */
 interface HomebrewRow {
-  section: HomebrewSection
+  section: CreatureSection
   statblock: Statblock
 }
 
 /** Flattens the Homebrew pack for the editor list: PCs first, each group by name. */
 function homebrewRows(pack: ContentPack): HomebrewRow[] {
-  const rows = (section: HomebrewSection) =>
+  const rows = (section: CreatureSection) =>
     (pack[section] ?? [])
       .map((statblock) => ({ section, statblock }))
       .sort((a, b) => a.statblock.name.localeCompare(b.statblock.name))
@@ -52,7 +52,7 @@ function packCounts(pack: ContentPack): string {
  */
 export function ContentManager({ onClose }: { onClose: () => void }) {
   const packs = useLiveQuery(() => db.packs.toArray(), [], [])
-  const [editor, setEditor] = useState<{ section: HomebrewSection; existing?: Statblock } | null>(null)
+  const [editor, setEditor] = useState<{ section: CreatureSection; existing?: Statblock } | null>(null)
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null)
   const [homebrewOpen, setHomebrewOpen] = useState(true)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -75,6 +75,7 @@ export function ContentManager({ onClose }: { onClose: () => void }) {
   const exportHomebrew = () => {
     if (!homebrew) return
     const shared = homebrewAsShareablePack(homebrew)
+    if (!shared) return
     const url = URL.createObjectURL(new Blob([JSON.stringify(shared)], { type: 'application/json' }))
     const a = document.createElement('a')
     a.href = url

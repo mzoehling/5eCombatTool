@@ -1,19 +1,19 @@
 import type { CombatDb } from '../db'
 import { db } from '../db'
-import { HOMEBREW_PACK_ID, type Battle, type Combatant, type ContentPack, type HomebrewEntry, type SavedEncounter } from '../types'
+import { HOMEBREW_PACK_ID, type Battle, type Combatant, type ContentPack, type SavedEncounter } from '../types'
 import { getHomebrewPack, homebrewCount, mergeHomebrew } from './homebrewPack'
+import { validatePackEntries } from './packs'
 
 const BACKUP_FORMAT = '5eCombatTool-backup'
 export const BACKUP_REMINDER_DAYS = 14
 
 interface BackupFile {
   format: typeof BACKUP_FORMAT
-  /** 1: homebrew only. 2: adds packs, saved encounters and the current battle.
-   *  3: homebrew moved into `packs` as the reserved "Homebrew" pack. */
-  version: 1 | 2 | 3
+  /** 3 is the only supported version. Versions 1 and 2 carried homebrew in a
+   *  section of its own; they are rejected rather than read, so an old file is
+   *  refused with a message instead of misread as the current shape. */
+  version: 3
   exportedAt: string
-  /** @deprecated Version 1 and 2 only — homebrew now travels inside `packs`. */
-  homebrew?: HomebrewEntry[]
   packs?: ContentPack[]
   encounters?: SavedEncounter[]
   combatants?: Combatant[]
@@ -51,8 +51,8 @@ export async function exportBackup(dbi: CombatDb = db, now = Date.now()): Promis
 }
 
 /**
- * Imports a backup file (v1, v2 or v3). Packs and encounters merge by id
- * (existing ids are overwritten), and homebrew merges entry by entry so
+ * Imports a version 3 backup file. Packs and encounters merge by id (existing
+ * ids are overwritten), and the homebrew pack merges entry by entry so
  * restoring an old backup adds to what the user has rather than replacing it.
  * The battle is restored only when the tracker is currently empty — a running
  * encounter is never silently replaced.
@@ -64,35 +64,35 @@ export async function importBackup(json: string, dbi: CombatDb = db): Promise<Im
   } catch {
     throw new Error('File is not valid JSON.')
   }
+  // Checked before anything is read out of it: a non-object (or an array, or
+  // null) would otherwise blow up with a raw TypeError on the first property
+  // access rather than reaching the message below.
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    throw new Error('Not a 5e Combat Tool backup file.')
+  }
   const backup = data as Partial<BackupFile>
-  // v3 files have no `homebrew` section at all, so its presence cannot be part
-  // of the format check — only its shape, when it is there.
   if (backup.format !== BACKUP_FORMAT) {
     throw new Error('Not a 5e Combat Tool backup file.')
   }
-  const legacy = backup.homebrew
-  if (legacy !== undefined && !Array.isArray(legacy)) {
-    throw new Error('Not a 5e Combat Tool backup file.')
+  if (backup.version !== 3) {
+    throw new Error(
+      `Backup version ${String(backup.version)} is no longer supported. Only version 3 backups can be imported.`,
+    )
   }
-  for (const entry of legacy ?? []) {
-    if (typeof entry.id !== 'string' || typeof entry.statblock?.name !== 'string') {
-      throw new Error('Backup contains a malformed homebrew entry.')
-    }
+  if (backup.packs !== undefined && !Array.isArray(backup.packs)) {
+    throw new Error('"packs" must be an array.')
   }
 
   const allPacks = (backup.packs ?? []).filter((p) => typeof p?.packId === 'string')
+  // Every pack gets the same shape check the file picker applies — including
+  // the homebrew pack, which used to be merged with no check at all.
+  for (const pack of allPacks) validatePackEntries(pack as unknown as Record<string, unknown>)
   // The Homebrew pack never goes through bulkPut — it is merged below so an old
   // backup cannot wipe content authored since it was taken.
   const packs = allPacks.filter((p) => p.packId !== HOMEBREW_PACK_ID)
   const incomingHomebrew = allPacks.find((p) => p.packId === HOMEBREW_PACK_ID)
-  const homebrewMonsters = [
-    ...(incomingHomebrew?.monsters ?? []),
-    ...(legacy ?? []).filter((e) => e.kind !== 'pc').map((e) => e.statblock),
-  ]
-  const homebrewPcs = [
-    ...(incomingHomebrew?.pcs ?? []),
-    ...(legacy ?? []).filter((e) => e.kind === 'pc').map((e) => e.statblock),
-  ]
+  const homebrewMonsters = incomingHomebrew?.monsters ?? []
+  const homebrewPcs = incomingHomebrew?.pcs ?? []
 
   const encounters = (backup.encounters ?? []).filter((e) => typeof e?.id === 'string' && Array.isArray(e.combatants))
   const combatants = Array.isArray(backup.combatants) ? backup.combatants : []
