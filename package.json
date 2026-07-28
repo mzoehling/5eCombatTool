@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fetch-fixtures": "tsx scripts/fetch-fixtures.ts",
-    "build-srd": "tsx scripts/build-srd.ts"
+    "build-srd": "tsx scripts/build-srd.ts",
+    "build-packs": "tsx scripts/build-packs.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

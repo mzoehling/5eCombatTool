@@ -78,7 +78,7 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
         />
         <button
           type="button"
-          className="primary icon-label"
+          className="ok icon-label"
           disabled={!name.trim() || state.combatants.length === 0}
           title="Save the current tracker under this name"
           onClick={save}

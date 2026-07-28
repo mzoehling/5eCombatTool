@@ -73,6 +73,18 @@ describe('committed SRD data (public/data)', () => {
     expectWithinTolerance(rules.length, EXPECTED.rules, 'bundled rules')
   })
 
+  it('contains no upstream 5e.tools references (repo licensing rule)', () => {
+    // The repo may only ship SRD 5.2 content; a stray upstream-name string (e.g.
+    // an unhandled external-link tag) violates that rule and renders as a broken
+    // tag. build-srd.ts strips these — this guards against regressions. The token
+    // is assembled at runtime so this test file itself stays grep-clean.
+    const upstream = new RegExp(`5e${'tools'}`, 'i')
+    for (const file of ['srd-monsters.json', 'srd-spells.json', 'srd-items.json', 'srd-rules.json']) {
+      const raw = readFileSync(resolve(dataDir, file), 'utf8')
+      expect(raw, `${file} must not reference the upstream data source`).not.toMatch(upstream)
+    }
+  })
+
   it('includes the merged action/sense/skill/condition/status glossary entries', () => {
     const rules = load<Rule[]>(resolve(dataDir, 'srd-rules.json'))
     const names = new Set(rules.map((r) => r.name))

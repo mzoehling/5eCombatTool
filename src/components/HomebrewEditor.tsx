@@ -172,7 +172,7 @@ export function HomebrewEditor({ existing, kind, onClose }: HomebrewEditorProps)
         <button type="button" className="ghost" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className="primary" disabled={!form.name.trim()} onClick={save}>
+        <button type="button" className="ok" disabled={!form.name.trim()} onClick={save}>
           Save
         </button>
       </div>

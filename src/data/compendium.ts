@@ -16,6 +16,28 @@ export interface CompendiumData {
   rules: CompendiumEntry<Rule>[]
 }
 
+/**
+ * Deduplicate compendium entries by case-insensitive name. Inputs are given
+ * highest-precedence-first; the first entry seen for a given name wins and
+ * later same-name entries are dropped. Used so an imported pack's variant of a
+ * spell/item/monster shadows the bundled SRD copy instead of listing twice.
+ */
+export function dedupeByName<T extends { name: string }>(
+  ...sources: CompendiumEntry<T>[][]
+): CompendiumEntry<T>[] {
+  const seen = new Set<string>()
+  const out: CompendiumEntry<T>[] = []
+  for (const source of sources) {
+    for (const wrapped of source) {
+      const key = wrapped.entry.name.trim().toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(wrapped)
+    }
+  }
+  return out
+}
+
 /** Live view over SRD tables + imported packs + homebrew. */
 export function useCompendium(): CompendiumData | undefined {
   return useLiveQuery(async (): Promise<CompendiumData> => {
@@ -28,51 +50,61 @@ export function useCompendium(): CompendiumData | undefined {
       db.homebrew.toArray(),
     ])
     const srd = { kind: 'srd' } as const
-    const data: CompendiumData = {
-      monsters: monsters.map((entry) => ({ entry, origin: srd })),
-      spells: spells.map((entry) => ({ entry, origin: srd })),
-      items: items.map((entry) => ({ entry, origin: srd })),
-      rules: rules.map((entry) => ({ entry, origin: srd })),
-    }
+    const srdMonsters = monsters.map((entry) => ({ entry, origin: srd }))
+    const srdSpells = spells.map((entry) => ({ entry, origin: srd }))
+    const srdItems = items.map((entry) => ({ entry, origin: srd }))
+    const srdRules = rules.map((entry) => ({ entry, origin: srd }))
+
+    const packMonsters: CompendiumEntry<Statblock>[] = []
+    const packSpells: CompendiumEntry<Spell>[] = []
+    const packItems: CompendiumEntry<Item>[] = []
     for (const pack of packs) {
       const origin = { kind: 'pack', packName: pack.name } as const
-      data.monsters.push(...(pack.monsters ?? []).map((entry) => ({ entry, origin })))
-      data.spells.push(...(pack.spells ?? []).map((entry) => ({ entry, origin })))
-      data.items.push(...(pack.items ?? []).map((entry) => ({ entry, origin })))
+      packMonsters.push(...(pack.monsters ?? []).map((entry) => ({ entry, origin })))
+      packSpells.push(...(pack.spells ?? []).map((entry) => ({ entry, origin })))
+      packItems.push(...(pack.items ?? []).map((entry) => ({ entry, origin })))
     }
-    for (const hb of homebrew) {
-      data.monsters.push({ entry: hb.statblock, origin: { kind: 'homebrew', isPC: hb.kind === 'pc' } })
+
+    const hbMonsters: CompendiumEntry<Statblock>[] = homebrew.map((hb) => ({
+      entry: hb.statblock,
+      origin: { kind: 'homebrew', isPC: hb.kind === 'pc' },
+    }))
+
+    // Precedence homebrew > pack > SRD: a same-name entry from a higher source
+    // shadows the lower one so duplicates are not listed twice.
+    return {
+      monsters: dedupeByName(hbMonsters, packMonsters, srdMonsters),
+      spells: dedupeByName(packSpells, srdSpells),
+      items: dedupeByName(packItems, srdItems),
+      rules: srdRules,
     }
-    return data
   })
 }
 
-/** Case-insensitive spell lookup: SRD table first, then imported packs. */
+/** Case-insensitive spell lookup: imported packs first, then SRD — mirrors the
+ *  browse-list precedence (pack overrides SRD) so a tapped link resolves to the
+ *  same entry the compendium shows. */
 export async function findSpellByName(name: string): Promise<Spell | undefined> {
   const trimmed = name.trim()
-  const srd = await db.spells.where('name').equalsIgnoreCase(trimmed).first()
-  if (srd) return srd
   const lower = trimmed.toLowerCase()
   const packs = await db.packs.toArray()
   for (const pack of packs) {
     const hit = (pack.spells ?? []).find((s) => s.name.toLowerCase() === lower)
     if (hit) return hit
   }
-  return undefined
+  return db.spells.where('name').equalsIgnoreCase(trimmed).first()
 }
 
-/** Case-insensitive item lookup: SRD table first, then imported packs. */
+/** Case-insensitive item lookup: imported packs first, then SRD (see findSpellByName). */
 export async function findItemByName(name: string): Promise<Item | undefined> {
   const trimmed = name.trim()
-  const srd = await db.items.where('name').equalsIgnoreCase(trimmed).first()
-  if (srd) return srd
   const lower = trimmed.toLowerCase()
   const packs = await db.packs.toArray()
   for (const pack of packs) {
     const hit = (pack.items ?? []).find((i) => i.name.toLowerCase() === lower)
     if (hit) return hit
   }
-  return undefined
+  return db.items.where('name').equalsIgnoreCase(trimmed).first()
 }
 
 /** Case-insensitive rules-glossary lookup. */
@@ -80,17 +112,19 @@ export async function findRuleByName(name: string): Promise<Rule | undefined> {
   return db.rules.where('name').equalsIgnoreCase(name.trim()).first()
 }
 
-/** Case-insensitive monster lookup: SRD, then packs, then homebrew. */
+/** Case-insensitive monster lookup: homebrew, then packs, then SRD — mirrors the
+ *  browse-list precedence (homebrew > pack > SRD) so a tapped link resolves to the
+ *  same entry the compendium shows. */
 export async function findMonsterByName(name: string): Promise<Statblock | undefined> {
   const trimmed = name.trim()
-  const srd = await db.monsters.where('name').equalsIgnoreCase(trimmed).first()
-  if (srd) return srd
   const lower = trimmed.toLowerCase()
+  const homebrew = await db.homebrew.toArray()
+  const hb = homebrew.find((h) => h.statblock.name.toLowerCase() === lower)?.statblock
+  if (hb) return hb
   const packs = await db.packs.toArray()
   for (const pack of packs) {
     const hit = (pack.monsters ?? []).find((m) => m.name.toLowerCase() === lower)
     if (hit) return hit
   }
-  const homebrew = await db.homebrew.toArray()
-  return homebrew.find((h) => h.statblock.name.toLowerCase() === lower)?.statblock
+  return db.monsters.where('name').equalsIgnoreCase(trimmed).first()
 }
