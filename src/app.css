@@ -13,8 +13,13 @@
 
 /* ---------- top bar ---------- */
 
+/* Wraps because the bar cannot fit a phone: the title, the three icon buttons
+   and the battle controls come to well over 390px, and without wrapping they
+   push the whole page into horizontal scroll rather than overflowing quietly.
+   On a tablet — what this app is built for — it stays a single row. */
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
   padding: 0.5rem 1rem;
@@ -28,9 +33,30 @@
   white-space: nowrap;
 }
 
+/* Mid-battle the bar needs every pixel: with the title it comes to 844px, which
+   overflows an iPad held in portrait — the app's own use case. The title is
+   branding rather than navigation once you are inside the app, so below the
+   width where it fits it is hidden visually but kept in the accessibility tree,
+   so the page still has its heading. */
+@media (max-width: 900px) {
+  .app-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}
+
+/* Wraps for the same reason, and separately: mid-battle this row alone (undo,
+   log, Back, round counter, Next, End) is wider than a phone. margin-left:auto
+   keeps it hard right on a tablet; justify-content does the same once wrapped. */
 .battle-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin-left: auto;
 }
