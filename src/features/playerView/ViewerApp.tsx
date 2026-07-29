@@ -1,5 +1,5 @@
 import { mdiDiceMultiple, mdiPlay } from '@mdi/js'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './viewer.css'
 import { DiceRoller } from '../../components/DiceRoller'
 import { Icon } from '../../components/Icon'
@@ -26,6 +26,9 @@ export function ViewerApp({ code }: { code: string }) {
   const [status, setStatus] = useState<ViewerStatus>('connecting')
   const [showDice, setShowDice] = useState(false)
   const [conditionInfo, setConditionInfo] = useState<string | null>(null)
+  // stable identity: an arriving snapshot must not re-render the open roller
+  // and clobber the expression the player is halfway through typing
+  const closeDice = useCallback(() => setShowDice(false), [])
 
   useEffect(() => {
     const handlers = { onSnapshot: setSnapshot, onStatus: setStatus }
@@ -45,7 +48,7 @@ export function ViewerApp({ code }: { code: string }) {
         {snapshot && !snapshot.isRunning && <span className="pv-round dim">forming up…</span>}
       </header>
 
-      {showDice && <DiceRoller onClose={() => setShowDice(false)} />}
+      {showDice && <DiceRoller onClose={closeDice} />}
       {conditionInfo && (
         <Modal title={conditionInfo} onClose={() => setConditionInfo(null)}>
           <p>{describeCondition(conditionInfo) ?? 'A custom effect — ask your DM what it does.'}</p>

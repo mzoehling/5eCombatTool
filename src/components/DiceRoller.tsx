@@ -1,5 +1,5 @@
 import { mdiDiceMultiple } from '@mdi/js'
-import { useRef, useState } from 'react'
+import { memo, useRef, useState } from 'react'
 import './diceRoller.css'
 import { doubleDiceTerms, formatBreakdown, rollWithMode, type ModedRollResult, type RollMode } from '../lib/diceExpr'
 import { ApplyRoll } from './ApplyRoll'
@@ -20,7 +20,21 @@ const MODES: { id: RollMode; label: string }[] = [
   { id: 'disadvantage', label: 'Disadvantage' },
 ]
 
-export function DiceRoller({ onClose, initialExpression = '', allowApply = false }: DiceRollerProps) {
+/* Select-all on focus is a desktop convenience — typing then replaces the old
+   expression. On a touch keyboard it is harmful: the field is handed to the
+   IME with a full selection instead of a caret, and Android keyboards (Firefox
+   for Android especially) then drop the keystrokes that follow. */
+const SELECT_ON_FOCUS = typeof matchMedia === 'function' && !matchMedia('(pointer: coarse)').matches
+
+/* `memo` so a re-rendering parent cannot rewrite the field mid-keystroke: the
+   Player View re-renders on every snapshot the DM broadcasts, and each of those
+   made React write its own `text` back over the input. A soft keyboard that is
+   still composing loses what it had, which reads as "the field ignores me". */
+export const DiceRoller = memo(function DiceRoller({
+  onClose,
+  initialExpression = '',
+  allowApply = false,
+}: DiceRollerProps) {
   const [text, setText] = useState(initialExpression)
   const [mode, setMode] = useState<RollMode>('normal')
   const [invalid, setInvalid] = useState(false)
@@ -43,7 +57,7 @@ export function DiceRoller({ onClose, initialExpression = '', allowApply = false
   const recall = (expression: string) => {
     setText(expression)
     inputRef.current?.focus()
-    inputRef.current?.select()
+    if (SELECT_ON_FOCUS) inputRef.current?.select()
   }
 
   const latest = history[0]
@@ -57,8 +71,16 @@ export function DiceRoller({ onClose, initialExpression = '', allowApply = false
           placeholder="e.g. 1w8, 2d6 + 3, 3w8+5+2w4"
           value={text}
           aria-label="Dice expression"
+          /* Dice notation is not prose: autocorrect would "fix" 1w8, and
+             auto-capitalisation and suggestion strips make Android keyboards
+             compose the field instead of committing each key. */
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="go"
           onChange={(e) => setText(e.target.value)}
-          onFocus={(e) => e.target.select()}
+          onFocus={(e) => SELECT_ON_FOCUS && e.target.select()}
           onKeyDown={(e) => e.key === 'Enter' && doRoll()}
         />
         <button type="button" className="primary icon-label" onClick={doRoll}>
@@ -139,4 +161,4 @@ export function DiceRoller({ onClose, initialExpression = '', allowApply = false
       )}
     </Modal>
   )
-}
+})
