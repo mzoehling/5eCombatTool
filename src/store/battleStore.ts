@@ -62,6 +62,41 @@ class BattleStore {
     this.schedulePersist()
   }
 
+  /**
+   * Applies several actions as one undoable step.
+   *
+   * Undo pops a single entry, so a gesture that dispatched N times took N
+   * undos to reverse and wrote N lines into the combat log. Two of them are
+   * genuinely plural: an AoE against a save sends full damage and half damage
+   * separately, because the reducer applies one amount per action and each
+   * group needs its own temp-HP handling; putting a selection into a group
+   * assigns each member. Both are one thing the DM did, and must come back in
+   * one Ctrl+Z and read as one line in the log.
+   *
+   * The reducer stays the only write path — this batches what reaches it, it
+   * does not go around it.
+   */
+  dispatchAll = (actions: BattleAction[]): void => {
+    const before = this.state
+    const messages: string[] = []
+    for (const action of actions) {
+      const prev = this.state
+      this.state = battleReducer(prev, action)
+      if (this.state === prev) continue
+      if (isUndoable(action)) messages.push(...describeAction(action, prev, this.state))
+    }
+    if (this.state === before) return
+    if (messages.length) {
+      this.past = [...this.past.slice(-(UNDO_LIMIT - 1)), before]
+      // One line for one gesture: the log is the DM's record of the fight, and
+      // six lines for one tap devalue it. Callers with something better to say
+      // than the concatenated per-action text pass it as a single action.
+      this.appendLog([messages.join(' · ')])
+    }
+    this.notify()
+    this.schedulePersist()
+  }
+
   /** Empties the combat log (used when clearing the tracker). */
   clearLog = (): void => {
     this.log = []

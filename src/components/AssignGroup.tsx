@@ -25,15 +25,16 @@ const LEGACY_COLOR = '#e0a94a'
  * dialog rather than a button that guesses.
  */
 export function AssignGroup({ ids, onClose }: AssignGroupProps) {
-  const { dispatch } = battleStore
   const { battle, combatants } = useBattleState()
   const chosen = combatants.filter((c) => ids.has(c.id))
   const grouped = chosen.filter((c) => c.groupId).length
   const [name, setName] = useState(() => derivedGroupName(chosen.map((c) => c.name), battle.groups))
   const [color, setColor] = useState(() => nextGroupColor(battle.groups.length))
 
+  // One batch, so putting five goblins in a group is one Ctrl+Z and one line
+  // in the log rather than five of each.
   const assign = (groupId: string | undefined) => {
-    for (const c of chosen) dispatch({ type: 'assignGroup', combatantId: c.id, groupId })
+    battleStore.dispatchAll(chosen.map((c) => ({ type: 'assignGroup' as const, combatantId: c.id, groupId })))
     onClose()
   }
 
@@ -41,8 +42,11 @@ export function AssignGroup({ ids, onClose }: AssignGroupProps) {
     const trimmed = name.trim()
     if (!trimmed) return
     const id = newId()
-    dispatch({ type: 'addGroup', group: { id, name: trimmed, inBattle: true, color } })
-    assign(id)
+    battleStore.dispatchAll([
+      { type: 'addGroup', group: { id, name: trimmed, inBattle: true, color } },
+      ...chosen.map((c) => ({ type: 'assignGroup' as const, combatantId: c.id, groupId: id })),
+    ])
+    onClose()
   }
 
   return (

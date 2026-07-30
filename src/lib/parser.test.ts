@@ -1,16 +1,12 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { assertFixturesInCI, fixturesDir, hasFixtures } from '../test/fixtures'
 import type { Statblock } from '../types'
 import { parseItem, parseMonster, parseRule, parseSpell } from './parser'
 import { renderTags } from './tagRenderer'
 
-const fixturesDir = resolve(import.meta.dirname, '..', '..', 'fixtures')
-const hasFixtures = existsSync(resolve(fixturesDir, 'bestiary', 'bestiary-xmm.json'))
-
-if (!hasFixtures && process.env.CI) {
-  throw new Error('Fixtures are required in CI — run `npm run fetch-fixtures` first.')
-}
+assertFixturesInCI()
 
 // Returns [] for the requested key when fixtures are absent — the describe
 // blocks are skipped then, but their bodies still execute during collection.

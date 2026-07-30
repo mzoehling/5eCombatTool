@@ -1,3 +1,5 @@
+@layer components {
+
 /* Modal styles live with the component so it works in both the DM app and
    the Player View (which does not load app.css). The button/input baseline
    below mirrors app.css — in the DM app the rules coincide; in the viewer they
@@ -190,52 +192,6 @@
   }
 }
 
-/* `:where` holds this at zero specificity on purpose. It is a baseline, and
-   every variant class in app.css — .outlined, .segments button, anything added
-   later — has to be able to beat it without restating itself here. Written as
-   a plain `.modal button` it tied with those classes and, loading later, won:
-   the Encounters tabs came out boxed while identical markup in the statblock
-   pane read as pills, and the same collision silently flattened other
-   variants. Do not raise its specificity. */
-:where(.modal) button {
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  min-height: var(--target-base);
-  padding: 0 var(--space-4);
-  cursor: pointer;
-}
-
-/* The Player View loads this file and not app.css, so the segment group needs
-   its baseline here as well — the roll-mode switch is otherwise a row of
-   identical buttons with no sign of which mode is armed. `:where` again, so
-   app.css owns the primitive wherever both are loaded. */
-:where(.modal) :where(.segments) {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  padding: var(--space-1);
-}
-
-:where(.modal) :where(.segments) button {
-  background: none;
-  border-color: transparent;
-  border-radius: var(--radius-pill);
-  min-height: var(--target-icon);
-  padding: 0 var(--space-3);
-}
-
-:where(.modal) :where(.segments) button[aria-pressed='true'],
-:where(.modal) :where(.segments) button.on {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-  font-weight: 600;
-}
-
 .modal button.primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -296,6 +252,69 @@
   cursor: default;
 }
 
+
+
+.modal button.icon-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}
+
+}
+
+/* These are baselines: a variant class in app.css must be able to beat them
+   without restating itself here. Two mechanisms guard that, deliberately both:
+   the `base` layer puts them below every component rule whatever the file
+   order, and `:where(...)` keeps their specificity at zero so they also lose
+   inside a single stylesheet. Written plainly as `.modal button` they tied
+   with `.outlined` and `.segments button` and won on load order, which came
+   out as boxed dialog tabs, shapeless footer buttons and a stretched colour
+   swatch. Do not raise the specificity, and do not move them out of `base`.
+
+   They exist at all because the Player View loads this file and not app.css —
+   in the DM app the two say the same thing. */
+@layer base {
+
+:where(.modal) button {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-height: var(--target-base);
+  padding: 0 var(--space-4);
+  cursor: pointer;
+}
+
+/* The Player View loads this file and not app.css, so the segment group needs
+   its baseline here as well — the roll-mode switch is otherwise a row of
+   identical buttons with no sign of which mode is armed. `:where` again, so
+   app.css owns the primitive wherever both are loaded. */
+:where(.modal) :where(.segments) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1);
+}
+
+:where(.modal) :where(.segments) button {
+  background: none;
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+  min-height: var(--target-icon);
+  padding: 0 var(--space-3);
+}
+
+:where(.modal) :where(.segments) button[aria-pressed='true'],
+:where(.modal) :where(.segments) button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
 :where(.modal) input,
 :where(.modal) select,
 :where(.modal) textarea {
@@ -311,9 +330,4 @@
   padding: var(--space-2) var(--space-3);
 }
 
-.modal button.icon-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
 }

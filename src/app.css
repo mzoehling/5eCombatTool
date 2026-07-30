@@ -1,3 +1,7 @@
+/* Everything here is `components`: these rules are the app's own, and must
+   beat the baselines the later stylesheets repeat. See index.css. */
+@layer components {
+
 .app {
   display: flex;
   flex-direction: column;
@@ -1897,4 +1901,6 @@ label.check {
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+}
+
 }

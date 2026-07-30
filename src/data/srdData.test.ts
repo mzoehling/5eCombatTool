@@ -1,12 +1,13 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { assertFixturesInCI, fixturesDir, hasFixtures, skipReason } from '../test/fixtures'
 import type { Item, Rule, Spell, Statblock } from '../types'
 
 const root = resolve(import.meta.dirname, '..', '..')
-const fixturesDir = resolve(root, 'fixtures')
 const dataDir = resolve(root, 'public', 'data')
-const hasFixtures = existsSync(resolve(fixturesDir, 'bestiary', 'bestiary-xmm.json'))
+
+assertFixturesInCI()
 
 function load<T>(path: string): T {
   return JSON.parse(readFileSync(path, 'utf8')) as T
@@ -23,7 +24,7 @@ function expectWithinTolerance(actual: number, expected: number, label: string) 
   expect(actual, `${label}: ${actual} vs expected ${expected} ±10%`).toBeLessThanOrEqual(expected * 1.1)
 }
 
-describe.skipIf(!hasFixtures)('srd52 coverage in upstream fixtures', () => {
+describe.skipIf(!hasFixtures)(`srd52 coverage in upstream fixtures [${skipReason}]`, () => {
   it('matches the expected monster/spell/item counts (±10%)', () => {
     const srd = (arr: { srd52?: boolean | string }[]) => arr.filter((e) => e.srd52).length
     const monsters = load<{ monster: { srd52?: boolean }[] }>(resolve(fixturesDir, 'bestiary/bestiary-xmm.json'))

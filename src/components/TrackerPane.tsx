@@ -100,14 +100,18 @@ export function TrackerPane({
     const amount = evalArithmetic(aoeAmount) ?? rollDiceExpression(aoeAmount)?.total ?? null
     if (amount === null || amount <= 0 || checked.size === 0) return
     const type = heal ? ('applyHealing' as const) : ('applyDamage' as const)
-    // A made save halves damage, so the two groups go out as two dispatches —
-    // the reducer applies one amount per action, with its own temp-HP handling
-    // per target either way. Healing is never halved by a save.
+    // A made save halves damage, so the two groups are two actions — the
+    // reducer applies one amount per action, with its own temp-HP handling per
+    // target either way — batched into one undoable step. Healing is never
+    // halved by a save.
     const halfIds = heal ? [] : [...checked].filter((id) => saves.get(id)?.verdict === 'saved')
     const fullIds = [...checked].filter((id) => !halfIds.includes(id))
     const halfAmount = Math.floor(amount / 2)
-    if (fullIds.length) dispatch({ type, ids: fullIds, amount })
-    if (halfIds.length && halfAmount > 0) dispatch({ type, ids: halfIds, amount: halfAmount })
+    // One area effect, one undo: the two amounts go out as one batch.
+    battleStore.dispatchAll([
+      ...(fullIds.length ? [{ type, ids: fullIds, amount }] : []),
+      ...(halfIds.length && halfAmount > 0 ? [{ type, ids: halfIds, amount: halfAmount }] : []),
+    ])
     setAoeAmount('')
     setSaves(new Map())
   }

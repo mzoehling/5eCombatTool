@@ -1,3 +1,5 @@
+@layer components {
+
 /* Player View — players are on phones; this also serves a TV or second screen,
    where only the type scale needs raising. There are no DM controls anywhere in
    this view: a player taps exactly two things, a condition chip and the dice
@@ -302,67 +304,6 @@
   border-bottom: 1px solid var(--border);
 }
 
-/* The viewer does not load app.css, so the primitives it borrows from the DM
-   app — the HP meter and the badge — are repeated here. The AC shield is not:
-   armour class is deliberately kept out of the player snapshot.
-
-   Every one of them is scoped to .pv-app, and must stay that way. This file is
-   bundled into the DM app as well (main.tsx imports ViewerApp either way) and
-   loads after app.css, so an unscoped copy silently overrides the original:
-   `.hp-meter-fill` here paints a flat --ok, which beat app.css's health-tinted
-   var(--hp-fill) and left every tracker bar green at every health level, and
-   `.hp-meter`'s 11px beat the taller bar the iPad-portrait block asks for. */
-.pv-app .hp-meter {
-  position: relative;
-  height: 11px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.pv-app .hp-meter-fill {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--ok);
-}
-
-/* Temp HP hangs past the fill, hatched, as it does on the tracker. */
-.pv-app .hp-meter-temp {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: repeating-linear-gradient(
-    135deg,
-    var(--accent) 0 3px,
-    color-mix(in srgb, var(--accent) 35%, transparent) 3px 6px
-  );
-}
-
-.pv-app .badge {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 0.1rem 0.4rem;
-  border-radius: 6px;
-  margin-left: 0.4rem;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
-.pv-app .badge.pc {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.pv-app .badge.group {
-  background: var(--bg-raised);
-  color: var(--text-dim);
-}
-
 .pv-name {
   flex: 1;
   font-weight: 600;
@@ -495,4 +436,72 @@
     font-weight: 600;
     cursor: pointer;
   }
+}
+
+}
+
+/* The viewer does not load app.css, so the primitives it borrows from the DM
+   app — the HP meter and the badge — are repeated here. The AC shield is not:
+   armour class is deliberately kept out of the player snapshot.
+
+   Two things keep these copies from reaching the DM app, and both are needed.
+   They live in `base`, below every component rule whatever the file order.
+   And each is scoped to .pv-app, so in the DM app they do not match at all —
+   this file is bundled there too, because main.tsx imports ViewerApp on both
+   routes. Unscoped and unlayered, `.hp-meter-fill`'s flat --ok beat app.css's
+   health-tinted var(--hp-fill) and left every tracker bar green at every
+   health level, and `.hp-meter`'s 11px beat the taller iPad-portrait bar. */
+@layer base {
+
+.pv-app .hp-meter {
+  position: relative;
+  height: 11px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.pv-app .hp-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--ok);
+}
+
+/* Temp HP hangs past the fill, hatched, as it does on the tracker. */
+.pv-app .hp-meter-temp {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--accent) 0 3px,
+    color-mix(in srgb, var(--accent) 35%, transparent) 3px 6px
+  );
+}
+
+.pv-app .badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.pv-app .badge.pc {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.pv-app .badge.group {
+  background: var(--bg-raised);
+  color: var(--text-dim);
+}
+
 }

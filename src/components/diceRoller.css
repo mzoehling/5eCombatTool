@@ -1,3 +1,5 @@
+@layer components {
+
 /* Dice Roller styles live with the component — it is used in both the DM app
    and the Player View, which does not load app.css. */
 
@@ -306,4 +308,6 @@
   .dice-history {
     max-height: 8rem;
   }
+}
+
 }

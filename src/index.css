@@ -1,4 +1,23 @@
 /* ============================================================================
+   Cascade layers. Declared here, in the first stylesheet the app loads, so the
+   order is stated once instead of emerging from the bundler's import graph.
+
+     base        tokens, element resets, and the primitives that files loaded
+                 later repeat for the Player View's sake. Everything here is
+                 meant to lose.
+     components  app.css and the component stylesheets. A variant class here
+                 beats any baseline in `base`, whatever the specificity and
+                 whatever order the files happen to land in.
+
+   This is the structural fix for a bug that landed four times: a baseline in a
+   file loaded after app.css tied with a variant class and won on order, which
+   flattened dialog tabs, footer buttons and the colour swatch, and painted
+   every tracker HP bar green. Anything unlayered would beat both layers — so
+   new rules belong in one of them.
+   ========================================================================= */
+@layer base, components;
+
+/* ============================================================================
    Parchment & Ink — design tokens.
    Light mode is warm vellum, dark mode candlelit parchment. There is one theme;
    `data-theme` on <html> is always set explicitly by App.tsx, so the bare :root
@@ -55,6 +74,7 @@
   src: url('/5eCombatTool/fonts/JetBrainsMono-600.woff2') format('woff2');
 }
 
+@layer base {
 :root {
   color-scheme: light;
 
@@ -222,4 +242,5 @@ button:active {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
 }
