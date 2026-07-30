@@ -1,22 +1,34 @@
 /* Modal styles live with the component so it works in both the DM app and
    the Player View (which does not load app.css). The button/input baseline
-   below is scoped to .modal and mirrors app.css — in the DM app the rules
-   coincide; in the viewer they are the only source of these styles. */
+   below mirrors app.css — in the DM app the rules coincide; in the viewer they
+   are the only source of these styles. Because this file loads after app.css,
+   every baseline rule here is wrapped in `:where(...)` to keep it at zero
+   specificity: a baseline that ties with a variant class wins, and silently
+   flattens it inside dialogs.
+
+   One shell for every dialog:
+
+     header   gold hairline below, title in --gold uppercase, 44px close
+     band     OPTIONAL fixed strip (search / filters / save form)
+     scroll   the ONLY scroll region
+     footer   OPTIONAL pinned strip, primary action right
+*/
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgb(0 0 0 / 0.55);
   display: grid;
   place-items: center;
   z-index: 20;
-  padding: 1rem;
+  padding: var(--space-4);
 }
 
 .modal {
   background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 26px 60px rgb(0 0 0 / 0.42);
   width: min(30rem, 100%);
   max-height: min(80dvh, 40rem);
   display: flex;
@@ -30,6 +42,14 @@
   width: min(36rem, 100%);
 }
 
+/* A dialog whose content changes size between tabs (the compendium's Monsters
+   list is long, its Rules list short) claims the full height up front. Without
+   it the dialog grew and shrank under the DM's finger as they switched tabs,
+   moving the search box and the first result with it. */
+.modal.modal-tall {
+  height: min(80dvh, 40rem);
+}
+
 /* The body stops scrolling so a designated child can scroll instead; that
    child must set `flex: 1; min-height: 0; overflow-y: auto`. Lets a dialog
    keep its controls fixed while only the results move. */
@@ -38,13 +58,17 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  /* the footer supplies its own padding and needs to span the full width */
+  padding-bottom: 0;
 }
 
 /* Fixed band above a scrolling pane. Pair with the dialog's `modal-split`
    class: the band never moves, only `.modal-scroll` below it scrolls. */
 .modal-controls {
   flex: none;
-  margin-bottom: 0.9rem;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
 }
 
 /* The rows inside carry their own top margin; the band supplies the outer gap. */
@@ -63,51 +87,159 @@
   min-height: 0;
   overflow-y: auto;
   /* bleed the scrollbar into the modal body padding so rows keep full width */
-  margin-right: -0.5rem;
-  padding-right: 0.5rem;
+  margin-right: calc(-1 * var(--space-2));
+  padding-right: var(--space-2);
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 1rem;
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--gold);
+  flex: none;
 }
 
 .modal-header h2 {
-  font-size: 1rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
   margin: 0;
 }
 
+.modal-close {
+  min-width: var(--target-icon);
+  min-height: var(--target-icon);
+}
+
 .modal-body {
-  padding: 1rem;
+  padding: var(--space-4);
   overflow-y: auto;
+}
+
+/* Pinned action strip. Inside `modal-split` it stays put while the scroll
+   region above it moves. */
+.modal-footer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0 0;
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--gold);
+}
+
+.modal.modal-split .modal-footer {
+  padding-bottom: var(--space-4);
+}
+
+/* Pushes everything after it hard right — the primary action's usual place. */
+.modal-footer .spacer {
+  margin-left: auto;
 }
 
 .modal-actions {
   display: flex;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 1rem;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 
 .modal-actions .primary:only-child {
   margin-left: auto;
 }
 
-.modal button {
+/* Below 700px of viewport height a centred dialog leaves no room for its own
+   content, so every dialog docks to the bottom edge as a sheet instead. Same
+   tokens — only the position changes. */
+@media (max-height: 700px) {
+  .modal-backdrop {
+    place-items: end stretch;
+    padding: 0;
+  }
+
+  .modal,
+  .modal.modal-wide,
+  .modal.modal-tall {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 92dvh;
+    margin: 0;
+    border-radius: 22px 22px 0 0;
+    border-bottom: none;
+    padding-top: var(--space-3);
+    padding-bottom: max(26px, var(--safe-bottom));
+    position: relative;
+  }
+
+  /* grabber pill, centred above the header */
+  .modal::before {
+    content: '';
+    position: absolute;
+    top: var(--space-2);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 52px;
+    height: 5px;
+    border-radius: var(--radius-pill);
+    background: var(--border);
+  }
+}
+
+/* `:where` holds this at zero specificity on purpose. It is a baseline, and
+   every variant class in app.css — .outlined, .segments button, anything added
+   later — has to be able to beat it without restating itself here. Written as
+   a plain `.modal button` it tied with those classes and, loading later, won:
+   the Encounters tabs came out boxed while identical markup in the statblock
+   pane read as pills, and the same collision silently flattened other
+   variants. Do not raise its specificity. */
+:where(.modal) button {
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-md);
+  min-height: var(--target-base);
+  padding: 0 var(--space-4);
   cursor: pointer;
+}
+
+/* The Player View loads this file and not app.css, so the segment group needs
+   its baseline here as well — the roll-mode switch is otherwise a row of
+   identical buttons with no sign of which mode is armed. `:where` again, so
+   app.css owns the primitive wherever both are loaded. */
+:where(.modal) :where(.segments) button {
+  background: none;
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+  min-height: var(--target-icon);
+  padding: 0 var(--space-3);
+}
+
+:where(.modal) :where(.segments) button[aria-pressed='true'],
+:where(.modal) :where(.segments) button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
 }
 
 .modal button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
+  font-weight: 600;
+}
+
+/* Commits nothing by itself — it selects a mode or empties a field, so it
+   reads as an outline. Restated here because the Player View loads only this
+   file; in the DM app this and app.css say the same thing. */
+.modal button.outlined {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -137,6 +269,16 @@
 .modal button.ghost {
   background: none;
   border: none;
+  padding: 0 var(--space-2);
+}
+
+/* Except in the footer. That strip is the dialog's action bar, and a Cancel
+   with no shape next to a filled Save read as a stray label rather than the
+   other half of the decision. */
+.modal-footer button.ghost {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  padding: 0 var(--space-4);
 }
 
 .modal button:disabled {
@@ -144,17 +286,24 @@
   cursor: default;
 }
 
-.modal input,
-.modal select {
-  background: var(--bg-raised);
+:where(.modal) input,
+:where(.modal) select,
+:where(.modal) textarea {
+  background: var(--surface-sunken);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.45rem;
+  border-radius: 10px;
+  min-height: var(--target-base);
+  padding: 0 var(--space-3);
+  color: var(--text);
+}
+
+:where(.modal) textarea {
+  padding: var(--space-2) var(--space-3);
 }
 
 .modal button.icon-label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: var(--space-1);
 }

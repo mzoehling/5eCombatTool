@@ -103,7 +103,7 @@ export function ContentManager({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Content" className="modal-split" onClose={onClose}>
+    <Modal title="Content" className="modal-wide modal-tall modal-split" onClose={onClose}>
       {/* Fixed band: the actions and their outcome stay put while the list scrolls. */}
       <div className="modal-controls">
         <div className="modal-actions">

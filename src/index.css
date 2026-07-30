@@ -1,43 +1,134 @@
+/* ============================================================================
+   Parchment & Ink — design tokens.
+   Light mode is warm vellum, dark mode candlelit parchment. There is one theme;
+   `data-theme` on <html> is always set explicitly by App.tsx, so the bare :root
+   block below is the light palette rather than a "no preference" fallback.
+   ========================================================================= */
+
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/5eCombatTool/fonts/Cinzel-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/5eCombatTool/fonts/Cinzel-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/5eCombatTool/fonts/EBGaramond-400i.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/5eCombatTool/fonts/EBGaramond-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/5eCombatTool/fonts/EBGaramond-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/5eCombatTool/fonts/JetBrainsMono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/5eCombatTool/fonts/JetBrainsMono-600.woff2') format('woff2');
+}
+
 :root {
-  /* Dark theme palette (default) */
-  --bg: #16161e;
-  --bg-panel: #1f1f2b;
-  --bg-raised: #2a2a3a;
-  --border: #3b3b4f;
-  --text: #c0caf5;
-  --text-dim: #787c99;
-  --accent: #7aa2f7;
-  --danger: #f7768e;
-  --warn: #e0af68;
-  --ok: #9ece6a;
-  --magic: #bb9af7;
-  /* Text placed on accent/danger/warn/ok backgrounds. */
-  --on-accent: #10101a;
+  color-scheme: light;
+
+  /* surfaces ------------------------------------------------------------- */
+  --bg: #e8dfc9; /* app background (page / behind panes)        */
+  --bg-panel: #f6f0e0; /* lists, tracker rows, statblock pane, modals */
+  --bg-raised: #ded3b6; /* fields, secondary buttons, table headers    */
+  --surface-sunken: #e0d6bd; /* scroll wells, dice history, results         */
+  --border: #c3b18b;
+
+  /* text ----------------------------------------------------------------- */
+  --text: #2a2318;
+  --text-dim: #75664e;
+
+  /* accents & semantics -------------------------------------------------- */
+  --accent: #8a2b26; /* oxblood ink — primary actions, dice links   */
+  --gold: #9a7524; /* rules, headings, modal hairlines            */
+  --danger: #a3241f; /* damage, destructive, critical HP            */
+  --warn: #9a6a12; /* conditions, bloodied HP, backup reminder    */
+  --ok: #4d6a2a; /* healing, save, unharmed HP                  */
+  --magic: #5d3a86; /* magic items, concentration                  */
+  --on-accent: #fbf6ea; /* text on any filled accent/semantic button   */
+  --focus: #8a2b26; /* 2px focus ring, 2px offset                  */
+
+  /* type ----------------------------------------------------------------- */
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-body: 'EB Garamond', Georgia, serif;
+  --font-num: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* space / radius / targets --------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  --target-primary: 56px; /* Next turn, Roll, Save            */
+  --target-base: 48px; /* secondary buttons, number fields */
+  --target-icon: 44px; /* icon-only buttons                */
+  --target-pencil: 56px; /* same controls in iPad portrait   */
 
   /* iPadOS safe areas (viewport-fit=cover) */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
-
-  color-scheme: dark;
 }
 
-:root[data-theme='light'] {
-  --bg: #e9eaf0;
-  --bg-panel: #f6f6fa;
-  --bg-raised: #dfe1ea;
-  --border: #c2c6d6;
-  --text: #2e3450;
-  --text-dim: #6c7194;
-  --accent: #3d63b8;
-  --danger: #b23a52;
-  --warn: #9a6a1e;
-  --ok: #52791f;
-  --magic: #6d3fb0;
-  --on-accent: #ffffff;
+:root[data-theme='dark'] {
+  color-scheme: dark;
 
-  color-scheme: light;
+  --bg: #16130e;
+  --bg-panel: #201b14;
+  --bg-raised: #2c2519;
+  --surface-sunken: #12100b;
+  --border: #463a28;
+
+  --text: #efe4cc;
+  --text-dim: #9c8c71;
+
+  --accent: #c9a227; /* antique gold reads as the ink at night */
+  --gold: #c9a227;
+  --danger: #d9534a;
+  --warn: #dfa838;
+  --ok: #93b45c;
+  --magic: #b18ce0;
+  --on-accent: #1a1509;
+  --focus: #c9a227;
 }
 
 * {
@@ -53,11 +144,31 @@ body {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-body);
   /* >= 16px prevents Safari zoom-on-focus */
   font-size: 16px;
+  line-height: 1.55;
+  text-wrap: pretty;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Every number the DM reads or edits: HP, AC, initiative, dice, log times.
+   Digits must not reflow while they are being typed. */
+input[type='number'],
+input[inputmode='numeric'],
+.num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
 }
 
 #root {
@@ -79,10 +190,36 @@ button {
   color: inherit;
 }
 
+a {
+  color: var(--accent);
+}
+a:hover {
+  color: var(--gold);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 /* Touch-first: minimum hit target */
 button,
 [role='button'] {
   min-height: 44px;
   min-width: 44px;
   touch-action: manipulation;
+}
+
+/* A pressed state must not shift layout — a stylus tap on a row would jump. */
+button:active {
+  box-shadow: inset 0 1px 0 rgb(0 0 0 / 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -37,6 +37,9 @@ export interface ViewerHandlers {
 
 export interface ViewerTransport {
   close(): void
+  /** Reconnect immediately instead of waiting out the backoff. A player at a
+   *  table whose signal came back should not have to sit through 15 seconds. */
+  retryNow(): void
 }
 
 // ---------- BroadcastChannel (same device) ----------
@@ -73,6 +76,11 @@ export function connectBroadcastViewer(handlers: ViewerHandlers): ViewerTranspor
   return {
     close() {
       channel.close()
+    },
+    retryNow() {
+      // Nothing to reconnect on a same-origin channel — just re-ask the host
+      // for the current state.
+      channel.postMessage('hello')
     },
   }
 }
@@ -187,6 +195,14 @@ export function connectPeerViewer(code: string, handlers: ViewerHandlers): Viewe
       clearTimeout(retryTimer)
       peer?.destroy()
       handlers.onStatus('ended')
+    },
+    retryNow() {
+      if (closed) return
+      clearTimeout(retryTimer)
+      peer?.destroy()
+      // Keep `attempt` so the status stays 'reconnecting' rather than
+      // reverting to the first-time 'connecting' copy.
+      void connect()
     },
   }
 }

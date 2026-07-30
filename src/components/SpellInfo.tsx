@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { findSpellByName, originLabel } from '../data/compendium'
 import { provenanceLabel } from '../lib/format'
 import { Modal } from './Modal'
+import { StatLine } from './StatLine'
 import { TaggedText } from './TaggedText'
 
 interface SpellInfoProps {
@@ -42,16 +43,24 @@ export function SpellInfo({ name, onClose, ...handlers }: SpellInfoProps) {
 
   return (
     <Modal title={spell.name} onClose={onClose}>
-      <p className="spell-meta dim">
+      <p className="sheet-meta">
         {spell.level === 0 ? 'Cantrip' : `Level ${spell.level}`} · {spell.school}
-        {spell.concentration && ' · Concentration'}
-        {spell.ritual && ' · Ritual'}
         {` · ${provenanceLabel(originLabel(origin), spell.source, spell.page)}`}
       </p>
-      <p className="spell-meta">
-        Casting Time: {spell.castingTime} · Range: {spell.range} · Duration: {spell.duration}
-      </p>
-      <p className="spell-meta">Components: {spell.components}</p>
+      <StatLine
+        stats={[
+          { label: 'Casting', value: spell.castingTime },
+          { label: 'Range', value: spell.range },
+          { label: 'Duration', value: spell.duration },
+          { label: 'Components', value: spell.components },
+          // Concentration and ritual were chips of their own; they are tags on
+          // the same line now rather than a second row.
+          (spell.concentration || spell.ritual) && {
+            label: 'Tags',
+            value: [spell.concentration && 'Concentration', spell.ritual && 'Ritual'].filter(Boolean).join(' · '),
+          },
+        ]}
+      />
       {spell.text.map((t, i) => (
         <p key={i}>
           <TaggedText text={t} {...handlers} />

@@ -57,7 +57,36 @@ describe('instantiateEncounter', () => {
     expect(first.combatants[0].id).not.toBe(second.combatants[0].id)
     expect(first.groups[0].id).not.toBe('g1')
     expect(first.combatants[0].groupId).toBe(first.groups[0].id)
-    expect(first.combatants[1].groupId).toBeUndefined()
+    // The wolf was not in a saved group, so it lands in the encounter's own.
+    const ambush = first.groups.find((g) => g.name === 'Ambush')
+    expect(first.combatants[1].groupId).toBe(ambush?.id)
+  })
+
+  it("puts anything the encounter did not group into a group named after it", () => {
+    const saved: SavedEncounter = {
+      id: 'e1',
+      name: 'Goblin Ambush',
+      createdAt: 0,
+      updatedAt: 0,
+      combatants: [makeCombatant('a', 'Goblin'), makeCombatant('b', 'Goblin B')],
+      groups: [],
+    }
+    const { combatants, groups } = instantiateEncounter(saved)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]).toMatchObject({ name: 'Goblin Ambush', inBattle: true })
+    expect(combatants.every((c) => c.groupId === groups[0].id)).toBe(true)
+  })
+
+  it('adds no group of its own when every combatant already has one', () => {
+    const saved: SavedEncounter = {
+      id: 'e1',
+      name: 'Ambush',
+      createdAt: 0,
+      updatedAt: 0,
+      combatants: [makeCombatant('a', 'Goblin', { groupId: 'g1' })],
+      groups: [{ id: 'g1', name: 'Pack', inBattle: true }],
+    }
+    expect(instantiateEncounter(saved).groups.map((g) => g.name)).toEqual(['Pack'])
   })
 })
 

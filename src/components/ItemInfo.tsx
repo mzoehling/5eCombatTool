@@ -3,6 +3,7 @@ import { findItemByName, originLabel } from '../data/compendium'
 import { provenanceLabel } from '../lib/format'
 import { itemStatsLine } from '../lib/itemPrice'
 import { Modal } from './Modal'
+import { StatLine } from './StatLine'
 import { TaggedText } from './TaggedText'
 
 interface ItemInfoProps {
@@ -44,17 +45,20 @@ export function ItemInfo({ name, onClose, ...handlers }: ItemInfoProps) {
 
   return (
     <Modal title={item.name} onClose={onClose}>
-      <p className="spell-meta dim">
-        {item.typeName}
-        {item.rarity && ` · ${item.rarity}`}
-        {` · ${provenanceLabel(originLabel(origin), item.source, item.page)}`}
-      </p>
-      {stats && <p className="spell-meta dim">{stats}</p>}
-      {item.attunement && (
-        <p className="spell-meta dim">
-          <TaggedText text={item.attunement} {...handlers} />
-        </p>
-      )}
+      <p className="sheet-meta">{provenanceLabel(originLabel(origin), item.source, item.page)}</p>
+      <StatLine
+        stats={[
+          { label: 'Type', value: item.typeName },
+          { label: 'Rarity', value: item.rarity },
+          item.attunement && {
+            label: 'Attunement',
+            value: <TaggedText text={item.attunement} {...handlers} />,
+          },
+          // Price and weight come from itemStatsLine, which marks a price
+          // derived from rarity with "≈".
+          { label: 'Price / weight', value: stats },
+        ]}
+      />
       {item.text.map((t, i) => (
         <p key={i}>
           <TaggedText text={t} {...handlers} />

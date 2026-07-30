@@ -4,6 +4,7 @@
 
 import type { CombatDb } from '../db'
 import { db } from '../db'
+import { nextGroupColor } from '../lib/groups'
 import { newId } from '../lib/id'
 import { stripPostfix, suffixedNames } from '../lib/search'
 import type { Combatant, Group, SavedEncounter } from '../types'
@@ -33,6 +34,11 @@ export async function saveEncounter(
 /**
  * Fresh combatant/group ids (group membership preserved) so an encounter can
  * be loaded any number of times without id collisions.
+ *
+ * Anything the encounter did not already group is put into one named after the
+ * encounter itself. Without this the encounter's identity evaporates on load —
+ * "Goblin Ambush" became five loose goblins with nothing tying them together,
+ * and the group the DM would want to bench in one go had to be rebuilt by hand.
  */
 export function instantiateEncounter(saved: SavedEncounter): { combatants: Combatant[]; groups: Group[] } {
   const groupIdFor = new Map<string, string>()
@@ -41,10 +47,18 @@ export function instantiateEncounter(saved: SavedEncounter): { combatants: Comba
     groupIdFor.set(g.id, id)
     return { ...g, id }
   })
+
+  const ungrouped = saved.combatants.some((c) => !c.groupId)
+  const ownGroup: Group | undefined =
+    ungrouped && saved.name.trim()
+      ? { id: newId(), name: saved.name.trim(), inBattle: true, color: nextGroupColor(groups.length) }
+      : undefined
+  if (ownGroup) groups.push(ownGroup)
+
   const combatants = saved.combatants.map((c) => ({
     ...c,
     id: newId(),
-    groupId: c.groupId ? groupIdFor.get(c.groupId) : undefined,
+    groupId: c.groupId ? groupIdFor.get(c.groupId) : ownGroup?.id,
   }))
   return { combatants, groups }
 }

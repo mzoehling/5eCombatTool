@@ -1,42 +1,147 @@
 /* Dice Roller styles live with the component — it is used in both the DM app
    and the Player View, which does not load app.css. */
 
-.dice-form {
+/* Only while the dialog is a centred modal — below 700px of viewport height the
+   shell turns every dialog into a full-width bottom sheet, and its own sizing
+   has to win. */
+@media (min-height: 701px) {
+  .modal.dice-modal {
+    width: min(720px, 100%);
+    max-height: min(560px, 90dvh);
+  }
+}
+
+/* On iPad the pad and the bonus are a fixed left column and the result plus
+   history a right one, so rolling never scrolls the pad out of reach. */
+.dice-layout {
   display: flex;
-  gap: 0.5rem;
-}
-
-.dice-form input {
+  gap: var(--space-4);
+  min-height: 0;
   flex: 1;
-  min-width: 5rem;
 }
 
-.dice-mode {
+.dice-pad-col {
   display: flex;
-  gap: 0.35rem;
-  margin-top: 0.6rem;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 0 0 46%;
+  min-width: 0;
 }
 
-.dice-mode button {
+.dice-result-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.dice-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.modal .die-btn {
+  position: relative;
+  min-height: 64px;
+  /* Not the display face: Cinzel is all-caps, and "D20" is not dice notation. */
+  font-family: var(--font-num);
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 0;
+}
+
+/* Count badge on the corner, so the pad shows the pool at a glance. */
+.die-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.dice-bonus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dice-bonus-label {
   font-size: 0.85rem;
-  padding: 0.3rem 0.4rem;
+  color: var(--text-dim);
+}
+
+.dice-bonus-value {
+  min-width: 3rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.modal .dice-notation-toggle {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  padding: 0;
 }
 
 .dice-error {
   color: var(--danger);
+  margin: 0;
 }
 
 .dice-result {
   text-align: center;
-  margin-top: 1rem;
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
+.dice-placeholder {
+  text-align: center;
+  padding: var(--space-5) 0;
+}
+
+.dice-expression {
+  font-family: var(--font-num);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+/* The largest number on screen — it is the answer to the question the DM
+   asked. The count-up and flash are motion, so both are dropped under
+   prefers-reduced-motion (see index.css). */
 .dice-total {
-  font-size: 2.6rem;
-  font-weight: 800;
+  font-size: 64px;
+  font-weight: 700;
   color: var(--accent);
-  line-height: 1.1;
+  line-height: 1.05;
+  animation: dice-flash 260ms ease-out;
+}
+
+@keyframes dice-flash {
+  from {
+    opacity: 0.35;
+    color: var(--gold);
+  }
+  to {
+    opacity: 1;
+    color: var(--accent);
+  }
 }
 
 .dice-discarded {
@@ -50,15 +155,21 @@
 
 .dice-breakdown {
   color: var(--text-dim);
-  font-size: 0.9rem;
-  margin-top: 0.2rem;
+  font-family: var(--font-num);
+  font-size: 0.85rem;
+  margin-top: var(--space-1);
 }
 
 .dice-history {
   list-style: none;
-  margin: 1rem 0 0;
-  padding: 0.4rem 0 0;
-  border-top: 1px solid var(--border);
+  margin: 0;
+  padding: var(--space-1);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .dice-history li {
@@ -69,15 +180,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   width: 100%;
-  padding: 0.3rem 0.4rem;
+  padding: var(--space-1) var(--space-2);
   font-size: 0.9rem;
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   text-align: left;
-  min-height: 0;
+  min-height: var(--target-icon);
 }
 
 .modal .dice-history-entry:hover {
@@ -85,6 +196,7 @@
 }
 
 .dice-history-expr {
+  font-family: var(--font-num);
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -98,13 +210,58 @@
 
 .dice-history-total {
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
-.crit-btn {
-  margin-left: auto;
+.dice-footer {
+  flex-wrap: wrap;
+}
+
+.dice-mode {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Crit is a modifier of the expression rather than a mode, so it is outlined
+   in gold instead of joining the filled segment. */
+.modal .crit-btn {
+  flex: none;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  background: none;
+  font-weight: 600;
+}
+
+/* The only filled button in the dialog. */
+.modal .dice-roll-btn {
+  flex: none;
+  min-height: var(--target-primary);
+  min-width: 7rem;
+  font-size: 1.05rem;
 }
 
 .apply-roll-btn {
-  margin-top: 0.5rem;
+  margin-top: var(--space-2);
+}
+
+/* Phone: one column, with the result pinned at the top of the sheet and the
+   pad and footer below it in the thumb zone. */
+@media (max-width: 700px), (max-height: 700px) {
+  .dice-layout {
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+    overflow-y: auto;
+  }
+
+  .dice-pad-col,
+  .dice-result-col {
+    flex: none;
+  }
+
+  .dice-total {
+    font-size: 76px;
+  }
+
+  .dice-history {
+    max-height: 8rem;
+  }
 }

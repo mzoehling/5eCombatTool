@@ -1,28 +1,19 @@
-import { mdiCog, mdiMonitor, mdiWeatherNight, mdiWeatherSunny } from '@mdi/js'
+import { mdiBookOpenVariant, mdiCog, mdiMonitor, mdiWeatherNight, mdiWeatherSunny } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import './app.css'
 import { Icon } from './components/Icon'
 import { BackupReminder } from './components/BackupReminder'
-import { BattleControls } from './components/BattleControls'
+import { HistoryButtons } from './components/BattleControls'
+import { Compendium } from './components/Compendium'
+import { ContentManager } from './components/ContentManager'
+import { EncountersManager } from './components/EncountersManager'
 import { HostControls, useLocalPlayerViewHost } from './features/playerView/HostControls'
 import { SettingsInfo } from './components/SettingsInfo'
 import { StatblockPanel } from './components/StatblockPanel'
 import { TrackerPane } from './components/TrackerPane'
 import { UpdateBanner } from './components/UpdateBanner'
+import { useTheme } from './lib/useTheme'
 import { battleStore, useBattleState } from './store/battleStore'
-
-type Theme = 'dark' | 'light'
-
-const THEME_KEY = '5ect-theme'
-
-function useTheme(): [Theme, () => void] {
-  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark'))
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    localStorage.setItem(THEME_KEY, theme)
-  }, [theme])
-  return [theme, () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))]
-}
 
 function App() {
   const [hydrated, setHydrated] = useState(false)
@@ -30,6 +21,9 @@ function App() {
   const [pinnedId, setPinnedId] = useState<string | null>(null)
   const [showPlayerView, setShowPlayerView] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  // The library dialogs are opened from the top bar, so their state lives here
+  // rather than in the tracker pane.
+  const [libraryModal, setLibraryModal] = useState<'compendium' | 'encounters' | 'content' | null>(null)
   const [theme, toggleTheme] = useTheme()
   // AoE multi-select lives here so the statblock's "apply condition" dialog
   // can pre-select the checked combatants
@@ -75,20 +69,35 @@ function App() {
 
   return (
     <div className="app">
+      {/* Navigation, then history, then the view controls. Turn control is not
+          here — it lives in the dock below the tracker list, where it cannot
+          drift out of reach as the list scrolls. */}
       <header className="topbar">
         <h1 className="app-title">5e Combat Tool</h1>
+        <button type="button" className="primary icon-label" onClick={() => setLibraryModal('compendium')}>
+          <Icon path={mdiBookOpenVariant} /> Compendium
+        </button>
+        <button type="button" onClick={() => setLibraryModal('encounters')}>
+          Encounters
+        </button>
+        <button type="button" onClick={() => setLibraryModal('content')}>
+          Content
+        </button>
+        <span className="topbar-divider" />
+        <HistoryButtons />
+        <span className="topbar-spacer" />
         <button
           type="button"
-          className="ghost"
-          aria-label="Settings"
-          title="Settings"
-          onClick={() => setShowSettings(true)}
+          className="ghost icon-only"
+          aria-label="Player View"
+          title="Player View"
+          onClick={() => setShowPlayerView(true)}
         >
-          <Icon path={mdiCog} />
+          <Icon path={mdiMonitor} />
         </button>
         <button
           type="button"
-          className="ghost"
+          className="ghost icon-only"
           aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
           onClick={toggleTheme}
@@ -97,17 +106,19 @@ function App() {
         </button>
         <button
           type="button"
-          className="ghost"
-          aria-label="Player View"
-          title="Player View"
-          onClick={() => setShowPlayerView(true)}
+          className="ghost icon-only"
+          aria-label="Settings"
+          title="Settings"
+          onClick={() => setShowSettings(true)}
         >
-          <Icon path={mdiMonitor} />
+          <Icon path={mdiCog} />
         </button>
-        <BattleControls />
       </header>
       {showPlayerView && <HostControls onClose={() => setShowPlayerView(false)} />}
       {showSettings && <SettingsInfo onClose={() => setShowSettings(false)} />}
+      {libraryModal === 'compendium' && <Compendium onClose={() => setLibraryModal(null)} />}
+      {libraryModal === 'encounters' && <EncountersManager onClose={() => setLibraryModal(null)} />}
+      {libraryModal === 'content' && <ContentManager onClose={() => setLibraryModal(null)} />}
       <UpdateBanner />
       <BackupReminder />
       <div className="panes">

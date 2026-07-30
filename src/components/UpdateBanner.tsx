@@ -32,7 +32,7 @@ export function UpdateBanner() {
   if (!needRefresh) return null
 
   return (
-    <div className="app-banner" role="status">
+    <div className="app-banner accent" role="status">
       <span>A new version is available.</span>
       <button type="button" className="primary" onClick={() => updateServiceWorker(true)}>
         Reload

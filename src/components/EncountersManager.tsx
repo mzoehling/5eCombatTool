@@ -4,7 +4,14 @@ import { useState } from 'react'
 import { instantiateEncounter, prepareForAdd, saveEncounter } from '../data/encounters'
 import { db } from '../db'
 import { battleStore, useBattleState } from '../store/battleStore'
-import type { SavedEncounter } from '../types'
+import { combatantFromStatblock } from '../store/createCombatant'
+import { nextGroupColor } from '../lib/groups'
+import { newId } from '../lib/id'
+import { HOMEBREW_PACK_ID, type Group, type SavedEncounter } from '../types'
+import { AcShield } from './AcShield'
+import { Checkbox } from './Checkbox'
+import { GroupRoster } from './GroupRoster'
+import { HomebrewEditor } from './HomebrewEditor'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 
@@ -19,6 +26,43 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
   )
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
+  // An encounter of only PCs is how a DM reuses their party every session, so
+  // it gets a named path instead of hiding behind "save current".
+  const [mode, setMode] = useState<'current' | 'party' | 'groups'>('current')
+  const [partyName, setPartyName] = useState('')
+  const [partyIds, setPartyIds] = useState<ReadonlySet<string>>(new Set())
+  const [newPC, setNewPC] = useState(false)
+  // The encounter whose open dialog is showing.
+  const [opening, setOpening] = useState<SavedEncounter | null>(null)
+  const pcs = useLiveQuery(
+    async () =>
+      ((await db.packs.get(HOMEBREW_PACK_ID))?.pcs ?? []).slice().sort((a, b) => a.name.localeCompare(b.name)),
+    [],
+    [],
+  )
+
+  const togglePc = (id: string) => {
+    const next = new Set(partyIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setPartyIds(next)
+  }
+
+  const saveParty = async () => {
+    const chosen = pcs.filter((p) => partyIds.has(p.id))
+    if (!partyName.trim() || chosen.length === 0) return
+    // A party is a normal encounter — no new data type. It carries its own
+    // group so loading it gives back the named party rather than loose PCs.
+    const group: Group = { id: newId(), name: partyName.trim(), inBattle: true, color: nextGroupColor(0) }
+    const entry = await saveEncounter(
+      partyName,
+      chosen.map((sb) => ({ ...combatantFromStatblock(sb, sb.name, true), groupId: group.id })),
+      [group],
+    )
+    setMessage(`Saved party "${entry.name}" (${entry.combatants.length} PCs).`)
+    setPartyName('')
+    setPartyIds(new Set())
+  }
 
   const save = async () => {
     if (!name.trim() || state.combatants.length === 0) return
@@ -28,21 +72,17 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
   }
 
   const load = (saved: SavedEncounter) => {
-    if (
-      state.combatants.length > 0 &&
-      !confirm(`Replace the current tracker with "${saved.name}"? (Undo can bring it back.)`)
-    ) {
-      return
-    }
     const { combatants, groups } = instantiateEncounter(saved)
     dispatch({ type: 'loadEncounter', name: saved.name, combatants, groups, mode: 'replace' })
     setMessage(`Loaded "${saved.name}".`)
+    setOpening(null)
   }
 
   const add = (saved: SavedEncounter) => {
     const instance = instantiateEncounter(saved)
     const existingNames = state.combatants.map((c) => c.name)
     const { combatants, skippedPCs } = prepareForAdd(instance.combatants, existingNames)
+    setOpening(null)
     if (!combatants.length) {
       setMessage(skippedPCs ? 'All of these PCs are already in the tracker.' : 'Nothing to add.')
       return
@@ -67,10 +107,81 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
     setMessage('Cleared the tracker.')
   }
 
+  // Swapped in place rather than stacked: two Modals means two backdrops, and
+  // a click outside would close both.
+  if (newPC) {
+    return <HomebrewEditor section="pcs" onClose={() => setNewPC(false)} />
+  }
+
   return (
-    <Modal title="Encounters" className="modal-split" onClose={onClose}>
+    <>
+    <Modal title="Encounters" className="modal-wide modal-tall modal-split" onClose={onClose}>
       {/* Fixed band: the save form and its outcome stay put while the list scrolls. */}
       <div className="modal-controls">
+        <div className="segments enc-modes">
+          <button type="button" aria-pressed={mode === 'current'} onClick={() => setMode('current')}>
+            Tracker
+          </button>
+          <button type="button" aria-pressed={mode === 'party'} onClick={() => setMode('party')}>
+            Party
+          </button>
+          {/* The live groups belong here: a group is where a combatant came
+              from, and that is what this dialog is about. */}
+          <button type="button" aria-pressed={mode === 'groups'} onClick={() => setMode('groups')}>
+            Groups
+          </button>
+        </div>
+
+        {mode === 'groups' ? (
+          <GroupRoster />
+        ) : mode === 'party' ? (
+          <>
+            <div className="inline-form">
+              <input
+                placeholder="Party name (e.g. The Usual Suspects)"
+                value={partyName}
+                onChange={(e) => setPartyName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveParty()}
+              />
+              <button
+                type="button"
+                className="ok icon-label"
+                disabled={!partyName.trim() || partyIds.size === 0}
+                onClick={saveParty}
+              >
+                <Icon path={mdiContentSave} /> Save party of {partyIds.size}
+              </button>
+            </div>
+            <ul className="apply-list party-list">
+              {pcs.map((pc) => (
+                <li key={pc.id} className="party-row">
+                  <label className="check">
+                    <Checkbox
+                      checked={partyIds.has(pc.id)}
+                      onChange={() => togglePc(pc.id)}
+                      ariaLabel={pc.name}
+                    />
+                    <AcShield value={pc.ac} />
+                    <span className="party-name">
+                      {pc.name}
+                      <span className="result-meta dim">
+                        HP {pc.hp.average} · Init {pc.initiativeBonus >= 0 ? '+' : ''}
+                        {pc.initiativeBonus}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              ))}
+              {pcs.length === 0 && (
+                <li className="dim">No player characters in the Homebrew pack yet.</li>
+              )}
+            </ul>
+            {/* Escape hatch: a party is only as good as the PCs behind it. */}
+            <button type="button" className="ghost icon-label" onClick={() => setNewPC(true)}>
+              <Icon path={mdiPlus} /> New PC in homebrew…
+            </button>
+          </>
+        ) : (
         <div className="inline-form">
           <input
             placeholder="Name (e.g. Goblin Ambush, Party)"
@@ -97,6 +208,7 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
             <Icon path={mdiTrashCanOutline} /> Clear
           </button>
         </div>
+        )}
         {message && <p className="ok-text">{message}</p>}
       </div>
 
@@ -111,17 +223,16 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
                   {e.combatants.some((c) => c.isPC) && ` (${e.combatants.filter((c) => c.isPC).length} PCs)`} ·{' '}
                   {new Date(e.updatedAt).toLocaleDateString()}
                 </span>
+                {/* What is actually inside, so the DM knows before opening it. */}
+                {e.groups.length > 0 && (
+                  <span className="result-meta dim">{e.groups.map((g) => g.name).join(' · ')}</span>
+                )}
               </span>
-              <button
-                type="button"
-                className="icon-label"
-                title="Replace the tracker with this encounter"
-                onClick={() => load(e)}
-              >
-                <Icon path={mdiSwapHorizontal} /> Load
-              </button>
-              <button type="button" className="icon-label" title="Merge into the current tracker" onClick={() => add(e)}>
-                <Icon path={mdiPlus} /> Add
+              {/* One button, then a dialog that names both outcomes. Load and
+                  Add sat side by side and read alike, and only one of them
+                  throws the current tracker away. */}
+              <button type="button" className="outlined icon-label" onClick={() => setOpening(e)}>
+                <Icon path={mdiSwapHorizontal} /> Open…
               </button>
               <button type="button" className="ghost" aria-label={`Delete ${e.name}`} onClick={() => remove(e)}>
                 <Icon path={mdiDelete} />
@@ -136,5 +247,39 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
         </ul>
       </div>
     </Modal>
+      {/* Rendered after the Encounters dialog so its backdrop is painted on
+          top; a click outside then closes only this one and leaves the list
+          underneath standing. */}
+      {opening && (
+        <Modal title={opening.name} onClose={() => setOpening(null)}>
+          <p className="dim">
+            {opening.combatants.length} combatants
+            {opening.groups.length > 0 && ` · ${opening.groups.map((g) => g.name).join(' · ')}`}
+          </p>
+          <ul className="apply-list">
+            {opening.combatants.map((c) => (
+              <li key={c.id}>
+                {c.name}
+                {c.isPC && <span className="badge pc">PC</span>}
+              </li>
+            ))}
+          </ul>
+          <div className="modal-footer">
+            <button type="button" className="ghost" onClick={() => setOpening(null)}>
+              Cancel
+            </button>
+            <span className="spacer" />
+            <button type="button" className="ok icon-label" onClick={() => add(opening)}>
+              <Icon path={mdiPlus} /> Add to tracker
+            </button>
+            {/* Destructive, and named so: it throws away what is on the
+                tracker right now. Undo can bring it back. */}
+            <button type="button" className="danger icon-label" onClick={() => load(opening)}>
+              <Icon path={mdiSwapHorizontal} /> Replace tracker
+            </button>
+          </div>
+        </Modal>
+      )}
+    </>
   )
 }

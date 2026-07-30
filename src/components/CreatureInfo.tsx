@@ -56,14 +56,19 @@ export function CreatureInfo({ name, onClose }: CreatureInfoProps) {
   }
 
   return (
-    <Modal title={statblock.name} onClose={onClose}>
-      <StatblockPanel
-        combatant={combatantFromStatblock(statblock)}
-        origin={origin}
-        pinned={false}
-        onTogglePin={() => {}}
-      />
-      <div className="modal-actions">
+    // "Add to battle" is pinned in the footer so it survives scrolling a long
+    // statblock — it is the reason the sheet was opened.
+    <Modal title={statblock.name} className="modal-split" onClose={onClose}>
+      <div className="modal-scroll">
+        <StatblockPanel
+          combatant={combatantFromStatblock(statblock)}
+          origin={origin}
+          pinned={false}
+          onTogglePin={() => {}}
+        />
+      </div>
+      <div className="modal-footer">
+        <span className="spacer" />
         <button type="button" className="primary icon-label" onClick={addToBattle}>
           <Icon path={mdiPlus} /> Add to battle
         </button>
