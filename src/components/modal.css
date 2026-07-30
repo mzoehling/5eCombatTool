@@ -223,6 +223,16 @@
   font-weight: 600;
 }
 
+/* Commits nothing by itself — it selects a mode or empties a field, so it
+   reads as an outline. Needed here as well as in app.css: `.modal button`
+   matches at the same specificity, and the Player View loads only this file. */
+.modal button.outlined {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .modal button.danger {
   background: var(--danger);
   border-color: var(--danger);

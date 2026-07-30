@@ -132,7 +132,9 @@ export const DiceRoller = memo(function DiceRoller({
                 +
               </button>
             </div>
-            <button type="button" className="ghost" onClick={clearPad}>
+            {/* It empties the pad, which is an action — a ghost label next to
+                the stepper read as part of the stepper. */}
+            <button type="button" className="outlined" onClick={clearPad}>
               Clear
             </button>
           </div>

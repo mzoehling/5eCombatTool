@@ -115,7 +115,7 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-    <Modal title="Encounters" className="modal-split" onClose={onClose}>
+    <Modal title="Encounters" className="modal-wide modal-tall modal-split" onClose={onClose}>
       {/* Fixed band: the save form and its outcome stay put while the list scrolls. */}
       <div className="modal-controls">
         <div className="segments enc-modes">

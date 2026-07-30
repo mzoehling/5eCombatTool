@@ -1,5 +1,5 @@
 // Rules text for conditions (SRD 5.2.1, CC-BY-4.0) and for the tracked
-// spell effects, shown in the statblock panel's "Active Conditions" tab.
+// spell effects, shown in the statblock panel's "Conditions" tab.
 
 import { CONDITIONS, SPELL_EFFECTS, type ConditionName, type SpellEffectName } from '../types'
 
