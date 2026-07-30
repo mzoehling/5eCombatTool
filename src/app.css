@@ -276,6 +276,9 @@ textarea {
 }
 
 .hp-meter-fill {
+  /* The fill is a <span>: without this it stays inline, where width and height
+     do not apply, and the bar renders empty at every health level. */
+  display: block;
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--hp-fill, var(--ok));
