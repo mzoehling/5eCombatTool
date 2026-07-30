@@ -213,6 +213,25 @@
 
 /* ---------- order list ---------- */
 
+/* Wrapper so the heading stays put while only the list scrolls. */
+.pv-upnext {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+/* The count is the point of this list — a player wants to know how many turns
+   stand between now and their own. */
+.pv-upnext-head {
+  margin: 0 0 0.2em;
+  flex: none;
+  font-size: 0.75em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
 .pv-list {
   list-style: none;
   margin: 0;
@@ -380,7 +399,7 @@
     display: none;
   }
 
-  .pv-list {
+  .pv-upnext {
     flex: 1;
   }
 

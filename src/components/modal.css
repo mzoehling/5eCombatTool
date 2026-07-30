@@ -210,6 +210,16 @@
    its baseline here as well — the roll-mode switch is otherwise a row of
    identical buttons with no sign of which mode is armed. `:where` again, so
    app.css owns the primitive wherever both are loaded. */
+:where(.modal) :where(.segments) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1);
+}
+
 :where(.modal) :where(.segments) button {
   background: none;
   border-color: transparent;

@@ -7,6 +7,7 @@ import { Modal } from '../../components/Modal'
 import { describeCondition } from '../../data/conditionInfo'
 import { nameRuns } from '../../lib/groups'
 import { hpMeterWidths } from '../../lib/hpMeter'
+import { upNext } from '../../lib/turnOrder'
 import { useTheme } from '../../lib/useTheme'
 import type { PlayerParticipant, PlayerSnapshot } from './projection'
 import {
@@ -190,11 +191,15 @@ export function ViewerApp({ code }: { code: string }) {
     }
   }, [code])
 
-  const active = snapshot?.participants.find((p) => p.id === snapshot.activeId) ?? null
-  // The spotlight already carries whoever is acting, so the order list below
-  // shows everyone else — repeating the active row would just waste a phone's
-  // very limited height.
-  const others = snapshot?.participants.filter((p) => p.id !== snapshot.activeId) ?? []
+  const participants = snapshot?.participants ?? []
+  const activeIndex = snapshot ? participants.findIndex((p) => p.id === snapshot.activeId) : -1
+  const active = activeIndex >= 0 ? participants[activeIndex] : null
+  // Only what is still to come this round. The spotlight already carries
+  // whoever is acting and the rail above carries everyone, so the list answers
+  // the one question it is uniquely placed to answer: how many more turns until
+  // the round comes back around. Listing the creatures that have already gone
+  // would bury that count.
+  const remaining = upNext(participants, snapshot?.activeId ?? null)
 
   return (
     <div className="pv-app">
@@ -261,8 +266,20 @@ export function ViewerApp({ code }: { code: string }) {
             screen. There is no expander either — a player taps exactly two
             things, a condition chip and the dice button — so a bundle of one
             kind of creature simply reads as one line. */}
-        <ol className="pv-list">
-          {nameRuns(others).map((run, i) =>
+        <div className="pv-upnext">
+          <p className="pv-upnext-head">
+            {activeIndex < 0 ? (
+              'Turn order'
+            ) : remaining.length === 0 ? (
+              'Last turn of the round'
+            ) : (
+              <>
+                Up next · <span className="num">{remaining.length}</span> until the round ends
+              </>
+            )}
+          </p>
+          <ol className="pv-list">
+          {nameRuns(remaining).map((run, i) =>
             run.members.length > 1 ? (
               <li key={`${run.label}-${i}`} className="pv-bundle">
                 <span className="pv-name">
@@ -288,8 +305,12 @@ export function ViewerApp({ code }: { code: string }) {
               ))
             ),
           )}
-          {snapshot && snapshot.participants.length === 0 && <li className="pv-empty">Waiting for combatants…</li>}
-        </ol>
+          {snapshot && participants.length === 0 && <li className="pv-empty">Waiting for combatants…</li>}
+          {snapshot && participants.length > 0 && remaining.length === 0 && (
+            <li className="pv-empty">Everyone else has acted — the round ends here.</li>
+          )}
+          </ol>
+        </div>
       </div>
     </div>
   )

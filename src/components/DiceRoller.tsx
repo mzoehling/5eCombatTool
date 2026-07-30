@@ -14,10 +14,13 @@ interface DiceRollerProps {
   allowApply?: boolean
 }
 
-const MODES: { id: RollMode; label: string }[] = [
-  { id: 'normal', label: 'Normal' },
-  { id: 'advantage', label: 'Advantage' },
-  { id: 'disadvantage', label: 'Disadvantage' },
+/* Short labels because the group has to fit the width of the dice pad on a
+   phone; the full word stays as the accessible name. ADV/DIS is the shorthand
+   the rest of the app already uses. */
+const MODES: { id: RollMode; label: string; full: string }[] = [
+  { id: 'normal', label: 'Normal', full: 'Normal' },
+  { id: 'advantage', label: 'ADV', full: 'Advantage' },
+  { id: 'disadvantage', label: 'DIS', full: 'Disadvantage' },
 ]
 
 const DICE = [4, 6, 8, 10, 12, 20] as const
@@ -132,11 +135,25 @@ export const DiceRoller = memo(function DiceRoller({
                 +
               </button>
             </div>
-            {/* It empties the pad, which is an action — a ghost label next to
-                the stepper read as part of the stepper. */}
-            <button type="button" className="outlined" onClick={clearPad}>
-              Clear
-            </button>
+          </div>
+
+          {/* Under the pad rather than in the footer: three words plus the crit
+              button could not share a phone's footer with Roll without being
+              squeezed into an unreadable strip. Here the group is exactly as
+              wide as the dice pad above it. */}
+          <div className="dice-mode segments" role="group" aria-label="Roll mode">
+            {MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                aria-pressed={mode === m.id}
+                aria-label={m.full}
+                title={m.full}
+                onClick={() => setMode(m.id)}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
 
           {/* Notation stays available for compound rolls the pad cannot build,
@@ -222,26 +239,25 @@ export const DiceRoller = memo(function DiceRoller({
 
       {/* On a phone this footer is the thumb zone, so Roll lives here rather
           than next to the expression. */}
+      {/* Three actions, three weights: Clear discards, Crit rewrites the
+          expression, Roll commits. Only Roll is filled. */}
       <div className="modal-footer dice-footer">
-        <div className="dice-mode segments" role="group" aria-label="Roll mode">
-          {MODES.map((m) => (
-            <button key={m.id} type="button" aria-pressed={mode === m.id} onClick={() => setMode(m.id)}>
-              {m.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="crit-btn"
-            disabled={!critExpression}
-            title="Double the dice — critical hit"
-            onClick={() => {
-              if (!critExpression) return
-              setText(critExpression)
-            }}
-          >
-            Crit ×2
-          </button>
-        </div>
+        <button type="button" className="dice-clear-btn" onClick={clearPad}>
+          Clear
+        </button>
+        <button
+          type="button"
+          className="crit-btn"
+          disabled={!critExpression}
+          title="Double the dice — critical hit"
+          onClick={() => {
+            if (!critExpression) return
+            setText(critExpression)
+          }}
+        >
+          Crit ×2
+        </button>
+        <span className="spacer" />
         <button type="button" className="primary icon-label dice-roll-btn" onClick={doRoll}>
           <Icon path={mdiDiceMultiple} /> Roll
         </button>
