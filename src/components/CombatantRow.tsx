@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { mdiDiceD20, mdiDotsHorizontal, mdiDrag, mdiEyeOff, mdiFormatListChecks } from '@mdi/js'
 import { battleStore } from '../store/battleStore'
 import { d20 } from '../lib/dice'
+import { hpMeterWidths } from '../lib/hpMeter'
 import type { SaveVerdict } from '../lib/saves'
 import type { Combatant } from '../types'
 import { AcShield } from './AcShield'
@@ -21,8 +22,9 @@ interface CombatantRowProps {
   groupName?: string
   groupColor?: string
   groupOut: boolean
-  /** While AoE is armed: what this row would receive if it were applied now. */
-  aoePreview?: { amount: number; heal: boolean }
+  /** While AoE is armed: what this row would receive if it were applied now.
+   *  A string because dice notation has no number until it is rolled. */
+  aoePreview?: string
   /** Set once the AoE bar has a save DC: this row's roll and how it read. */
   aoeSave?: { roll: number; total: number; verdict: SaveVerdict }
   onToggleSave?: () => void
@@ -80,10 +82,9 @@ export function CombatantRow({
   // entered or rolled value hides it
   const showRoll = (c.initiative ?? 0) === 0
 
-  const hpPercent = Math.max(0, Math.min(100, (c.hp / Math.max(1, c.maxHp)) * 100))
-  // Temp HP hangs off the end of the fill rather than being counted into it,
-  // so the bar still reads as "how much of your own HP is left".
-  const tempPercent = Math.min(100 - hpPercent, (c.tempHp / Math.max(1, c.maxHp)) * 100)
+  // Temp HP extends the bar's scale rather than being drawn inside the max:
+  // 20 temp on 90/100 is 20 points, and the bar has to say so.
+  const meter = hpMeterWidths(c.hp, c.maxHp, c.tempHp)
 
   return (
     <li
@@ -91,6 +92,24 @@ export function CombatantRow({
       className={classes}
       style={{ transform: CSS.Transform.toString(transform), transition }}
     >
+      {/* The group reads as a coloured spine on the row rather than a badge on
+          the name line: a badge repeated down eight goblins competes with the
+          names it sits next to, while a strip lines up into one block the eye
+          reads as "these belong together" without reading any word twice. */}
+      {groupName && (
+        <span
+          className="group-strip"
+          title={groupName}
+          style={
+            groupColor
+              ? { background: `color-mix(in srgb, ${groupColor} 22%, transparent)`, color: groupColor }
+              : undefined
+          }
+        >
+          <span className="group-strip-text">{groupName}</span>
+        </span>
+      )}
+
       {/* The checkbox takes over the initiative block's footprint so nothing
           else in the row shifts when AoE mode is toggled. */}
       {multiSelect ? (
@@ -144,23 +163,11 @@ export function CombatantRow({
           )}
           <span className="row-name-text">{c.name}</span>
           {c.isPC && <span className="badge pc">PC</span>}
-          {groupName && (
-            <span
-              className="badge group"
-              style={
-                groupColor
-                  ? { background: `color-mix(in srgb, ${groupColor} 28%, transparent)`, color: groupColor }
-                  : undefined
-              }
-            >
-              {groupName}
-            </span>
-          )}
         </span>
         <span className="hp-meter">
-          <span className="hp-meter-fill" style={{ width: `${hpPercent}%` }} />
-          {tempPercent > 0 && (
-            <span className="hp-meter-temp" style={{ left: `${hpPercent}%`, width: `${tempPercent}%` }} />
+          <span className="hp-meter-fill" style={{ width: `${meter.hp}%` }} />
+          {meter.temp > 0 && (
+            <span className="hp-meter-temp" style={{ left: `${meter.hp}%`, width: `${meter.temp}%` }} />
           )}
         </span>
         {c.conditions.length > 0 && (
@@ -192,12 +199,7 @@ export function CombatantRow({
         </button>
       )}
 
-      {aoePreview && (
-        <span className={aoePreview.heal ? 'aoe-preview heal' : 'aoe-preview'}>
-          {aoePreview.heal ? '+' : '−'}
-          {aoePreview.amount} hp
-        </span>
-      )}
+      {aoePreview && <span className="aoe-preview">{aoePreview}</span>}
 
       <button type="button" className="ghost cond-btn" aria-label={`Conditions for ${c.name}`} onClick={onEditConditions}>
         <Icon path={mdiFormatListChecks} />

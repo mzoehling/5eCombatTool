@@ -1,4 +1,4 @@
-import { mdiDiceMultiple } from '@mdi/js'
+import { mdiDiceMultiple, mdiWeatherNight, mdiWeatherSunny } from '@mdi/js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import './viewer.css'
 import { DiceRoller } from '../../components/DiceRoller'
@@ -6,6 +6,8 @@ import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { describeCondition } from '../../data/conditionInfo'
 import { nameRuns } from '../../lib/groups'
+import { hpMeterWidths } from '../../lib/hpMeter'
+import { useTheme } from '../../lib/useTheme'
 import type { PlayerParticipant, PlayerSnapshot } from './projection'
 import {
   connectBroadcastViewer,
@@ -68,6 +70,17 @@ function Conditions({
   )
 }
 
+/** Temp HP extends the bar's scale, so 20 temp on 90/100 reads as 20. */
+function SpotlightMeter({ hp, maxHp, tempHp }: { hp: number; maxHp: number; tempHp: number }) {
+  const w = hpMeterWidths(hp, maxHp, tempHp)
+  return (
+    <span className="hp-meter pv-spotlight-meter">
+      <span className="hp-meter-fill" style={{ width: `${w.hp}%` }} />
+      {w.temp > 0 && <span className="hp-meter-temp" style={{ left: `${w.hp}%`, width: `${w.temp}%` }} />}
+    </span>
+  )
+}
+
 /** The creature acting right now, given the whole width it deserves. */
 function Spotlight({
   participant,
@@ -87,14 +100,7 @@ function Spotlight({
         <Health participant={participant} />
       </div>
       {participant.health.kind === 'pc' && (
-        <span className="hp-meter pv-spotlight-meter">
-          <span
-            className="hp-meter-fill"
-            style={{
-              width: `${Math.max(0, Math.min(100, (participant.health.hp / Math.max(1, participant.health.maxHp)) * 100))}%`,
-            }}
-          />
-        </span>
+        <SpotlightMeter hp={participant.health.hp} maxHp={participant.health.maxHp} tempHp={participant.health.tempHp} />
       )}
       <Conditions participant={participant} onOpen={onCondition} />
     </section>
@@ -166,6 +172,7 @@ export function ViewerApp({ code }: { code: string }) {
   const [status, setStatus] = useState<ViewerStatus>('connecting')
   const [showDice, setShowDice] = useState(false)
   const [conditionInfo, setConditionInfo] = useState<string | null>(null)
+  const [theme, toggleTheme] = useTheme()
   const transportRef = useRef<ViewerTransport | null>(null)
   // stable identity: an arriving snapshot must not re-render the open roller
   // and clobber the expression the player is halfway through typing
@@ -196,6 +203,18 @@ export function ViewerApp({ code }: { code: string }) {
           {snapshot?.isRunning ? `Round ${snapshot.round}` : snapshot ? 'Forming up…' : '—'}
         </span>
         <h1>Battle</h1>
+        {/* A phone at a dark table wants the candlelit palette as much as the
+            DM's iPad does, and the viewer is its own root — it cannot inherit
+            the DM's choice. */}
+        <button
+          type="button"
+          className="pv-dice-btn"
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          onClick={toggleTheme}
+        >
+          <Icon path={theme === 'dark' ? mdiWeatherSunny : mdiWeatherNight} />
+        </button>
         <button type="button" className="pv-dice-btn" aria-label="Dice Roller" onClick={() => setShowDice(true)}>
           <Icon path={mdiDiceMultiple} />
         </button>

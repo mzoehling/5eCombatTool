@@ -12,21 +12,8 @@ import { SettingsInfo } from './components/SettingsInfo'
 import { StatblockPanel } from './components/StatblockPanel'
 import { TrackerPane } from './components/TrackerPane'
 import { UpdateBanner } from './components/UpdateBanner'
+import { useTheme } from './lib/useTheme'
 import { battleStore, useBattleState } from './store/battleStore'
-
-type Theme = 'dark' | 'light'
-
-const THEME_KEY = '5ect-theme'
-
-function useTheme(): [Theme, () => void] {
-  // Light (warm vellum) is the default; only an explicitly stored 'dark' opts out.
-  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'))
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    localStorage.setItem(THEME_KEY, theme)
-  }, [theme])
-  return [theme, () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))]
-}
 
 function App() {
   const [hydrated, setHydrated] = useState(false)

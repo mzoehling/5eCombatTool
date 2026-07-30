@@ -141,24 +141,6 @@
   margin-left: auto;
 }
 
-/* Compendium is the exception to the centred dialog: a right-hand side sheet,
-   so the tracker stays visible while creatures are added to it. */
-.modal.modal-sheet {
-  width: 620px;
-  max-width: 100%;
-  max-height: 100dvh;
-  height: 100dvh;
-  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
-  border-right: none;
-  margin-left: auto;
-  margin-right: calc(-1 * var(--space-4));
-}
-
-.modal-backdrop:has(.modal-sheet) {
-  place-items: stretch;
-  padding-left: 0;
-}
-
 /* Below 700px of viewport height a centred dialog leaves no room for its own
    content, so every dialog docks to the bottom edge as a sheet instead. Same
    tokens — only the position changes. */
@@ -169,8 +151,7 @@
   }
 
   .modal,
-  .modal.modal-wide,
-  .modal.modal-sheet {
+  .modal.modal-wide {
     width: 100%;
     max-width: 100%;
     height: auto;
@@ -195,10 +176,6 @@
     border-radius: var(--radius-pill);
     background: var(--border);
   }
-
-  .modal-backdrop:has(.modal-sheet) {
-    padding-left: 0;
-  }
 }
 
 .modal button {
@@ -208,6 +185,26 @@
   min-height: var(--target-base);
   padding: 0 var(--space-4);
   cursor: pointer;
+}
+
+/* A segment group is one control, not a row of buttons: `.modal button` above
+   matches the same specificity as `.segments button` and, loading later, was
+   winning — the Encounters tabs came out as ordinary boxed buttons while the
+   identical markup in the statblock pane read as pills. */
+.modal .segments button {
+  background: none;
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+  min-height: var(--target-icon);
+  padding: 0 var(--space-3);
+}
+
+.modal .segments button[aria-pressed='true'],
+.modal .segments button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
 }
 
 .modal button.primary {

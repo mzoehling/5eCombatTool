@@ -217,7 +217,7 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
   // A right-hand side sheet rather than a centred dialog, so the tracker stays
   // visible while creatures are added to it.
   return (
-    <Modal title="Compendium" className="modal-sheet modal-split" onClose={onClose}>
+    <Modal title="Compendium" className="modal-wide modal-split" onClose={onClose}>
       {/* Fixed band: tabs and filters stay put while only the results scroll. */}
       <div className="modal-controls">
         <div className="sb-tabs segments">

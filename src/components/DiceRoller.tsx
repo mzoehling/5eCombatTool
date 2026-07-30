@@ -25,9 +25,11 @@ const DICE = [4, 6, 8, 10, 12, 20] as const
 type DiceCounts = Partial<Record<(typeof DICE)[number], number>>
 
 /** Composes the pad's state into the notation both input models share. */
-function composeExpression(counts: DiceCounts, bonus: number): string {
+export function composeExpression(counts: DiceCounts, bonus: number): string {
   const terms = DICE.filter((sides) => (counts[sides] ?? 0) > 0).map((sides) => `${counts[sides]}d${sides}`)
-  if (bonus !== 0) terms.push(bonus > 0 ? `+${bonus}` : String(bonus))
+  // The sign comes from the join, not from the term: writing "+5" here and
+  // then joining on "+" produced "1d3++5", which is not a valid expression.
+  if (bonus !== 0) terms.push(String(bonus))
   return terms.join('+').replace(/\+-/g, '-')
 }
 

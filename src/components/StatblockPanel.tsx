@@ -376,13 +376,16 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds, o
     onCreature: setCreatureFor,
   }
 
+  // Active Conditions leads when there are any: it is the only tab whose
+  // contents change mid-fight, and it is what the DM looks for first when it
+  // appears. The rest keep their reference-book order behind it.
   const tabs: { id: Tab; label: string; show: boolean }[] = [
+    { id: 'conditions', label: 'Active Conditions', show: combatant.conditions.length > 0 },
     { id: 'general', label: 'General', show: true },
     { id: 'traits', label: 'Traits', show: !!sb && sb.traits.length > 0 },
     { id: 'actions', label: 'Actions', show: !!sb },
     { id: 'spells', label: 'Spells', show: !!sb && sb.spellcasting.length > 0 },
     { id: 'uses', label: 'Uses', show: true },
-    { id: 'conditions', label: 'Active Conditions', show: combatant.conditions.length > 0 },
   ]
 
   // fall back when the selected tab disappears (e.g. last condition removed)

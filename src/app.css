@@ -517,6 +517,10 @@ textarea {
   align-items: center;
   gap: var(--space-3);
   padding: 9px var(--space-3);
+  /* Anchors the group spine, which spans the row's full height and therefore
+     cannot take part in the flex line. */
+  position: relative;
+  overflow: hidden;
   margin-bottom: var(--space-2);
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -561,6 +565,42 @@ textarea {
   position: relative;
 }
 
+/* The group as a coloured spine down the row's left edge, its name set
+   vertically. Repeated down eight goblins the strips line up into one block
+   that reads as "these belong together"; a badge on each name line would make
+   the eye read the same word eight times instead. */
+.group-strip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--surface-sunken);
+  color: var(--text-dim);
+}
+
+.combatant-row:has(.group-strip) {
+  padding-left: calc(var(--space-3) + 18px);
+}
+
+.group-strip-text {
+  /* Bottom-to-top, the conventional reading direction for a vertical label. */
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  max-height: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* The initiative block and the AoE checkbox share a footprint, so turning AoE
    on swaps one for the other without anything else in the row shifting. */
 .init-block,
@@ -585,8 +625,18 @@ textarea {
   padding: 0;
 }
 
+/* An unrolled NPC carries a roll button under its field, and the two together
+   overflowed the block they share with the AoE checkbox. The field gives up
+   the height rather than the row growing, so nothing to the right shifts when
+   initiative is finally entered. */
+.init-block:has(.roll-btn) .init-value {
+  min-height: 28px;
+  height: 28px;
+  font-size: 1rem;
+}
+
 .roll-btn {
-  min-height: 28px !important;
+  min-height: 24px !important;
   min-width: 28px !important;
   padding: 0;
   font-size: 0.9rem;
@@ -694,9 +744,10 @@ textarea {
   gap: var(--space-1);
 }
 
+/* Centred, not right-aligned: hard against the "/max" it read as "12/ 40". */
 .hp-current {
   width: 3.4rem;
-  text-align: right;
+  text-align: center;
   font-weight: 700;
   font-size: 1.05rem;
   padding: 0 var(--space-1);
@@ -927,6 +978,19 @@ textarea {
   .hp-temp,
   .hp-delta {
     min-height: var(--target-pencil);
+  }
+
+  /* Except when the roll button shares the block — see the base rule. */
+  .init-block:has(.roll-btn) .init-value {
+    min-height: 34px;
+    height: 34px;
+  }
+
+  /* Both blocks grow together — they share a footprint, and AoE mode must not
+     change the height of a row. */
+  .init-block,
+  .row-check-block {
+    height: 68px;
   }
 
   .cond-btn,

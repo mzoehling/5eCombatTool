@@ -4,6 +4,7 @@ import { mdiChevronDown, mdiDiceD20, mdiDiceMultiple, mdiVectorCircle } from '@m
 import { Fragment, useEffect, useState } from 'react'
 import { evalArithmetic } from '../lib/arithmetic'
 import { d20 } from '../lib/dice'
+import { parseDiceExpression, rollDiceExpression } from '../lib/diceExpr'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
 import { derivedGroupName, groupedInitiativeRolls, groupRuns, nextGroupColor } from '../lib/groups'
@@ -92,7 +93,9 @@ export function TrackerPane({
   }
 
   const applyAoe = (heal: boolean) => {
-    const amount = evalArithmetic(aoeAmount)
+    // Dice notation is rolled once for the whole area, which is what the rules
+    // say: a fireball deals one damage roll to everyone it catches.
+    const amount = evalArithmetic(aoeAmount) ?? rollDiceExpression(aoeAmount)?.total ?? null
     if (amount === null || amount <= 0 || checked.size === 0) return
     const type = heal ? ('applyHealing' as const) : ('applyDamage' as const)
     // A made save halves damage, so the two groups go out as two dispatches —
@@ -166,10 +169,23 @@ export function TrackerPane({
   const editCombatant = state.combatants.find((c) => c.id === editFor)
 
   // Live per-row preview of what the AoE bar would apply. Only a usable amount
-  // produces one, so an empty or half-typed field shows nothing.
+  // produces one, so an empty or half-typed field shows nothing. Dice cannot be
+  // previewed as a number — the roll happens on apply — so the row shows the
+  // notation instead, halved or not exactly as the total will be.
   const aoeValue = evalArithmetic(aoeAmount)
+  const aoeDice = aoeValue === null && parseDiceExpression(aoeAmount) !== null
   const aoePreview = multiSelect && aoeValue !== null && aoeValue > 0 ? aoeValue : null
+  const previewLabel = (id: string): string | undefined => {
+    const halved = saves.get(id)?.verdict === 'saved'
+    if (aoePreview !== null) return `−${amountAfterSave(aoePreview, saves.get(id)?.verdict)} hp`
+    if (multiSelect && aoeDice) return `−${halved ? '½ ' : ''}${aoeAmount.trim()}`
+    return undefined
+  }
   const savedCount = [...checked].filter((id) => saves.get(id)?.verdict === 'saved').length
+  // Grouping a selection that is already grouped would silently move those
+  // combatants out of the group they came from, so it is offered only for a
+  // selection that has no group yet.
+  const checkedGrouped = ordered.filter((c) => checked.has(c.id) && c.groupId).length
 
   // A run is collapsed when its group is, it has more than one member, and AoE
   // is off — picking targets needs every row reachable.
@@ -188,11 +204,7 @@ export function TrackerPane({
                   groupName={group?.name}
                   groupColor={group?.color}
                   groupOut={group ? !group.inBattle : false}
-                  aoePreview={
-                    aoePreview !== null && checked.has(c.id)
-                      ? { amount: amountAfterSave(aoePreview, saves.get(c.id)?.verdict), heal: false }
-                      : undefined
-                  }
+                  aoePreview={checked.has(c.id) ? previewLabel(c.id) : undefined}
                   aoeSave={multiSelect && checked.has(c.id) ? saves.get(c.id) : undefined}
                   onToggleSave={() => flipVerdict(c.id)}
                   onSelect={() => onSelect(c.id)}
@@ -298,8 +310,12 @@ export function TrackerPane({
           </button>
           <button
             type="button"
-            disabled={checked.size === 0}
-            title="Turn this selection into a group"
+            disabled={checked.size === 0 || checkedGrouped > 0}
+            title={
+              checkedGrouped > 0
+                ? 'Some of these are already in a group — move them out from their edit dialog first'
+                : 'Turn this selection into a group'
+            }
             onClick={groupSelection}
           >
             Group
