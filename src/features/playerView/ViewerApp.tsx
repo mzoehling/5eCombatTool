@@ -11,7 +11,7 @@ import { hpMeterWidths } from '../../lib/hpMeter'
 import { upNext } from '../../lib/turnOrder'
 import { useServiceWorkerUpdate } from '../../lib/useServiceWorkerUpdate'
 import { useTheme } from '../../lib/useTheme'
-import type { PlayerParticipant, PlayerSnapshot } from './projection'
+import { healthStatus, type PlayerParticipant, type PlayerSnapshot } from './projection'
 import {
   connectBroadcastViewer,
   connectPeerViewer,
@@ -76,8 +76,10 @@ function Conditions({
 /** Temp HP extends the bar's scale, so 20 temp on 90/100 reads as 20. */
 function SpotlightMeter({ hp, maxHp, tempHp }: { hp: number; maxHp: number; tempHp: number }) {
   const w = hpMeterWidths(hp, maxHp, tempHp)
+  // Tinted by the same status word the rail uses, so one creature is never
+  // red on its token and green on its bar.
   return (
-    <span className="hp-meter pv-spotlight-meter">
+    <span className={`hp-meter pv-spotlight-meter status-${healthStatus(hp, maxHp).toLowerCase()}`}>
       <span className="hp-meter-fill" style={{ width: `${w.hp}%` }} />
       {w.temp > 0 && <span className="hp-meter-temp" style={{ left: `${w.hp}%`, width: `${w.temp}%` }} />}
     </span>
@@ -102,8 +104,17 @@ function Spotlight({
       <div className="pv-spotlight-stats">
         <Health participant={participant} />
       </div>
-      {participant.health.kind === 'pc' && (
+      {/* Both kinds get a bar; each matches the precision of the text above
+          it. A PC's sits under exact hit points, so it is exact. A monster's
+          sits under a status word — the word stands where the numbers would
+          be — so it is the same staged bar the rail draws, and no hit point
+          total the DM withheld is reconstructable from its width. */}
+      {participant.health.kind === 'pc' ? (
         <SpotlightMeter hp={participant.health.hp} maxHp={participant.health.maxHp} tempHp={participant.health.tempHp} />
+      ) : (
+        <span className={`hp-meter pv-spotlight-meter status-${participant.health.status.toLowerCase()}`}>
+          <span className="hp-meter-fill" style={{ width: `${STAGE_PERCENT[participant.health.status]}%` }} />
+        </span>
       )}
       <Conditions participant={participant} onOpen={onCondition} />
     </section>

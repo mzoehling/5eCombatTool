@@ -131,12 +131,18 @@
 
 .pv-rail {
   display: flex;
-  gap: 0.4em;
+  gap: 0.5em;
   list-style: none;
   margin: 0;
-  padding: 0.2em 0;
+  padding: 0.2em 0.4em;
   overflow-x: auto;
   flex: none;
+  /* Centred, but `safe` so a rail too long for the screen falls back to
+     starting at the edge — plain centring would push the first combatant off
+     the scrollable start where it could not be reached. Browsers without
+     `safe` drop the second declaration and keep the first. */
+  justify-content: center;
+  justify-content: safe center;
 }
 
 .pv-rail li {
@@ -152,8 +158,8 @@
 .pv-token {
   display: grid;
   place-items: center;
-  width: 2.2em;
-  height: 2.2em;
+  width: 2.7em;
+  height: 2.7em;
   border-radius: 50%;
   background: color-mix(in srgb, currentColor 16%, var(--bg-raised));
   border: 1px solid color-mix(in srgb, currentColor 55%, transparent);
@@ -165,8 +171,8 @@
 /* Staged health under each token: it moves in four steps, never point by
    point — see healthStage.ts for why, and why half is where it is. */
 .pv-token-bar {
-  width: 2.2em;
-  height: 0.28em;
+  width: 2.7em;
+  height: 0.32em;
   font-size: 0.6em;
   border-radius: var(--radius-pill);
   background: var(--surface-sunken);
@@ -190,14 +196,14 @@
 }
 
 .pv-rail li.active .pv-token {
-  width: 3em;
-  height: 3em;
+  width: 3.5em;
+  height: 3.5em;
   border: 2px solid var(--gold);
   box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);
 }
 
 .pv-rail li.active .pv-token-bar {
-  width: 3em;
+  width: 3.5em;
 }
 
 /* ---------- spotlight ---------- */
@@ -245,6 +251,17 @@
 .pv-spotlight-meter {
   display: block;
   margin-top: 0.3em;
+}
+
+/* The spotlight's bar — staged for a monster, exact for a PC — is tinted by
+   the status carried on the meter itself, so it always agrees with the word or
+   the numbers above it and with that creature's token in the rail. Nested one
+   level deeper than the flat `.hp-meter-fill` below on purpose: tying on
+   specificity would let the flat fill win on order, which drew a Bloodied
+   monster's bar green. */
+.pv-app .pv-spotlight-meter .hp-meter-fill {
+  background: currentColor;
+  transition: width 220ms ease;
 }
 
 /* ---------- order list ---------- */
