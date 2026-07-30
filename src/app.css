@@ -1068,6 +1068,16 @@ label.check {
   padding: var(--space-1) 0;
 }
 
+/* Read-only colour dot, where the roster has an editable swatch: this list
+   picks a group rather than recolouring one. */
+.group-swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+
 /* Homebrew entries sit under their pack heading in the Content dialog; the rule
    carries the eye down the group without needing a nested list element. */
 .group-list li.nested {

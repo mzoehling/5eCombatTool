@@ -7,11 +7,11 @@ import { d20 } from '../lib/dice'
 import { parseDiceExpression, rollDiceExpression } from '../lib/diceExpr'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
-import { derivedGroupName, groupedInitiativeRolls, groupRuns, nextGroupColor } from '../lib/groups'
-import { newId } from '../lib/id'
+import { groupedInitiativeRolls, groupRuns } from '../lib/groups'
 import { amountAfterSave, readSave, SAVE_ABILITIES, saveBonus, type SaveVerdict } from '../lib/saves'
 import { CONDITIONS, type Ability, type Combatant } from '../types'
 import { ApplyCondition } from './ApplyCondition'
+import { AssignGroup } from './AssignGroup'
 import { BattleControls } from './BattleControls'
 import { CombatantRow } from './CombatantRow'
 import { GroupRow } from './GroupRow'
@@ -45,6 +45,8 @@ export function TrackerPane({
   const [editFor, setEditFor] = useState<string | null>(null)
   const [aoeAmount, setAoeAmount] = useState('')
   const [aoeCondition, setAoeCondition] = useState<string | null>(null)
+  // The selection being grouped, frozen when the picker opens.
+  const [groupFor, setGroupFor] = useState<ReadonlySet<string> | null>(null)
   // Collapsed by default: a group the DM never opens is a group they read as
   // one thing. Expansion is per run and lives in the UI, not in battle state.
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(new Set())
@@ -140,33 +142,6 @@ export function TrackerPane({
     dispatch({ type: 'rollInitiative', ids, rolls })
   }
 
-  /** Takes the selection out of whatever groups it is in. The way back from a
-   *  grouping the DM did not mean, and the reason "Group" can refuse a
-   *  selection that is already grouped rather than silently rehoming it. */
-  const ungroupSelection = () => {
-    for (const c of ordered) {
-      if (checked.has(c.id) && c.groupId) dispatch({ type: 'assignGroup', combatantId: c.id, groupId: undefined })
-    }
-  }
-
-  /** Turns the current AoE selection into a group — the moment the DM has just
-   *  said, by picking them, that these belong together. */
-  const groupSelection = () => {
-    if (checked.size === 0) return
-    const names = ordered.filter((c) => checked.has(c.id)).map((c) => c.name)
-    const id = newId()
-    dispatch({
-      type: 'addGroup',
-      group: {
-        id,
-        name: derivedGroupName(names, state.battle.groups),
-        inBattle: true,
-        color: nextGroupColor(state.battle.groups.length),
-      },
-    })
-    for (const combatantId of checked) dispatch({ type: 'assignGroup', combatantId, groupId: id })
-  }
-
   const toggleCheck = (id: string) => {
     const next = new Set(checked)
     if (next.has(id)) next.delete(id)
@@ -191,10 +166,6 @@ export function TrackerPane({
     return undefined
   }
   const savedCount = [...checked].filter((id) => saves.get(id)?.verdict === 'saved').length
-  // Grouping a selection that is already grouped would silently move those
-  // combatants out of the group they came from, so it is offered only for a
-  // selection that has no group yet.
-  const checkedGrouped = ordered.filter((c) => checked.has(c.id) && c.groupId).length
 
   // A run is collapsed when its group is, it has more than one member, and AoE
   // is off — picking targets needs every row reachable.
@@ -317,27 +288,17 @@ export function TrackerPane({
           >
             Condition…
           </button>
-          {/* One button with two states rather than two buttons: grouping a
-              selection that is already grouped would silently rehome it, so
-              the same slot offers the way back instead. */}
-          {checkedGrouped > 0 ? (
-            <button
-              type="button"
-              title="Take this selection out of its group"
-              onClick={ungroupSelection}
-            >
-              Ungroup
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={checked.size === 0}
-              title="Turn this selection into a group"
-              onClick={groupSelection}
-            >
-              Group
-            </button>
-          )}
+          {/* Opens the picker rather than acting: which group the selection
+              belongs in is the DM's answer to give, and pressing this twice
+              used to mean two new groups. */}
+          <button
+            type="button"
+            disabled={checked.size === 0}
+            title="Put this selection into a group"
+            onClick={() => setGroupFor(new Set(checked))}
+          >
+            Group…
+          </button>
           {/* Save helper. Choosing an ability and a DC turns the bar's flat
               amount into a per-target read: failures take full, passes half. */}
           <span className="aoe-save">
@@ -426,6 +387,7 @@ export function TrackerPane({
           onClose={() => setAoeCondition(null)}
         />
       )}
+      {groupFor && <AssignGroup ids={groupFor} onClose={() => setGroupFor(null)} />}
       {conditionsCombatant && <ConditionEditor combatant={conditionsCombatant} onClose={() => setConditionsFor(null)} />}
       {editCombatant && <EditCombatant combatant={editCombatant} onClose={() => setEditFor(null)} />}
     </section>
