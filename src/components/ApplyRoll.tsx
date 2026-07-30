@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { sortedCombatants } from '../store/battleReducer'
 import { battleStore, useBattleState } from '../store/battleStore'
+import { Checkbox } from './Checkbox'
 import { Modal } from './Modal'
 
 interface ApplyRollProps {
@@ -39,34 +40,45 @@ export function ApplyRoll({ amount, onClose }: ApplyRollProps) {
         {ordered.map((c) => (
           <li key={c.id} className="apply-roll-row">
             <label className="check">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={selected.has(c.id)}
                 onChange={() => toggle(selected, setSelected, c.id)}
+                ariaLabel={c.name}
               />
               {c.name}
-              <span className="dim"> {c.hp}/{c.maxHp}</span>
+              <span className="dim num"> {c.hp}/{c.maxHp}</span>
             </label>
+            {/* The ½ toggle carries no number — the resulting amount appears
+                once, on the right of the row. */}
             {selected.has(c.id) && (
-              <button
-                type="button"
-                className={halved.has(c.id) ? 'half-btn primary' : 'half-btn'}
-                aria-pressed={halved.has(c.id)}
-                title="Half (save succeeded)"
-                onClick={() => toggle(halved, setHalved, c.id)}
-              >
-                ½ {halved.has(c.id) ? Math.floor(amount / 2) : ''}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="half-btn"
+                  aria-pressed={halved.has(c.id)}
+                  aria-label={`Half damage for ${c.name} (save succeeded)`}
+                  title="Half (save succeeded)"
+                  onClick={() => toggle(halved, setHalved, c.id)}
+                >
+                  ½
+                </button>
+                <span className="apply-roll-amount">
+                  −{halved.has(c.id) ? Math.floor(amount / 2) : amount}
+                </span>
+              </>
             )}
           </li>
         ))}
         {ordered.length === 0 && <li className="dim">No combatants in the tracker.</li>}
       </ul>
 
-      <div className="modal-actions">
+      {/* Heal and Damage are both filled, and separated, so the destructive one
+          is never the button next to the one you meant. */}
+      <div className="modal-footer">
         <button type="button" className="ghost" onClick={onClose}>
           Cancel
         </button>
+        <span className="spacer" />
         <button type="button" className="ok" disabled={selected.size === 0} onClick={() => apply(true)}>
           Heal
         </button>

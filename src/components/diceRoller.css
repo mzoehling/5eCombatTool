@@ -1,9 +1,14 @@
 /* Dice Roller styles live with the component — it is used in both the DM app
    and the Player View, which does not load app.css. */
 
-.modal.dice-modal {
-  width: min(720px, 100%);
-  max-height: min(560px, 90dvh);
+/* Only while the dialog is a centred modal — below 700px of viewport height the
+   shell turns every dialog into a full-width bottom sheet, and its own sizing
+   has to win. */
+@media (min-height: 701px) {
+  .modal.dice-modal {
+    width: min(720px, 100%);
+    max-height: min(560px, 90dvh);
+  }
 }
 
 /* On iPad the pad and the bonus are a fixed left column and the result plus
@@ -41,8 +46,10 @@
 .modal .die-btn {
   position: relative;
   min-height: 64px;
-  font-family: var(--font-display);
+  /* Not the display face: Cinzel is all-caps, and "D20" is not dice notation. */
+  font-family: var(--font-num);
   font-size: 1.05rem;
+  font-weight: 600;
   padding: 0;
 }
 
@@ -241,7 +248,7 @@
 @media (max-width: 700px), (max-height: 700px) {
   .dice-layout {
     flex-direction: column-reverse;
-    justify-content: flex-end;
+    justify-content: flex-start;
     overflow-y: auto;
   }
 

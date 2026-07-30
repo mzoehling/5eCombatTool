@@ -572,7 +572,9 @@ textarea {
   gap: 2px;
   flex: none;
   width: 62px;
-  min-height: var(--target-base);
+  /* Both blocks are the same box, so toggling AoE swaps their contents without
+     changing the row's height or the position of anything to the right. */
+  height: 56px;
 }
 
 .init-value {
@@ -1459,8 +1461,16 @@ label.check {
 
 /* ---------- homebrew editor ---------- */
 
+/* Seven section labels do not fit the dialog's width, and truncating them
+   defeats the point of the nav — so it scrolls sideways instead. */
 .hb-nav {
   margin-bottom: var(--space-3);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.hb-nav button {
+  flex: none;
 }
 
 .hb-abilities {
@@ -1557,6 +1567,11 @@ label.check {
   resize: vertical;
 }
 
+.hb-tags-note code {
+  font-family: var(--font-num);
+  font-size: 0.85em;
+}
+
 /* "Add action" and friends: an outline, because the row does not exist yet. */
 .hb-add {
   width: 100%;
@@ -1596,6 +1611,14 @@ label.check {
   flex: 1;
 }
 
+/* A banner is an aside, not a dialog — its buttons stay under the base size so
+   they do not read as the page's primary action. */
+.app-banner button {
+  min-height: var(--target-icon);
+  padding: 0 var(--space-3);
+  font-size: 0.9rem;
+}
+
 /* ---------- settings dialog ---------- */
 
 /* Import/export are peers and both neutral — neither is the primary action of
@@ -1629,6 +1652,7 @@ label.check {
 .pv-qr {
   width: min(14rem, 60vw);
   margin: var(--space-2) auto;
+  /* Not a token: a QR has to sit on true white in both modes to scan. */
   background: #fff;
   padding: var(--space-2);
   border-radius: var(--radius-md);

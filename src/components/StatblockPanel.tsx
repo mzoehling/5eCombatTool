@@ -14,6 +14,7 @@ import { Icon } from './Icon'
 import { ItemInfo } from './ItemInfo'
 import { RuleInfo } from './RuleInfo'
 import { SpellInfo } from './SpellInfo'
+import { StatLine } from './StatLine'
 import { TaggedText } from './TaggedText'
 
 /** Callbacks opening the dice roller and reference dialogs from statblock text. */
@@ -95,10 +96,9 @@ function metaLine(sb: Statblock, origin?: Origin): string {
 }
 
 /**
- * The compact hairline stat line: AC · HP · Init · Speed · CR as label/value
- * pairs between two rules. It replaces the old prominent stat block, which was
- * eating the vertical space the actions text needs, and is the same pattern the
- * spell / item / creature sheets use.
+ * AC · HP · Init · Speed · CR on the shared hairline stat line. It replaces the
+ * old prominent stat block, which was eating the vertical space the actions
+ * text needs.
  */
 function SbStatLine({ sb, actions }: { sb: Statblock; actions: TextActions }) {
   const hpFormula = sb.hp.formula
@@ -107,54 +107,47 @@ function SbStatLine({ sb, actions }: { sb: Statblock; actions: TextActions }) {
       .map((s) => `${s.mode === 'walk' ? '' : `${s.mode} `}${s.value} ft.${s.condition ? ` ${s.condition}` : ''}`)
       .join(', ') || '—'
   return (
-    <div className="statline">
-      <div>
-        <span className="statline-label">AC</span>
-        <span className="statline-value">
-          {sb.ac}
-          {sb.acFrom && ` (${renderTags(sb.acFrom)})`}
-        </span>
-      </div>
-      <div>
-        <span className="statline-label">HP</span>
-        <span className="statline-value">
-          {sb.hp.special ?? sb.hp.average}
-          {hpFormula &&
-            (parseDiceExpression(hpFormula) !== null ? (
-              <>
-                {' ('}
-                <button
-                  type="button"
-                  className="dice-link"
-                  title={`Roll ${hpFormula}`}
-                  onClick={() => actions.onDice(hpFormula)}
-                >
-                  {hpFormula}
-                </button>
-                {')'}
-              </>
-            ) : (
-              ` (${hpFormula})`
-            ))}
-        </span>
-      </div>
-      <div>
-        <span className="statline-label">Init</span>
-        <span className="statline-value">
-          <D20Link bonus={sb.initiativeBonus} onDice={actions.onDice} />
-        </span>
-      </div>
-      <div>
-        <span className="statline-label">Speed</span>
-        <span className="statline-value">{speed}</span>
-      </div>
-      {sb.cr !== undefined && (
-        <div>
-          <span className="statline-label">CR</span>
-          <span className="statline-value">{sb.cr}</span>
-        </div>
-      )}
-    </div>
+    <StatLine
+      stats={[
+        {
+          label: 'AC',
+          value: (
+            <>
+              {sb.ac}
+              {sb.acFrom && ` (${renderTags(sb.acFrom)})`}
+            </>
+          ),
+        },
+        {
+          label: 'HP',
+          value: (
+            <>
+              {sb.hp.special ?? sb.hp.average}
+              {hpFormula &&
+                (parseDiceExpression(hpFormula) !== null ? (
+                  <>
+                    {' ('}
+                    <button
+                      type="button"
+                      className="dice-link"
+                      title={`Roll ${hpFormula}`}
+                      onClick={() => actions.onDice(hpFormula)}
+                    >
+                      {hpFormula}
+                    </button>
+                    {')'}
+                  </>
+                ) : (
+                  ` (${hpFormula})`
+                ))}
+            </>
+          ),
+        },
+        { label: 'Init', value: <D20Link bonus={sb.initiativeBonus} onDice={actions.onDice} /> },
+        { label: 'Speed', value: speed },
+        { label: 'CR', value: sb.cr },
+      ]}
+    />
   )
 }
 
