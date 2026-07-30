@@ -1,16 +1,19 @@
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { mdiDiceD20, mdiDiceMultiple, mdiVectorCircle } from '@mdi/js'
-import { useEffect, useState } from 'react'
+import { mdiChevronDown, mdiDiceD20, mdiDiceMultiple, mdiVectorCircle } from '@mdi/js'
+import { Fragment, useEffect, useState } from 'react'
 import { evalArithmetic } from '../lib/arithmetic'
 import { d20 } from '../lib/dice'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
+import { derivedGroupName, groupedInitiativeRolls, groupRuns, nextGroupColor } from '../lib/groups'
+import { newId } from '../lib/id'
 import { amountAfterSave, readSave, SAVE_ABILITIES, saveBonus, type SaveVerdict } from '../lib/saves'
-import { CONDITIONS, type Ability } from '../types'
+import { CONDITIONS, type Ability, type Combatant } from '../types'
 import { ApplyCondition } from './ApplyCondition'
 import { BattleControls } from './BattleControls'
 import { CombatantRow } from './CombatantRow'
+import { GroupRow } from './GroupRow'
 import { ConditionEditor } from './ConditionEditor'
 import { DiceRoller } from './DiceRoller'
 import { EditCombatant } from './EditCombatant'
@@ -41,6 +44,9 @@ export function TrackerPane({
   const [editFor, setEditFor] = useState<string | null>(null)
   const [aoeAmount, setAoeAmount] = useState('')
   const [aoeCondition, setAoeCondition] = useState<string | null>(null)
+  // Collapsed by default: a group the DM never opens is a group they read as
+  // one thing. Expansion is per run and lives in the UI, not in battle state.
+  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(new Set())
   // Save helper: the one bit of arithmetic the AoE bar otherwise leaves to the
   // DM. Rolling for the table is optional — a verdict can be flipped by hand.
   const [saveAbility, setSaveAbility] = useState<Ability | null>(null)
@@ -125,9 +131,28 @@ export function TrackerPane({
 
   // NPCs whose initiative is still unset — PCs roll at the table
   const unrolledNpcs = state.combatants.filter((c) => !c.isPC && (c.initiative ?? 0) === 0)
+  // One roll per group: six goblins roll once at a real table, not six times.
   const rollNpcs = () => {
-    const ids = unrolledNpcs.map((c) => c.id)
-    dispatch({ type: 'rollInitiative', ids, rolls: ids.map(() => d20()) })
+    const { ids, rolls } = groupedInitiativeRolls(unrolledNpcs, d20)
+    dispatch({ type: 'rollInitiative', ids, rolls })
+  }
+
+  /** Turns the current AoE selection into a group — the moment the DM has just
+   *  said, by picking them, that these belong together. */
+  const groupSelection = () => {
+    if (checked.size === 0) return
+    const names = ordered.filter((c) => checked.has(c.id)).map((c) => c.name)
+    const id = newId()
+    dispatch({
+      type: 'addGroup',
+      group: {
+        id,
+        name: derivedGroupName(names, state.battle.groups),
+        inBattle: true,
+        color: nextGroupColor(state.battle.groups.length),
+      },
+    })
+    for (const combatantId of checked) dispatch({ type: 'assignGroup', combatantId, groupId: id })
   }
 
   const toggleCheck = (id: string) => {
@@ -146,14 +171,12 @@ export function TrackerPane({
   const aoePreview = multiSelect && aoeValue !== null && aoeValue > 0 ? aoeValue : null
   const savedCount = [...checked].filter((id) => saves.get(id)?.verdict === 'saved').length
 
-  return (
-    <section className="tracker-pane">
-      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <SortableContext items={ordered.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-          <ul className="combatant-list">
-            {ordered.map((c) => {
-              const group = c.groupId ? groupById.get(c.groupId) : undefined
-              return (
+  // A run is collapsed when its group is, it has more than one member, and AoE
+  // is off — picking targets needs every row reachable.
+  const runs = groupRuns(ordered)
+  const renderRow = (c: Combatant) => {
+    const group = c.groupId ? groupById.get(c.groupId) : undefined
+    return (
                 <CombatantRow
                   key={c.id}
                   combatant={c}
@@ -177,6 +200,62 @@ export function TrackerPane({
                   onEditConditions={() => setConditionsFor(c.id)}
                   onEdit={() => setEditFor(c.id)}
                 />
+    )
+  }
+
+  return (
+    <section className="tracker-pane">
+      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+        <SortableContext items={ordered.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+          <ul className="combatant-list">
+            {runs.map((run, i) => {
+              const group = run.groupId ? groupById.get(run.groupId) : undefined
+              const collapsed =
+                !multiSelect && group !== undefined && run.members.length > 1 && !expandedGroups.has(run.groupId)
+              if (!collapsed) {
+                // Expanded: a slim header carries the way back. It cannot be
+                // the group badge in the rows themselves — that badge sits
+                // inside the row's own button, and a button inside a button is
+                // not valid markup.
+                const expandable = group !== undefined && run.members.length > 1
+                return (
+                  <Fragment key={`${run.groupId}-${i}`}>
+                    {expandable && (
+                      <li className="group-expanded-head">
+                        <button
+                          type="button"
+                          className="ghost icon-label"
+                          aria-expanded
+                          onClick={() => {
+                            const next = new Set(expandedGroups)
+                            next.delete(run.groupId)
+                            setExpandedGroups(next)
+                          }}
+                        >
+                          <Icon path={mdiChevronDown} /> {group.name}
+                        </button>
+                      </li>
+                    )}
+                    {run.members.map(renderRow)}
+                  </Fragment>
+                )
+              }
+              if (!group) return run.members.map(renderRow)
+              // Whoever is acting stays a full row, so a collapsed group can
+              // still be played from without expanding it first.
+              const active = state.battle.isRunning
+                ? run.members.find((c) => c.id === state.battle.activeCombatantId)
+                : undefined
+              return (
+                <Fragment key={`${run.groupId}-${i}`}>
+                  <GroupRow
+                    group={group}
+                    members={run.members}
+                    hasActiveTurn={active !== undefined}
+                    onExpand={() => setExpandedGroups(new Set(expandedGroups).add(run.groupId))}
+                  />
+                  {active && renderRow(active)}
+                </Fragment>
               )
             })}
             {ordered.length === 0 && <li className="empty-hint">No combatants — add creatures to begin.</li>}
@@ -216,6 +295,14 @@ export function TrackerPane({
             onClick={() => setAoeCondition(CONDITIONS[0])}
           >
             Condition…
+          </button>
+          <button
+            type="button"
+            disabled={checked.size === 0}
+            title="Turn this selection into a group"
+            onClick={groupSelection}
+          >
+            Group
           </button>
           {/* Save helper. Choosing an ability and a DC turns the bar's flat
               amount into a per-target read: failures take full, passes half. */}

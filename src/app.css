@@ -752,6 +752,52 @@ textarea {
   color: var(--text-dim);
 }
 
+/* ---------- collapsed groups ---------- */
+
+/* Stands in for a whole run of one group. It keeps the tracker row's anatomy
+   so the eye does not have to re-learn the line. */
+.group-row .init-block {
+  justify-content: center;
+}
+
+.group-init {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  min-height: var(--target-icon);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.group-standing {
+  font-size: 0.78rem;
+  margin-left: var(--space-2);
+  white-space: nowrap;
+}
+
+.group-hp {
+  flex: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* The way back out of an expanded run. */
+.group-expanded-head {
+  list-style: none;
+  padding: 0 0 var(--space-1);
+}
+
+.group-expanded-head button {
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  min-height: var(--target-icon);
+}
+
 /* ---------- AoE mode ---------- */
 
 /* Selected rows gain the gold treatment; unselected ones drop back so the

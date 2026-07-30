@@ -4,6 +4,7 @@
 
 import type { CombatDb } from '../db'
 import { db } from '../db'
+import { nextGroupColor } from '../lib/groups'
 import { newId } from '../lib/id'
 import { stripPostfix, suffixedNames } from '../lib/search'
 import type { Combatant, Group, SavedEncounter } from '../types'
@@ -49,7 +50,9 @@ export function instantiateEncounter(saved: SavedEncounter): { combatants: Comba
 
   const ungrouped = saved.combatants.some((c) => !c.groupId)
   const ownGroup: Group | undefined =
-    ungrouped && saved.name.trim() ? { id: newId(), name: saved.name.trim(), inBattle: true } : undefined
+    ungrouped && saved.name.trim()
+      ? { id: newId(), name: saved.name.trim(), inBattle: true, color: nextGroupColor(groups.length) }
+      : undefined
   if (ownGroup) groups.push(ownGroup)
 
   const combatants = saved.combatants.map((c) => ({

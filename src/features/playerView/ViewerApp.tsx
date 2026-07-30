@@ -5,6 +5,7 @@ import { DiceRoller } from '../../components/DiceRoller'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { describeCondition } from '../../data/conditionInfo'
+import { nameRuns } from '../../lib/groups'
 import type { PlayerParticipant, PlayerSnapshot } from './projection'
 import {
   connectBroadcastViewer,
@@ -13,6 +14,19 @@ import {
   type ViewerStatus,
   type ViewerTransport,
 } from './transport'
+
+/**
+ * One line for a bundle: how many are still standing, in the same vocabulary a
+ * single monster uses. It never adds up hit points — monster HP is a status
+ * word to the players, and a pooled total would be a number they should not
+ * have.
+ */
+function bundleStatus(members: PlayerParticipant[]): string {
+  const down = members.filter((p) => (p.health.kind === 'npc' ? p.health.status === 'Down' : p.health.hp <= 0)).length
+  if (down === 0) return `${members.length} up`
+  if (down === members.length) return 'all down'
+  return `${members.length - down} up, ${down} down`
+}
 
 /** Monster HP stays a status word; only PCs show numbers. */
 function Health({ participant }: { participant: PlayerParticipant }) {
@@ -222,19 +236,39 @@ export function ViewerApp({ code }: { code: string }) {
           </button>
         </div>
 
+        {/* Bundled by shared base name, not by the DM's groups: those are named
+            after encounters ("Goblin Ambush", "Boss Phase 2") and sending them
+            would hand the table the DM's prep. A base name is already on
+            screen. There is no expander either — a player taps exactly two
+            things, a condition chip and the dice button — so a bundle of one
+            kind of creature simply reads as one line. */}
         <ol className="pv-list">
-          {others.map((p) => (
-            <li key={p.id}>
-              <span className="pv-name">
-                <span className="pv-name-row">
-                  <span className="pv-name-text">{p.name}</span>
-                  {p.isPC && <span className="badge pc">PC</span>}
+          {nameRuns(others).map((run, i) =>
+            run.members.length > 1 ? (
+              <li key={`${run.label}-${i}`} className="pv-bundle">
+                <span className="pv-name">
+                  <span className="pv-name-row">
+                    <span className="pv-name-text">{run.label}</span>
+                    <span className="badge group">×{run.members.length}</span>
+                  </span>
                 </span>
-                <Conditions participant={p} onOpen={setConditionInfo} />
-              </span>
-              <Health participant={p} />
-            </li>
-          ))}
+                <span className="pv-health dim">{bundleStatus(run.members)}</span>
+              </li>
+            ) : (
+              run.members.map((p) => (
+                <li key={p.id}>
+                  <span className="pv-name">
+                    <span className="pv-name-row">
+                      <span className="pv-name-text">{p.name}</span>
+                      {p.isPC && <span className="badge pc">PC</span>}
+                    </span>
+                    <Conditions participant={p} onOpen={setConditionInfo} />
+                  </span>
+                  <Health participant={p} />
+                </li>
+              ))
+            ),
+          )}
           {snapshot && snapshot.participants.length === 0 && <li className="pv-empty">Waiting for combatants…</li>}
         </ol>
       </div>

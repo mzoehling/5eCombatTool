@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { nextGroupColor } from '../lib/groups'
 import { newId } from '../lib/id'
 import { battleStore, useBattleState } from '../store/battleStore'
 import type { Combatant } from '../types'
@@ -9,8 +10,6 @@ interface EditCombatantProps {
   combatant: Combatant
   onClose: () => void
 }
-
-const DEFAULT_GROUP_COLOR = '#e0a94a'
 
 /** Sentinel option that opens the inline "new group" row. */
 const NEW_GROUP = '__new__'
@@ -78,7 +77,7 @@ export function EditCombatant({ combatant, onClose }: EditCombatantProps) {
             value={combatant.groupId ?? ''}
             onChange={(e) => {
               if (e.target.value === NEW_GROUP) {
-                setNewGroup({ name: '', color: DEFAULT_GROUP_COLOR })
+                setNewGroup({ name: '', color: nextGroupColor(groups.length) })
                 return
               }
               setNewGroup(null)

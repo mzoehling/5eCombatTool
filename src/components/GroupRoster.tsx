@@ -1,10 +1,12 @@
 import { mdiDelete } from '@mdi/js'
 import { useState } from 'react'
+import { nextGroupColor } from '../lib/groups'
 import { newId } from '../lib/id'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { Icon } from './Icon'
 
-const DEFAULT_COLOR = '#e0a94a'
+/** Only a fallback for groups stored before colours were assigned. */
+const LEGACY_COLOR = '#e0a94a'
 
 /**
  * The groups in the running battle: which are in the fight, what colour they
@@ -20,13 +22,14 @@ export function GroupRoster() {
   const { dispatch } = battleStore
   const { battle, combatants } = useBattleState()
   const [name, setName] = useState('')
-  const [color, setColor] = useState(DEFAULT_COLOR)
+  const [color, setColor] = useState(() => nextGroupColor(battle.groups.length))
 
   const add = () => {
     const trimmed = name.trim()
     if (!trimmed) return
     dispatch({ type: 'addGroup', group: { id: newId(), name: trimmed, inBattle: true, color } })
     setName('')
+    setColor(nextGroupColor(battle.groups.length + 1))
   }
 
   return (
@@ -58,7 +61,7 @@ export function GroupRoster() {
               <input
                 type="color"
                 className="group-color"
-                value={g.color ?? DEFAULT_COLOR}
+                value={g.color ?? LEGACY_COLOR}
                 aria-label={`Color for group ${g.name}`}
                 onChange={(e) => dispatch({ type: 'updateGroup', id: g.id, patch: { color: e.target.value } })}
               />
