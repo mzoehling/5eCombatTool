@@ -284,4 +284,24 @@ describe('loadEncounter', () => {
     expect(added.every((c) => c.sortIndex > 7)).toBe(true)
     expect(state.battle.groups).toEqual(groups)
   })
+
+  it('folds an incoming group into an existing one of the same name', () => {
+    let state = stateWith([makeCombatant({ id: 'old', groupId: 'existing' })], {
+      ...initialState.battle,
+      groups: [{ id: 'existing', name: 'Pack', inBattle: false }],
+    })
+    // Same encounter merged a second time: fresh ids, same name.
+    state = battleReducer(state, {
+      type: 'loadEncounter',
+      name: 'Ambush',
+      combatants: [makeCombatant({ id: 'n1', name: 'Goblin', groupId: 'g-fresh' })],
+      groups: [{ id: 'g-fresh', name: 'pack', inBattle: true }],
+      mode: 'add',
+    })
+    expect(state.battle.groups).toHaveLength(1)
+    // and the newcomer joins the group that is already there, keeping its
+    // benched state rather than silently rejoining the fight
+    expect(state.combatants.find((c) => c.id === 'n1')?.groupId).toBe('existing')
+    expect(state.battle.groups[0].inBattle).toBe(false)
+  })
 })

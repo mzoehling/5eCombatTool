@@ -326,11 +326,25 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
         }
       }
       const maxSort = Math.max(0, ...state.combatants.map((c) => c.sortIndex + 1))
-      const added = action.combatants.map((c, i) => ({ ...c, sortIndex: maxSort + i }))
+      // Merging the same encounter twice must not leave two groups with the
+      // same name: an incoming group that matches one already in the battle is
+      // folded into it, and its members point at the existing group instead.
+      const remapped = new Map<string, string>()
+      const freshGroups: Group[] = []
+      for (const g of action.groups) {
+        const existing = state.battle.groups.find((x) => x.name.toLowerCase() === g.name.toLowerCase())
+        if (existing) remapped.set(g.id, existing.id)
+        else freshGroups.push(g)
+      }
+      const added = action.combatants.map((c, i) => ({
+        ...c,
+        sortIndex: maxSort + i,
+        groupId: c.groupId ? (remapped.get(c.groupId) ?? c.groupId) : undefined,
+      }))
       return {
         ...state,
         combatants: [...state.combatants, ...added],
-        battle: { ...state.battle, groups: [...state.battle.groups, ...action.groups] },
+        battle: { ...state.battle, groups: [...state.battle.groups, ...freshGroups] },
       }
     }
 

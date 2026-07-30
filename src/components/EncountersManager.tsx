@@ -5,9 +5,11 @@ import { instantiateEncounter, prepareForAdd, saveEncounter } from '../data/enco
 import { db } from '../db'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
-import { HOMEBREW_PACK_ID, type SavedEncounter } from '../types'
+import { newId } from '../lib/id'
+import { HOMEBREW_PACK_ID, type Group, type SavedEncounter } from '../types'
 import { AcShield } from './AcShield'
 import { Checkbox } from './Checkbox'
+import { GroupRoster } from './GroupRoster'
 import { HomebrewEditor } from './HomebrewEditor'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
@@ -25,7 +27,7 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
   const [message, setMessage] = useState('')
   // An encounter of only PCs is how a DM reuses their party every session, so
   // it gets a named path instead of hiding behind "save current".
-  const [mode, setMode] = useState<'current' | 'party'>('current')
+  const [mode, setMode] = useState<'current' | 'party' | 'groups'>('current')
   const [partyName, setPartyName] = useState('')
   const [partyIds, setPartyIds] = useState<ReadonlySet<string>>(new Set())
   const [newPC, setNewPC] = useState(false)
@@ -46,11 +48,13 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
   const saveParty = async () => {
     const chosen = pcs.filter((p) => partyIds.has(p.id))
     if (!partyName.trim() || chosen.length === 0) return
-    // A party is a normal encounter — no new data type.
+    // A party is a normal encounter — no new data type. It carries its own
+    // group so loading it gives back the named party rather than loose PCs.
+    const group: Group = { id: newId(), name: partyName.trim(), inBattle: true }
     const entry = await saveEncounter(
       partyName,
-      chosen.map((sb) => combatantFromStatblock(sb, sb.name, true)),
-      [],
+      chosen.map((sb) => ({ ...combatantFromStatblock(sb, sb.name, true), groupId: group.id })),
+      [group],
     )
     setMessage(`Saved party "${entry.name}" (${entry.combatants.length} PCs).`)
     setPartyName('')
@@ -116,14 +120,21 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
       <div className="modal-controls">
         <div className="segments enc-modes">
           <button type="button" aria-pressed={mode === 'current'} onClick={() => setMode('current')}>
-            Save current
+            Tracker
           </button>
           <button type="button" aria-pressed={mode === 'party'} onClick={() => setMode('party')}>
-            Build party
+            Party
+          </button>
+          {/* The live groups belong here: a group is where a combatant came
+              from, and that is what this dialog is about. */}
+          <button type="button" aria-pressed={mode === 'groups'} onClick={() => setMode('groups')}>
+            Groups
           </button>
         </div>
 
-        {mode === 'party' ? (
+        {mode === 'groups' ? (
+          <GroupRoster />
+        ) : mode === 'party' ? (
           <>
             <div className="inline-form">
               <input

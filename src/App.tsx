@@ -7,7 +7,6 @@ import { HistoryButtons } from './components/BattleControls'
 import { Compendium } from './components/Compendium'
 import { ContentManager } from './components/ContentManager'
 import { EncountersManager } from './components/EncountersManager'
-import { GroupsEditor } from './components/GroupsEditor'
 import { HostControls, useLocalPlayerViewHost } from './features/playerView/HostControls'
 import { SettingsInfo } from './components/SettingsInfo'
 import { StatblockPanel } from './components/StatblockPanel'
@@ -37,7 +36,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   // The library dialogs are opened from the top bar, so their state lives here
   // rather than in the tracker pane.
-  const [libraryModal, setLibraryModal] = useState<'compendium' | 'encounters' | 'groups' | 'content' | null>(null)
+  const [libraryModal, setLibraryModal] = useState<'compendium' | 'encounters' | 'content' | null>(null)
   const [theme, toggleTheme] = useTheme()
   // AoE multi-select lives here so the statblock's "apply condition" dialog
   // can pre-select the checked combatants
@@ -94,9 +93,6 @@ function App() {
         <button type="button" onClick={() => setLibraryModal('encounters')}>
           Encounters
         </button>
-        <button type="button" onClick={() => setLibraryModal('groups')}>
-          Groups
-        </button>
         <button type="button" onClick={() => setLibraryModal('content')}>
           Content
         </button>
@@ -135,7 +131,6 @@ function App() {
       {showSettings && <SettingsInfo onClose={() => setShowSettings(false)} />}
       {libraryModal === 'compendium' && <Compendium onClose={() => setLibraryModal(null)} />}
       {libraryModal === 'encounters' && <EncountersManager onClose={() => setLibraryModal(null)} />}
-      {libraryModal === 'groups' && <GroupsEditor onClose={() => setLibraryModal(null)} />}
       {libraryModal === 'content' && <ContentManager onClose={() => setLibraryModal(null)} />}
       <UpdateBanner />
       <BackupReminder />

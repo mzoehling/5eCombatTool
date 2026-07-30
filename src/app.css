@@ -1663,6 +1663,19 @@ label.check {
   font-size: 0.9rem;
 }
 
+/* Inline "new group" row under the Group dropdown, spanning both form columns. */
+.new-group-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.new-group-row input:not(.group-color) {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ---------- encounters: party builder ---------- */
 
 .enc-modes {
