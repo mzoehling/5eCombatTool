@@ -4,7 +4,7 @@
 // - BroadcastTransport: same-origin BroadcastChannel (second window on the
 //   same device, e.g. an AirPlay/USB-C external display) — no network at all
 
-import { parseSnapshotMessage, wrapSnapshot, type PlayerSnapshot } from './projection'
+import { readMessage, wrapSnapshot, type PlayerSnapshot } from './projection'
 
 /** Join codes: unambiguous alphabet (no 0/O/1/I/L). */
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
@@ -33,6 +33,10 @@ export type ViewerStatus = 'connecting' | 'connected' | 'reconnecting' | 'ended'
 export interface ViewerHandlers {
   onSnapshot(snapshot: PlayerSnapshot): void
   onStatus(status: ViewerStatus): void
+  /** The host speaks a protocol this build cannot read, or vice versa. The
+   *  connection is fine — reconnecting will not help, so the viewer says which
+   *  side is behind instead of retrying silently. */
+  onProtocolMismatch?(theirs: number, ours: number): void
 }
 
 export interface ViewerTransport {
@@ -66,10 +70,13 @@ export function connectBroadcastViewer(handlers: ViewerHandlers): ViewerTranspor
   const channel = new BroadcastChannel(BROADCAST_CHANNEL)
   handlers.onStatus('connecting')
   channel.onmessage = (event) => {
-    const snapshot = parseSnapshotMessage(event.data)
-    if (snapshot) {
+    const msg = readMessage(event.data)
+    if (msg.kind === 'snapshot') {
       handlers.onStatus('connected')
-      handlers.onSnapshot(snapshot)
+      handlers.onSnapshot(msg.snapshot)
+    } else if (msg.kind === 'mismatch') {
+      handlers.onStatus('connected')
+      handlers.onProtocolMismatch?.(msg.theirs, msg.ours)
     }
   }
   channel.postMessage('hello')
@@ -173,11 +180,17 @@ export function connectPeerViewer(code: string, handlers: ViewerHandlers): Viewe
     p.on('open', () => {
       const conn = p.connect(peerIdForCode(code), { reliable: true })
       conn.on('data', (data: unknown) => {
-        const snapshot = parseSnapshotMessage(data)
-        if (snapshot) {
+        const msg = readMessage(data)
+        if (msg.kind === 'snapshot') {
           attempt = 0
           handlers.onStatus('connected')
-          handlers.onSnapshot(snapshot)
+          handlers.onSnapshot(msg.snapshot)
+        } else if (msg.kind === 'mismatch') {
+          // The link works, so this is not a retry case: back off the attempt
+          // counter as for a good message and let the viewer explain itself.
+          attempt = 0
+          handlers.onStatus('connected')
+          handlers.onProtocolMismatch?.(msg.theirs, msg.ours)
         }
       })
       conn.on('close', retry)

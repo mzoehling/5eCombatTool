@@ -34,12 +34,39 @@ export interface PlayerSnapshot {
   participants: PlayerParticipant[]
 }
 
+/**
+ * Wire protocol version.
+ *
+ * Bump this whenever the shape of `PlayerSnapshot` changes in a way an older
+ * viewer would misread — a field removed or renamed, a meaning changed. Adding
+ * a field an old viewer simply ignores does not need a bump.
+ *
+ * The two ends update independently: the DM's iPad deploys, the player's phone
+ * is a home-screen bookmark that may sit on a precached build for weeks. When
+ * they disagree the viewer has to say so, because the failure it would show
+ * otherwise is a battle that quietly renders wrong.
+ */
+export const PROTOCOL_VERSION = 1
+
 /** Message envelope, versioned for forward compatibility. */
 export interface SnapshotMessage {
-  v: 1
+  v: number
   type: 'snapshot'
   payload: PlayerSnapshot
 }
+
+/**
+ * What arrived on the wire.
+ *
+ * `mismatch` is kept apart from `ignore` on purpose: an unreadable message is
+ * noise to be dropped, but a snapshot the viewer is too old (or too new) to
+ * read is something a player must be told about rather than left staring at a
+ * screen that never updates.
+ */
+export type IncomingMessage =
+  | { kind: 'snapshot'; snapshot: PlayerSnapshot }
+  | { kind: 'mismatch'; theirs: number; ours: number }
+  | { kind: 'ignore' }
 
 export function healthStatus(hp: number, maxHp: number): HealthStatus {
   if (hp <= 0) return 'Down'
@@ -80,13 +107,25 @@ export function projectSnapshot(state: BattleState): PlayerSnapshot {
 }
 
 export function wrapSnapshot(payload: PlayerSnapshot): SnapshotMessage {
-  return { v: 1, type: 'snapshot', payload }
+  return { v: PROTOCOL_VERSION, type: 'snapshot', payload }
 }
 
-/** Parses an incoming message; returns null for anything that isn't a v1 snapshot. */
-export function parseSnapshotMessage(data: unknown): PlayerSnapshot | null {
-  if (typeof data !== 'object' || data === null) return null
+/**
+ * Classifies an incoming message. A snapshot of another protocol version is
+ * reported rather than dropped, so the viewer can name the problem; anything
+ * else — the "hello" a late-joining viewer sends, or junk — is ignored.
+ */
+export function readMessage(data: unknown): IncomingMessage {
+  if (typeof data !== 'object' || data === null) return { kind: 'ignore' }
   const msg = data as Partial<SnapshotMessage>
-  if (msg.v !== 1 || msg.type !== 'snapshot' || typeof msg.payload !== 'object' || msg.payload === null) return null
-  return msg.payload
+  if (msg.type !== 'snapshot' || typeof msg.payload !== 'object' || msg.payload === null) return { kind: 'ignore' }
+  if (typeof msg.v !== 'number') return { kind: 'ignore' }
+  if (msg.v !== PROTOCOL_VERSION) return { kind: 'mismatch', theirs: msg.v, ours: PROTOCOL_VERSION }
+  return { kind: 'snapshot', snapshot: msg.payload }
+}
+
+/** Parses an incoming message; null for anything that isn't a readable snapshot. */
+export function parseSnapshotMessage(data: unknown): PlayerSnapshot | null {
+  const msg = readMessage(data)
+  return msg.kind === 'snapshot' ? msg.snapshot : null
 }

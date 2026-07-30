@@ -191,6 +191,9 @@ export function ViewerApp({ code }: { code: string }) {
   // so a second screen left on this URL kept serving whatever build it had
   // precached — an iPad still showing the previous design a release later.
   const { needRefresh, reload } = useServiceWorkerUpdate()
+  // Set when the DM device speaks a protocol this build cannot read. The link
+  // is fine, so retrying is pointless — one of the two apps has to update.
+  const [mismatch, setMismatch] = useState<{ theirs: number; ours: number } | null>(null)
   const transportRef = useRef<ViewerTransport | null>(null)
   // stable identity: an arriving snapshot must not re-render the open roller
   // and clobber the expression the player is halfway through typing
@@ -198,7 +201,14 @@ export function ViewerApp({ code }: { code: string }) {
   const retry = useCallback(() => transportRef.current?.retryNow(), [])
 
   useEffect(() => {
-    const handlers = { onSnapshot: setSnapshot, onStatus: setStatus }
+    const handlers = {
+      onSnapshot: (s: PlayerSnapshot) => {
+        setMismatch(null)
+        setSnapshot(s)
+      },
+      onStatus: setStatus,
+      onProtocolMismatch: (theirs: number, ours: number) => setMismatch({ theirs, ours }),
+    }
     const transport =
       code.toLowerCase() === LOCAL_CODE ? connectBroadcastViewer(handlers) : connectPeerViewer(code, handlers)
     transportRef.current = transport
@@ -249,10 +259,30 @@ export function ViewerApp({ code }: { code: string }) {
         </Modal>
       )}
 
+      {/* The battle on screen is frozen at whatever arrived last, and nothing
+          the player does will unfreeze it — so this says which side is behind
+          and offers the only thing that helps. It outranks the update strip
+          below, which would otherwise say the same thing more vaguely. */}
+      {mismatch && (
+        <div className="pv-state warn" role="status">
+          <p>
+            {mismatch.theirs > mismatch.ours
+              ? 'Your DM’s app is newer than this screen.'
+              : 'This screen is newer than your DM’s app.'}{' '}
+            {mismatch.theirs > mismatch.ours ? 'Reload to catch up.' : 'Ask your DM to reload theirs.'}
+          </p>
+          {mismatch.theirs > mismatch.ours && (
+            <button type="button" onClick={() => (needRefresh ? reload() : location.reload())}>
+              Reload
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Only when there is actually a newer build waiting. It sits with the
           connection strips because it is the same kind of message: something
           about this screen, not about the battle on it. */}
-      {needRefresh && (
+      {needRefresh && !mismatch && (
         <div className="pv-state accent" role="status">
           <p>A new version of the Player View is ready.</p>
           <button type="button" onClick={reload}>

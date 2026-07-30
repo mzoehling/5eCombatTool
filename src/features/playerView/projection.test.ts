@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { initialState, type BattleState } from '../../store/battleReducer'
 import type { Combatant } from '../../types'
-import { healthStatus, parseSnapshotMessage, projectSnapshot, wrapSnapshot } from './projection'
+import {
+  healthStatus,
+  parseSnapshotMessage,
+  projectSnapshot,
+  PROTOCOL_VERSION,
+  readMessage,
+  wrapSnapshot,
+} from './projection'
 
 function makeCombatant(overrides: Partial<Combatant>): Combatant {
   return {
@@ -149,8 +156,34 @@ describe('snapshot envelope', () => {
 
   it('rejects foreign messages', () => {
     expect(parseSnapshotMessage(null)).toBeNull()
-    expect(parseSnapshotMessage({ v: 2, type: 'snapshot', payload: {} })).toBeNull()
-    expect(parseSnapshotMessage({ v: 1, type: 'other', payload: {} })).toBeNull()
+    expect(parseSnapshotMessage({ v: PROTOCOL_VERSION + 1, type: 'snapshot', payload: {} })).toBeNull()
+    expect(parseSnapshotMessage({ v: PROTOCOL_VERSION, type: 'other', payload: {} })).toBeNull()
     expect(parseSnapshotMessage('snapshot')).toBeNull()
+  })
+
+  it('stamps the current protocol version', () => {
+    const snapshot = projectSnapshot(stateWith([makeCombatant({})]))
+    expect(wrapSnapshot(snapshot).v).toBe(PROTOCOL_VERSION)
+  })
+
+  it('tells a version mismatch apart from noise', () => {
+    // The distinction the viewer's message depends on: a snapshot it cannot
+    // read is something to report, anything else is dropped in silence.
+    const newer = readMessage({ v: PROTOCOL_VERSION + 1, type: 'snapshot', payload: {} })
+    expect(newer).toEqual({ kind: 'mismatch', theirs: PROTOCOL_VERSION + 1, ours: PROTOCOL_VERSION })
+
+    const older = readMessage({ v: PROTOCOL_VERSION - 1, type: 'snapshot', payload: {} })
+    expect(older).toEqual({ kind: 'mismatch', theirs: PROTOCOL_VERSION - 1, ours: PROTOCOL_VERSION })
+
+    // "hello" is what a late-joining viewer sends the broadcast host, and junk
+    // arrives on a shared channel — neither is a mismatch to announce.
+    expect(readMessage('hello').kind).toBe('ignore')
+    expect(readMessage({ type: 'snapshot', payload: {} }).kind).toBe('ignore')
+    expect(readMessage({ v: PROTOCOL_VERSION, type: 'snapshot' }).kind).toBe('ignore')
+  })
+
+  it('reads a snapshot of its own version', () => {
+    const snapshot = projectSnapshot(stateWith([makeCombatant({})]))
+    expect(readMessage(wrapSnapshot(snapshot))).toEqual({ kind: 'snapshot', snapshot })
   })
 })
