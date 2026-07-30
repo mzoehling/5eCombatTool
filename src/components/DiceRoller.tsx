@@ -124,6 +124,9 @@ export const DiceRoller = memo(function DiceRoller({
             ))}
           </div>
 
+          {/* Crit shares this row: the stepper sits against its label, which
+              leaves room, and doubling the dice is a change to the pool the pad
+              above describes — nearer to it than to the footer's actions. */}
           <div className="dice-bonus">
             <span className="dice-bonus-label">Bonus</span>
             <div className="stepper">
@@ -135,6 +138,18 @@ export const DiceRoller = memo(function DiceRoller({
                 +
               </button>
             </div>
+            <button
+              type="button"
+              className="crit-btn"
+              disabled={!critExpression}
+              title="Double the dice — critical hit"
+              onClick={() => {
+                if (!critExpression) return
+                setText(critExpression)
+              }}
+            >
+              Crit ×2
+            </button>
           </div>
 
           {/* Under the pad rather than in the footer: three words plus the crit
@@ -239,23 +254,11 @@ export const DiceRoller = memo(function DiceRoller({
 
       {/* On a phone this footer is the thumb zone, so Roll lives here rather
           than next to the expression. */}
-      {/* Three actions, three weights: Clear discards, Crit rewrites the
-          expression, Roll commits. Only Roll is filled. */}
+      {/* Clear discards, Roll commits; Crit has moved up to the pool it
+          modifies. Only Roll is filled. */}
       <div className="modal-footer dice-footer">
         <button type="button" className="dice-clear-btn" onClick={clearPad}>
           Clear
-        </button>
-        <button
-          type="button"
-          className="crit-btn"
-          disabled={!critExpression}
-          title="Double the dice — critical hit"
-          onClick={() => {
-            if (!critExpression) return
-            setText(critExpression)
-          }}
-        >
-          Crit ×2
         </button>
         <span className="spacer" />
         <button type="button" className="primary icon-label dice-roll-btn" onClick={doRoll}>

@@ -6,6 +6,7 @@ import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { describeCondition } from '../../data/conditionInfo'
 import { nameRuns } from '../../lib/groups'
+import { STAGE_PERCENT, statusOf } from './healthStage'
 import { hpMeterWidths } from '../../lib/hpMeter'
 import { upNext } from '../../lib/turnOrder'
 import { useServiceWorkerUpdate } from '../../lib/useServiceWorkerUpdate'
@@ -259,16 +260,29 @@ export function ViewerApp({ code }: { code: string }) {
 
       <div className="pv-body">
         <div className="pv-primary">
-          {/* Turn rail: circular initiative tokens, the active one enlarged. */}
+          {/* Turn rail: circular initiative tokens, the active one enlarged,
+              each tinted by how its owner is holding up and carrying a staged
+              health bar. Staged, because a literal bar would hand the table an
+              exact hit point total for monsters the snapshot never sent — see
+              healthStage.ts. */}
           {snapshot && snapshot.participants.length > 0 && (
             <ol className="pv-rail">
-              {snapshot.participants.map((p) => (
-                <li key={p.id} className={p.id === snapshot.activeId ? 'active' : ''}>
-                  <span className="pv-token" title={p.name}>
-                    {p.name.slice(0, 2).toUpperCase()}
-                  </span>
-                </li>
-              ))}
+              {snapshot.participants.map((p) => {
+                const status = statusOf(p)
+                return (
+                  <li key={p.id} className={p.id === snapshot.activeId ? 'active' : ''}>
+                    <span
+                      className={`pv-token status-${status.toLowerCase()}`}
+                      title={`${p.name} — ${status}`}
+                    >
+                      {p.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className={`pv-token-bar status-${status.toLowerCase()}`} aria-hidden="true">
+                      <span className="pv-token-bar-fill" style={{ width: `${STAGE_PERCENT[status]}%` }} />
+                    </span>
+                  </li>
+                )
+              })}
             </ol>
           )}
           {active && <Spotlight participant={active} onCondition={setConditionInfo} />}

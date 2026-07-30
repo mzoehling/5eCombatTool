@@ -141,27 +141,63 @@
 
 .pv-rail li {
   flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15em;
 }
 
+/* The token carries the status colour on its own ring and initials, tinted
+   rather than filled so the active token's gold ring still reads as "acting". */
 .pv-token {
   display: grid;
   place-items: center;
   width: 2.2em;
   height: 2.2em;
   border-radius: 50%;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, currentColor 16%, var(--bg-raised));
+  border: 1px solid color-mix(in srgb, currentColor 55%, transparent);
   font-size: 0.6em;
   font-weight: 700;
   letter-spacing: 0.04em;
+}
+
+/* Staged health under each token: it moves in four steps, never point by
+   point — see healthStage.ts for why, and why half is where it is. */
+.pv-token-bar {
+  width: 2.2em;
+  height: 0.28em;
+  font-size: 0.6em;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.pv-token-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: currentColor;
+  transition: width 220ms ease;
+}
+
+/* Down: the ring stays, the bar is empty, and the initials go quiet — unless
+   this is the creature acting, which still has death saves to make and must
+   not have its gold ring dimmed away. */
+.pv-rail li:not(.active) .pv-token.status-down {
+  opacity: 0.6;
 }
 
 .pv-rail li.active .pv-token {
   width: 3em;
   height: 3em;
   border: 2px solid var(--gold);
-  background: color-mix(in srgb, var(--gold) 20%, var(--bg-panel));
-  color: var(--text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.pv-rail li.active .pv-token-bar {
+  width: 3em;
 }
 
 /* ---------- spotlight ---------- */
@@ -370,20 +406,24 @@
   font-size: 0.8em;
 }
 
-.status-unharmed {
+.pv-app .status-unharmed {
   color: var(--ok);
 }
-.status-injured {
+.pv-app .status-injured {
   color: color-mix(in srgb, var(--ok) 50%, var(--warn));
 }
-.status-bloodied {
+.pv-app .status-bloodied {
   color: var(--warn);
 }
-.status-critical {
+.pv-app .status-critical {
   color: var(--danger);
 }
-.status-down {
+.pv-app .status-down {
   color: var(--text-dim);
+}
+
+/* Only the written status is struck through — the token below it is not. */
+.pv-app .pv-health.status-down {
   text-decoration: line-through;
 }
 

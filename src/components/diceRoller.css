@@ -89,13 +89,13 @@
 
 /* The stepper primitive lives in app.css, which the Player View does not load,
    so the roller carries its own copy — otherwise the viewer's bonus arrows are
-   full-size default buttons. */
+   full-size default buttons. It sits against its label rather than pushing
+   right, which is what frees the end of the row for Crit. */
 .modal .stepper {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   flex: none;
-  margin-left: auto;
 }
 
 .modal .stepper button {
@@ -262,10 +262,11 @@
   padding: 0 var(--space-3);
 }
 
-/* Crit rewrites the expression rather than committing it, so it is outlined in
-   gold: heavier than Clear, lighter than Roll. */
+/* Crit rewrites the pool rather than committing it, so it is outlined in gold
+   and sits at the end of the bonus row, hard right. */
 .modal .crit-btn {
   flex: none;
+  margin-left: auto;
   border: 1px solid var(--gold);
   color: var(--gold);
   background: none;
