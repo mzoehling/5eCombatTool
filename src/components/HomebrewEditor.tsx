@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { deleteHomebrewEntry, saveHomebrewEntry } from '../data/homebrewPack'
 import { newId } from '../lib/id'
 import {
@@ -110,17 +110,47 @@ export function HomebrewEditor({ existing, section, onClose }: HomebrewEditorPro
 
   // The one long form in the app. The section nav is what makes it usable: it
   // jumps to Actions without scrolling past forty fields.
-  const sections = [
-    { id: 'identity', label: 'Identity' },
-    { id: 'defense', label: 'Defense & movement' },
-    { id: 'abilities', label: 'Ability scores' },
-    { id: 'skills', label: 'Skills & senses' },
-    { id: 'traits', label: isPC ? 'Notes' : 'Traits' },
-    ...(isPC ? [] : [{ id: 'actions', label: 'Actions' }, { id: 'legendary', label: 'Legendary' }]),
-  ]
+  const sections = useMemo(
+    () => [
+      { id: 'identity', label: 'Identity' },
+      { id: 'defense', label: 'Defense & movement' },
+      { id: 'abilities', label: 'Ability scores' },
+      { id: 'skills', label: 'Skills & senses' },
+      { id: 'traits', label: isPC ? 'Notes' : 'Traits' },
+      ...(isPC ? [] : [{ id: 'actions', label: 'Actions' }, { id: 'legendary', label: 'Legendary' }]),
+    ],
+    [isPC],
+  )
 
-  const jumpTo = (id: string) =>
+  // The nav is a segment group, so one of its segments has to be lit: without
+  // it the form is forty fields with no answer to "where am I". It follows the
+  // scroll rather than only the last tap, so scrolling into Actions lights
+  // Actions.
+  const [activeSection, setActiveSection] = useState(sections[0].id)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const jumpTo = (id: string) => {
+    setActiveSection(id)
     document.getElementById(`hb-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  useEffect(() => {
+    const scroller = scrollRef.current
+    if (!scroller) return
+    const onScroll = () => {
+      const top = scroller.getBoundingClientRect().top
+      // The section whose heading last passed the top of the scroll region —
+      // a little below it, so a heading just about to leave still counts.
+      let current = sections[0].id
+      for (const s of sections) {
+        const heading = document.getElementById(`hb-${s.id}`)
+        if (heading && heading.getBoundingClientRect().top - top <= 24) current = s.id
+      }
+      setActiveSection(current)
+    }
+    scroller.addEventListener('scroll', onScroll, { passive: true })
+    return () => scroller.removeEventListener('scroll', onScroll)
+  }, [sections])
 
   return (
     <Modal
@@ -131,14 +161,19 @@ export function HomebrewEditor({ existing, section, onClose }: HomebrewEditorPro
       <div className="modal-controls">
         <nav className="hb-nav segments" aria-label="Form sections">
           {sections.map((s) => (
-            <button key={s.id} type="button" onClick={() => jumpTo(s.id)}>
+            <button
+              key={s.id}
+              type="button"
+              aria-pressed={activeSection === s.id}
+              onClick={() => jumpTo(s.id)}
+            >
               {s.label}
             </button>
           ))}
         </nav>
       </div>
 
-      <div className="modal-scroll">
+      <div className="modal-scroll" ref={scrollRef}>
       <h3 id="hb-identity" className="section-heading">
         Identity
       </h3>

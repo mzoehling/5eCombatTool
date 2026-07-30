@@ -517,10 +517,6 @@ textarea {
   align-items: center;
   gap: var(--space-3);
   padding: 9px var(--space-3);
-  /* Anchors the group spine, which spans the row's full height and therefore
-     cannot take part in the flex line. */
-  position: relative;
-  overflow: hidden;
   margin-bottom: var(--space-2);
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -563,42 +559,6 @@ textarea {
 .combatant-row.dragging {
   z-index: 5;
   position: relative;
-}
-
-/* The group as a coloured spine down the row's left edge, its name set
-   vertically. Repeated down eight goblins the strips line up into one block
-   that reads as "these belong together"; a badge on each name line would make
-   the eye read the same word eight times instead. */
-.group-strip {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  background: var(--surface-sunken);
-  color: var(--text-dim);
-}
-
-.combatant-row:has(.group-strip) {
-  padding-left: calc(var(--space-3) + 18px);
-}
-
-.group-strip-text {
-  /* Bottom-to-top, the conventional reading direction for a vertical label. */
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  max-height: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 /* The initiative block and the AoE checkbox share a footprint, so turning AoE

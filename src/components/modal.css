@@ -39,6 +39,14 @@
   width: min(36rem, 100%);
 }
 
+/* A dialog whose content changes size between tabs (the compendium's Monsters
+   list is long, its Rules list short) claims the full height up front. Without
+   it the dialog grew and shrank under the DM's finger as they switched tabs,
+   moving the search box and the first result with it. */
+.modal.modal-tall {
+  height: min(80dvh, 40rem);
+}
+
 /* The body stops scrolling so a designated child can scroll instead; that
    child must set `flex: 1; min-height: 0; overflow-y: auto`. Lets a dialog
    keep its controls fixed while only the results move. */
@@ -151,7 +159,8 @@
   }
 
   .modal,
-  .modal.modal-wide {
+  .modal.modal-wide,
+  .modal.modal-tall {
     width: 100%;
     max-width: 100%;
     height: auto;
@@ -241,6 +250,15 @@
   background: none;
   border: none;
   padding: 0 var(--space-2);
+}
+
+/* Except in the footer. That strip is the dialog's action bar, and a Cancel
+   with no shape next to a filled Save read as a stray label rather than the
+   other half of the decision. */
+.modal-footer button.ghost {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  padding: 0 var(--space-4);
 }
 
 .modal button:disabled {

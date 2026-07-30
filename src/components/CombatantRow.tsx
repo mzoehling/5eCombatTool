@@ -92,24 +92,6 @@ export function CombatantRow({
       className={classes}
       style={{ transform: CSS.Transform.toString(transform), transition }}
     >
-      {/* The group reads as a coloured spine on the row rather than a badge on
-          the name line: a badge repeated down eight goblins competes with the
-          names it sits next to, while a strip lines up into one block the eye
-          reads as "these belong together" without reading any word twice. */}
-      {groupName && (
-        <span
-          className="group-strip"
-          title={groupName}
-          style={
-            groupColor
-              ? { background: `color-mix(in srgb, ${groupColor} 22%, transparent)`, color: groupColor }
-              : undefined
-          }
-        >
-          <span className="group-strip-text">{groupName}</span>
-        </span>
-      )}
-
       {/* The checkbox takes over the initiative block's footprint so nothing
           else in the row shifts when AoE mode is toggled. */}
       {multiSelect ? (
@@ -163,6 +145,18 @@ export function CombatantRow({
           )}
           <span className="row-name-text">{c.name}</span>
           {c.isPC && <span className="badge pc">PC</span>}
+          {groupName && (
+            <span
+              className="badge group"
+              style={
+                groupColor
+                  ? { background: `color-mix(in srgb, ${groupColor} 28%, transparent)`, color: groupColor }
+                  : undefined
+              }
+            >
+              {groupName}
+            </span>
+          )}
         </span>
         <span className="hp-meter">
           <span className="hp-meter-fill" style={{ width: `${meter.hp}%` }} />
