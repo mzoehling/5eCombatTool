@@ -191,6 +191,15 @@ input[inputmode='numeric'],
   font-variant-numeric: tabular-nums;
 }
 
+/* #root is the single owner of the safe-area insets.
+   Installed to the Home screen, the app runs standalone with no address bar
+   and, with `viewport-fit=cover` plus a translucent status bar, draws under
+   the status bar and the home indicator — so the insets are what keep content
+   off both. Reserving them once here means everything in the flow below is
+   already inside the safe area; anything that adds `--safe-bottom` again
+   double-counts it, which parked the footer ~44px above the screen edge on an
+   iPad and ~72px on a phone. Only elements that escape this box — the fixed
+   toast and the modal bottom sheet — carry their own inset. */
 #root {
   /* 100dvh avoids the iOS Safari 100vh toolbar problem */
   height: 100dvh;
