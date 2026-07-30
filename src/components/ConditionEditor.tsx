@@ -60,19 +60,31 @@ export function ConditionEditor({ combatant, onClose }: ConditionEditorProps) {
           {condition}
           {instance && condition === 'Exhaustion' && ` ${instance.level ?? 1}`}
         </button>
+        {/* Exhaustion is tracked by level, not by rounds — it does not tick
+            down on its own — so it gets a 1–6 stepper in place of the usual
+            duration one. */}
         {instance && condition === 'Exhaustion' && (
           <span className="stepper">
-            <button type="button" onClick={() => adjustLevel(-1)}>−</button>
-            <button type="button" onClick={() => adjustLevel(1)}>+</button>
+            <button type="button" aria-label="Lower exhaustion level" onClick={() => adjustLevel(-1)}>
+              −
+            </button>
+            <span className="rounds-label">Lvl {instance.level ?? 1}</span>
+            <button type="button" aria-label="Raise exhaustion level" onClick={() => adjustLevel(1)}>
+              +
+            </button>
           </span>
         )}
-        {instance && (
+        {instance && condition !== 'Exhaustion' && (
           <span className="stepper rounds">
-            <button type="button" onClick={() => adjustRounds(condition, -1)}>−</button>
+            <button type="button" aria-label={`Shorten ${condition}`} onClick={() => adjustRounds(condition, -1)}>
+              −
+            </button>
             <span className="rounds-label">
               {instance.remainingRounds === undefined ? '∞' : `${instance.remainingRounds} rd`}
             </span>
-            <button type="button" onClick={() => adjustRounds(condition, 1)}>+</button>
+            <button type="button" aria-label={`Lengthen ${condition}`} onClick={() => adjustRounds(condition, 1)}>
+              +
+            </button>
           </span>
         )}
       </li>

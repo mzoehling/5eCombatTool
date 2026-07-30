@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { battleStore } from '../store/battleStore'
 import type { Combatant } from '../types'
+import { Checkbox } from './Checkbox'
 import { Modal } from './Modal'
 
 interface EditCombatantProps {
@@ -68,31 +69,33 @@ export function EditCombatant({ combatant, onClose }: EditCombatantProps) {
           </select>
         </label>
         <label className="check">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={combatant.isPC}
-            onChange={(e) => setFlag({ isPC: e.target.checked })}
+            onChange={() => setFlag({ isPC: !combatant.isPC })}
+            ariaLabel="Player character"
           />
           Player character
         </label>
         <label className="check">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={combatant.hiddenFromPlayers}
-            onChange={(e) => setFlag({ hiddenFromPlayers: e.target.checked })}
+            onChange={() => setFlag({ hiddenFromPlayers: !combatant.hiddenFromPlayers })}
+            ariaLabel="Hidden from players"
           />
           Hidden from players
         </label>
         <label className="check">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={combatant.isActive}
-            onChange={(e) => setFlag({ isActive: e.target.checked })}
+            onChange={() => setFlag({ isActive: !combatant.isActive })}
+            ariaLabel="In battle"
           />
           In battle
         </label>
       </div>
-      <div className="modal-actions">
+      {/* Remove sits at the far end from Save: they are one mis-tap apart
+          otherwise, and only one of them is reversible. */}
+      <div className="modal-footer">
         <button
           type="button"
           className="danger"
@@ -102,6 +105,10 @@ export function EditCombatant({ combatant, onClose }: EditCombatantProps) {
           }}
         >
           Remove
+        </button>
+        <span className="spacer" />
+        <button type="button" className="ghost" onClick={onClose}>
+          Cancel
         </button>
         <button type="button" className="ok" onClick={save}>
           Save

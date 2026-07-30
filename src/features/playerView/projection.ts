@@ -57,6 +57,8 @@ export function projectSnapshot(state: BattleState): PlayerSnapshot {
       id: c.id,
       name: c.name,
       isPC: c.isPC,
+      // AC is deliberately not transmitted, along with initiative, the
+      // statblock and DM notes — see the projection test.
       health: c.isPC
         ? { kind: 'pc', hp: c.hp, maxHp: c.maxHp, tempHp: c.tempHp }
         : { kind: 'npc', status: healthStatus(c.hp, c.maxHp) },

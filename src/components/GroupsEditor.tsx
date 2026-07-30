@@ -57,14 +57,20 @@ export function GroupsEditor({ onClose }: { onClose: () => void }) {
                   aria-label={`Color for group ${g.name}`}
                   onChange={(e) => dispatch({ type: 'updateGroup', id: g.id, patch: { color: e.target.value } })}
                 />
-                <label className="check">
+                {/* A group's "in battle" state is the one genuinely binary
+                    setting in the app, so it is the one switch. */}
+                <label className="switch">
                   <input
                     type="checkbox"
                     checked={g.inBattle}
+                    aria-label={`${g.name} in battle`}
                     onChange={(e) => dispatch({ type: 'setGroupInBattle', id: g.id, inBattle: e.target.checked })}
                   />
-                  {g.name} <span className="dim">({members} members, {g.inBattle ? 'in battle' : 'out'})</span>
+                  <span className="switch-track" />
                 </label>
+                <span className="group-name">
+                  {g.name} <span className="dim">({members} members, {g.inBattle ? 'in battle' : 'out'})</span>
+                </span>
                 <button
                   type="button"
                   className="ghost"

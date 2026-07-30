@@ -892,6 +892,11 @@ button.icon-label {
   grid-column: 1 / -1;
 }
 
+/* Numeric fields are typed into mid-combat, often with a Pencil. */
+.form-grid input[inputmode='numeric'] {
+  min-height: var(--target-pencil);
+}
+
 @media (max-width: 700px) {
   .form-grid {
     grid-template-columns: 1fr;
@@ -1193,8 +1198,21 @@ label.check {
   flex-shrink: 0;
 }
 
-.group-list label.check {
+.group-list label.check,
+.group-name {
   flex: 1;
+  min-width: 0;
+}
+
+/* The AoE bar's "Condition…" opens the apply dialog with nothing chosen yet,
+   so that one case gets a picker above the rules text. */
+.apply-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: var(--space-3);
 }
 
 .dim {
@@ -1576,6 +1594,17 @@ label.check {
 
 .app-banner span {
   flex: 1;
+}
+
+/* ---------- settings dialog ---------- */
+
+/* Import/export are peers and both neutral — neither is the primary action of
+   the dialog, and nothing here is destructive. */
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
 }
 
 /* ---------- player view host dialog ---------- */

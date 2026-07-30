@@ -112,9 +112,10 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
                   {new Date(e.updatedAt).toLocaleDateString()}
                 </span>
               </span>
+              {/* Load replaces, Add merges — the two must not read alike. */}
               <button
                 type="button"
-                className="icon-label"
+                className="outlined icon-label"
                 title="Replace the tracker with this encounter"
                 onClick={() => load(e)}
               >

@@ -42,22 +42,18 @@ export function HostControls({ onClose }: { onClose: () => void }) {
     <Modal title="Player View" onClose={onClose}>
       {code ? (
         <div className="pv-host">
-          <p>
-            Players open the app and enter this code — or scan the QR. Connected viewers:{' '}
-            <b>{playerViewHost.viewerCount}</b>
-          </p>
+          {/* The code gets read aloud across a table, so it leads the dialog. */}
+          <p className="dim">Players open the app and enter this code — or scan the QR.</p>
           <div className="pv-code">{code}</div>
           <div
             className="pv-qr"
             aria-label={`QR code for ${viewerUrl(code)}`}
             dangerouslySetInnerHTML={{ __html: renderSVG(viewerUrl(code)) }}
           />
-          <p className="dim pv-link">{viewerUrl(code)}</p>
-          <div className="modal-actions">
-            <button type="button" className="danger" onClick={() => playerViewHost.stopRemote()}>
-              End session
-            </button>
-          </div>
+          <p className="pv-link">{viewerUrl(code)}</p>
+          <p className="pv-viewers">
+            {playerViewHost.viewerCount} {playerViewHost.viewerCount === 1 ? 'viewer' : 'viewers'} connected
+          </p>
         </div>
       ) : (
         <div className="pv-host">
@@ -82,10 +78,17 @@ export function HostControls({ onClose }: { onClose: () => void }) {
         Shared screen on this device (AirPlay / external display): open the viewer in a second window — no network or
         code needed.
       </p>
-      <div className="modal-actions">
+      {/* Both session-level actions sit together in one right-aligned row. */}
+      <div className="modal-footer">
+        <span className="spacer" />
         <button type="button" onClick={() => window.open(viewerUrl(LOCAL_CODE), '_blank')}>
-          Open same-device viewer
+          Same-device viewer
         </button>
+        {code && (
+          <button type="button" className="danger" onClick={() => playerViewHost.stopRemote()}>
+            End session
+          </button>
+        )}
       </div>
     </Modal>
   )

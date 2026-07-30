@@ -10,6 +10,7 @@ import {
 } from '../data/backup'
 import { clearCacheAndReload } from '../data/clearCache'
 import { battleStore } from '../store/battleStore'
+import { Checkbox } from './Checkbox'
 import { Modal } from './Modal'
 
 const REPO_URL = 'https://github.com/mzoehling/5eCombatTool'
@@ -55,7 +56,7 @@ export function SettingsInfo({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="Settings" onClose={onClose}>
       <section>
-        <h3>About</h3>
+        <h3 className="section-heading">About</h3>
         <p>5e Combat Tool — an offline-first D&amp;D 5e (2024) initiative &amp; battle tracker.</p>
         <p className="dim">SRD data version: {srdVersion?.value ?? '—'}</p>
         <p>
@@ -65,12 +66,12 @@ export function SettingsInfo({ onClose }: { onClose: () => void }) {
         </p>
       </section>
       <section>
-        <h3>Backups</h3>
+        <h3 className="section-heading">Backups</h3>
         <p className="dim">
           A backup holds your homebrew, imported packs, saved encounters and the current battle. Importing merges
           into what you already have; a running battle is never replaced.
         </p>
-        <div className="modal-actions">
+        <div className="settings-actions">
           <input
             ref={fileRef}
             type="file"
@@ -87,10 +88,10 @@ export function SettingsInfo({ onClose }: { onClose: () => void }) {
         </div>
         {message && <p className={message.error ? 'error-text' : 'ok-text'}>{message.text}</p>}
         <label className="check">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={reminderOff}
-            onChange={(e) => setBackupReminderOff(e.target.checked)}
+            onChange={() => setBackupReminderOff(!reminderOff)}
+            ariaLabel="Ignore backup reminders"
           />
           Ignore backup reminders
         </label>
@@ -100,7 +101,7 @@ export function SettingsInfo({ onClose }: { onClose: () => void }) {
         </p>
       </section>
       <section>
-        <h3>Troubleshooting</h3>
+        <h3 className="section-heading">Troubleshooting</h3>
         <p className="dim">
           If something looks stuck or out of date after an update, clear the cache and reload. Your homebrew, packs
           and saved encounters are kept.

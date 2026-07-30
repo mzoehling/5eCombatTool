@@ -83,27 +83,42 @@ function EntryList({ entries, title, actions }: { entries: StatblockEntry[]; tit
   )
 }
 
-function GeneralTab({ sb, actions, origin }: { sb: Statblock; actions: TextActions; origin?: Origin }) {
+/** Italic provenance line, shared by the sticky header and the creature sheet. */
+function metaLine(sb: Statblock, origin?: Origin): string {
+  const kind = `${sb.size.map((s) => SIZE_NAMES[s] ?? s).join(' or ')} ${sb.type}${
+    sb.typeTags.length > 0 ? ` (${sb.typeTags.join(', ')})` : ''
+  }, ${sb.alignment}`
+  const provenance = origin
+    ? provenanceLabel(originLabel(origin), sb.source, sb.page)
+    : sb.source && sourceLabel(sb.source, sb.page)
+  return provenance ? `${kind} · ${provenance}` : kind
+}
+
+/**
+ * The compact hairline stat line: AC · HP · Init · Speed · CR as label/value
+ * pairs between two rules. It replaces the old prominent stat block, which was
+ * eating the vertical space the actions text needs, and is the same pattern the
+ * spell / item / creature sheets use.
+ */
+function SbStatLine({ sb, actions }: { sb: Statblock; actions: TextActions }) {
   const hpFormula = sb.hp.formula
+  const speed =
+    sb.speed
+      .map((s) => `${s.mode === 'walk' ? '' : `${s.mode} `}${s.value} ft.${s.condition ? ` ${s.condition}` : ''}`)
+      .join(', ') || '—'
   return (
-    <>
-      <p className="sb-meta">
-        {sb.size.map((s) => SIZE_NAMES[s] ?? s).join(' or ')} {sb.type}
-        {sb.typeTags.length > 0 && ` (${sb.typeTags.join(', ')})`}, {sb.alignment}
-        {origin
-          ? ` · ${provenanceLabel(originLabel(origin), sb.source, sb.page)}`
-          : sb.source && ` · ${sourceLabel(sb.source, sb.page)}`}
-      </p>
-      <div className="sb-statline">
-        <span>
-          <b>AC</b> {sb.ac}
+    <div className="statline">
+      <div>
+        <span className="statline-label">AC</span>
+        <span className="statline-value">
+          {sb.ac}
           {sb.acFrom && ` (${renderTags(sb.acFrom)})`}
         </span>
-        <span>
-          <b>Initiative</b> <D20Link bonus={sb.initiativeBonus} onDice={actions.onDice} />
-        </span>
-        <span>
-          <b>HP</b> {sb.hp.special ?? sb.hp.average}
+      </div>
+      <div>
+        <span className="statline-label">HP</span>
+        <span className="statline-value">
+          {sb.hp.special ?? sb.hp.average}
           {hpFormula &&
             (parseDiceExpression(hpFormula) !== null ? (
               <>
@@ -122,11 +137,30 @@ function GeneralTab({ sb, actions, origin }: { sb: Statblock; actions: TextActio
               ` (${hpFormula})`
             ))}
         </span>
-        <span>
-          <b>Speed</b>{' '}
-          {sb.speed.map((s) => `${s.mode === 'walk' ? '' : `${s.mode} `}${s.value} ft.${s.condition ? ` ${s.condition}` : ''}`).join(', ') || '—'}
+      </div>
+      <div>
+        <span className="statline-label">Init</span>
+        <span className="statline-value">
+          <D20Link bonus={sb.initiativeBonus} onDice={actions.onDice} />
         </span>
       </div>
+      <div>
+        <span className="statline-label">Speed</span>
+        <span className="statline-value">{speed}</span>
+      </div>
+      {sb.cr !== undefined && (
+        <div>
+          <span className="statline-label">CR</span>
+          <span className="statline-value">{sb.cr}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function GeneralTab({ sb, actions }: { sb: Statblock; actions: TextActions }) {
+  return (
+    <>
       {/* Scrolls itself rather than the pane: the six ability columns have a
           floor below which they cannot shrink, and a homebrew monster or a
           larger system font can push past even a full-width pane. */}
@@ -219,12 +253,6 @@ function GeneralTab({ sb, actions, origin }: { sb: Statblock; actions: TextActio
             <dd>{sb.languages.map((l) => renderTags(l)).join(', ')}</dd>
           </>
         )}
-        {sb.cr !== undefined && (
-          <>
-            <dt>CR</dt>
-            <dd>{sb.cr}</dd>
-          </>
-        )}
       </dl>
     </>
   )
@@ -259,8 +287,13 @@ function SpellsTab({ sb, actions }: { sb: Statblock; actions: TextActions }) {
   )
 }
 
-function ConditionsTab({ combatant }: { combatant: Combatant }) {
+function ConditionsTab({ combatant, actions }: { combatant: Combatant; actions: TextActions }) {
   if (!combatant.conditions.length) return <p className="dim">No active conditions.</p>
+  // Concentration is the one condition that asks the DM for a roll, so it gets
+  // the creature's own Constitution save offered next to the rules text.
+  const conSave = combatant.statblock
+    ? (combatant.statblock.saves.con ?? abilityMod(combatant.statblock.abilities.con))
+    : null
   return (
     <>
       {combatant.conditions.map((cond) => (
@@ -272,6 +305,18 @@ function ConditionsTab({ combatant }: { combatant: Combatant }) {
             )}
           </h3>
           <p>{describeCondition(cond.condition) ?? 'Custom effect — no rules text.'}</p>
+          {cond.condition === 'Concentration' && conSave !== null && (
+            <p>
+              Concentration save:{' '}
+              <button
+                type="button"
+                className="dice-link"
+                onClick={() => actions.onDice(`1d20${signed(conSave)}`)}
+              >
+                Roll 1d20{signed(conSave)}
+              </button>
+            </p>
+          )}
           {cond.note && <p className="dim">Note: {cond.note}</p>}
         </section>
       ))}
@@ -352,33 +397,39 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds, o
 
   return (
     <div className="statblock">
-      <header className="sb-header">
-        <h2>{sb?.name ?? combatant.name}</h2>
-        <button
-          type="button"
-          className={pinned ? 'primary' : ''}
-          onClick={onTogglePin}
-          aria-label={pinned ? 'Unpin statblock' : 'Pin statblock'}
-          title="Pinned statblocks do not switch with the turn"
-        >
-          <Icon path={pinned ? mdiPin : mdiPinOutline} />
-        </button>
-      </header>
+      {/* Name, provenance, the compact stat line and the tabs stay put; only
+          the tab content below scrolls with the pane. */}
+      <div className="sb-sticky">
+        <header className="sb-header">
+          <h2>{sb?.name ?? combatant.name}</h2>
+          <button
+            type="button"
+            className={pinned ? 'primary icon-only' : 'icon-only'}
+            onClick={onTogglePin}
+            aria-label={pinned ? 'Unpin statblock' : 'Pin statblock'}
+            title="Pinned statblocks do not switch with the turn"
+          >
+            <Icon path={pinned ? mdiPin : mdiPinOutline} />
+          </button>
+        </header>
+        {sb && <p className="sb-meta">{metaLine(sb, origin)}</p>}
+        {sb && <SbStatLine sb={sb} actions={actions} />}
 
-      <nav className="sb-tabs">
-        {tabs
-          .filter((t) => t.show)
-          .map((t) => (
-            <button key={t.id} type="button" className={shownTab === t.id ? 'primary' : ''} onClick={() => setTab(t.id)}>
-              {t.label}
-            </button>
-          ))}
-      </nav>
+        <nav className="sb-tabs segments">
+          {tabs
+            .filter((t) => t.show)
+            .map((t) => (
+              <button key={t.id} type="button" aria-pressed={shownTab === t.id} onClick={() => setTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
+        </nav>
+      </div>
 
       <div className="sb-content">
         {shownTab === 'general' &&
           (sb ? (
-            <GeneralTab sb={sb} actions={actions} origin={origin} />
+            <GeneralTab sb={sb} actions={actions} />
           ) : (
             <dl className="sb-details">
               <dt>AC</dt>
@@ -418,7 +469,7 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds, o
         )}
         {shownTab === 'spells' && sb && <SpellsTab sb={sb} actions={actions} />}
         {shownTab === 'uses' && <UsesTab combatant={combatant} />}
-        {shownTab === 'conditions' && <ConditionsTab combatant={combatant} />}
+        {shownTab === 'conditions' && <ConditionsTab combatant={combatant} actions={actions} />}
       </div>
 
       {/* reference modals first: dice/condition dialogs opened from their text must stack above */}
