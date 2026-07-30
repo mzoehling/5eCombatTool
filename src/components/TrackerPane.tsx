@@ -1,19 +1,18 @@
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { mdiBookOpenVariant, mdiDiceD20, mdiDiceMultiple } from '@mdi/js'
+import { mdiDiceD20, mdiDiceMultiple, mdiVectorCircle } from '@mdi/js'
 import { useEffect, useState } from 'react'
 import { evalArithmetic } from '../lib/arithmetic'
 import { d20 } from '../lib/dice'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
+import { CONDITIONS } from '../types'
+import { ApplyCondition } from './ApplyCondition'
+import { BattleControls } from './BattleControls'
 import { CombatantRow } from './CombatantRow'
-import { Compendium } from './Compendium'
-import { ContentManager } from './ContentManager'
-import { EncountersManager } from './EncountersManager'
 import { ConditionEditor } from './ConditionEditor'
 import { DiceRoller } from './DiceRoller'
 import { EditCombatant } from './EditCombatant'
-import { GroupsEditor } from './GroupsEditor'
 import { Icon } from './Icon'
 
 interface TrackerPaneProps {
@@ -36,12 +35,11 @@ export function TrackerPane({
 }: TrackerPaneProps) {
   const { dispatch } = battleStore
   const state = useBattleState()
-  const [modal, setModal] = useState<
-    'groups' | 'compendium' | 'content' | 'dice' | 'encounters' | null
-  >(null)
+  const [showDice, setShowDice] = useState(false)
   const [conditionsFor, setConditionsFor] = useState<string | null>(null)
   const [editFor, setEditFor] = useState<string | null>(null)
   const [aoeAmount, setAoeAmount] = useState('')
+  const [aoeCondition, setAoeCondition] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -103,33 +101,13 @@ export function TrackerPane({
   const conditionsCombatant = state.combatants.find((c) => c.id === conditionsFor)
   const editCombatant = state.combatants.find((c) => c.id === editFor)
 
+  // Live per-row preview of what the AoE bar would apply. Only a usable amount
+  // produces one, so an empty or half-typed field shows nothing.
+  const aoeValue = evalArithmetic(aoeAmount)
+  const aoePreview = multiSelect && aoeValue !== null && aoeValue > 0 ? aoeValue : null
+
   return (
     <section className="tracker-pane">
-      <div className="tracker-toolbar">
-        <button type="button" className="primary icon-label" onClick={() => setModal('compendium')}>
-          <Icon path={mdiBookOpenVariant} /> Compendium
-        </button>
-        <button type="button" onClick={() => setModal('encounters')}>Encounters</button>
-        <button type="button" className="icon-label" onClick={() => setModal('dice')}>
-          <Icon path={mdiDiceMultiple} /> Dice Roller
-        </button>
-        {unrolledNpcs.length > 0 && (
-          <button
-            type="button"
-            className="icon-label"
-            title="Roll initiative for all NPCs without a value"
-            onClick={rollNpcs}
-          >
-            <Icon path={mdiDiceD20} /> Roll NPCs
-          </button>
-        )}
-        <button type="button" onClick={() => setModal('groups')}>Groups</button>
-        <button type="button" onClick={() => setModal('content')}>Content</button>
-        <button type="button" className={multiSelect ? 'primary' : ''} onClick={() => onMultiSelectChange(!multiSelect)}>
-          AoE
-        </button>
-      </div>
-
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <SortableContext items={ordered.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           <ul className="combatant-list">
@@ -147,6 +125,9 @@ export function TrackerPane({
                   groupName={group?.name}
                   groupColor={group?.color}
                   groupOut={group ? !group.inBattle : false}
+                  aoePreview={
+                    aoePreview !== null && checked.has(c.id) ? { amount: aoePreview, heal: false } : undefined
+                  }
                   onSelect={() => onSelect(c.id)}
                   onToggleCheck={() => toggleCheck(c.id)}
                   onEditConditions={() => setConditionsFor(c.id)}
@@ -159,21 +140,64 @@ export function TrackerPane({
         </SortableContext>
       </DndContext>
 
-      {multiSelect && (
+      {/* The dock is pinned below the list: mode switches on the left, turn
+          control hard right, so neither moves while the list scrolls. In AoE
+          mode the same strip becomes the AoE bar. */}
+      {multiSelect ? (
         <div className="aoe-bar">
-          <span>{checked.size} selected</span>
+          <span className="aoe-count">{checked.size} selected</span>
+          <button type="button" className="ghost" onClick={() => onCheckedChange(new Set(ordered.map((c) => c.id)))}>
+            All visible
+          </button>
+          <button type="button" className="ghost" disabled={checked.size === 0} onClick={() => onCheckedChange(new Set())}>
+            Clear
+          </button>
           <input
+            className="aoe-amount"
             inputMode="numeric"
-            placeholder="Amount (e.g. 8+3)"
+            aria-label="AoE amount"
+            placeholder="8+3"
             value={aoeAmount}
             onChange={(e) => setAoeAmount(e.target.value)}
           />
-          <button type="button" className="danger" onClick={() => applyAoe(false)}>
+          <button type="button" className="danger" disabled={checked.size === 0} onClick={() => applyAoe(false)}>
             Damage
           </button>
-          <button type="button" className="ok" onClick={() => applyAoe(true)}>
+          <button type="button" className="ok" disabled={checked.size === 0} onClick={() => applyAoe(true)}>
             Heal
           </button>
+          <button
+            type="button"
+            disabled={checked.size === 0}
+            onClick={() => setAoeCondition(CONDITIONS[0])}
+          >
+            Condition…
+          </button>
+          <span className="spacer" />
+          <button type="button" className="ghost" onClick={() => onMultiSelectChange(false)}>
+            Done
+          </button>
+        </div>
+      ) : (
+        <div className="turn-dock">
+          <button type="button" className="icon-label" onClick={() => onMultiSelectChange(true)}>
+            <Icon path={mdiVectorCircle} /> AoE
+          </button>
+          <button type="button" className="icon-label" onClick={() => setShowDice(true)}>
+            <Icon path={mdiDiceMultiple} /> Dice
+          </button>
+          {unrolledNpcs.length > 0 && (
+            <button
+              type="button"
+              className="icon-label"
+              title="Roll initiative for all NPCs without a value"
+              onClick={rollNpcs}
+            >
+              <Icon path={mdiDiceD20} /> Roll NPCs
+            </button>
+          )}
+          <span className="spacer" />
+          <BattleControls />
         </div>
       )}
 
@@ -190,11 +214,15 @@ export function TrackerPane({
         </div>
       )}
 
-      {modal === 'encounters' && <EncountersManager onClose={() => setModal(null)} />}
-      {modal === 'groups' && <GroupsEditor onClose={() => setModal(null)} />}
-      {modal === 'compendium' && <Compendium onClose={() => setModal(null)} />}
-      {modal === 'content' && <ContentManager onClose={() => setModal(null)} />}
-      {modal === 'dice' && <DiceRoller allowApply onClose={() => setModal(null)} />}
+      {showDice && <DiceRoller allowApply onClose={() => setShowDice(false)} />}
+      {aoeCondition && (
+        <ApplyCondition
+          name={aoeCondition}
+          preselect={checked}
+          onPickCondition={setAoeCondition}
+          onClose={() => setAoeCondition(null)}
+        />
+      )}
       {conditionsCombatant && <ConditionEditor combatant={conditionsCombatant} onClose={() => setConditionsFor(null)} />}
       {editCombatant && <EditCombatant combatant={editCombatant} onClose={() => setEditFor(null)} />}
     </section>

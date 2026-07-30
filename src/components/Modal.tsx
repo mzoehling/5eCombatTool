@@ -22,7 +22,7 @@ export function Modal({ title, onClose, children, className }: ModalProps) {
       >
         <header className="modal-header">
           <h2>{title}</h2>
-          <button type="button" className="ghost" onClick={onClose} aria-label="Close">
+          <button type="button" className="ghost modal-close" onClick={onClose} aria-label="Close">
             <Icon path={mdiClose} />
           </button>
         </header>

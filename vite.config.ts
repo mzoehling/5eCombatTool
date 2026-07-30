@@ -25,8 +25,8 @@ export default defineConfig({
         description: 'Offline-first D&D 5e (2024) initiative & battle tracker',
         display: 'standalone',
         orientation: 'any',
-        theme_color: '#16161e',
-        background_color: '#16161e',
+        theme_color: '#e8dfc9',
+        background_color: '#e8dfc9',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },

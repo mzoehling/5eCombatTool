@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { describeCondition } from '../data/conditionInfo'
 import { sortedCombatants } from '../store/battleReducer'
 import { battleStore, useBattleState } from '../store/battleStore'
-import type { ConditionInstance } from '../types'
+import { CONDITIONS, type ConditionInstance } from '../types'
+import { Checkbox } from './Checkbox'
 import { Modal } from './Modal'
 
 interface ApplyConditionProps {
@@ -10,11 +11,14 @@ interface ApplyConditionProps {
   name: string
   /** Combatants pre-checked in the apply list (AoE selection). */
   preselect?: ReadonlySet<string>
+  /** Set when the dialog was opened without a condition in mind (AoE bar),
+   *  in which case it offers a picker instead of a fixed condition. */
+  onPickCondition?: (name: string) => void
   onClose: () => void
 }
 
 /** Rules text for a condition plus a form to apply it to combatants. */
-export function ApplyCondition({ name, preselect, onClose }: ApplyConditionProps) {
+export function ApplyCondition({ name, preselect, onPickCondition, onClose }: ApplyConditionProps) {
   const { dispatch } = battleStore
   const { combatants } = useBattleState()
   const ordered = sortedCombatants(combatants)
@@ -45,6 +49,20 @@ export function ApplyCondition({ name, preselect, onClose }: ApplyConditionProps
 
   return (
     <Modal title={name} onClose={onClose}>
+      {onPickCondition && (
+        <label className="apply-picker">
+          Condition
+          <select value={name} onChange={(e) => onPickCondition(e.target.value)}>
+            {CONDITIONS.map((cond) => (
+              <option key={cond} value={cond}>
+                {cond}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {/* The rules text comes first: it is why this dialog was opened. */}
       <p className="condition-rules">{describeCondition(name) ?? 'Custom effect — no rules text.'}</p>
 
       <h3 className="condition-heading">Apply to</h3>
@@ -52,7 +70,7 @@ export function ApplyCondition({ name, preselect, onClose }: ApplyConditionProps
         {ordered.map((c) => (
           <li key={c.id}>
             <label className="check">
-              <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggle(c.id)} />
+              <Checkbox checked={selected.has(c.id)} onChange={() => toggle(c.id)} ariaLabel={c.name} />
               {c.name}
             </label>
           </li>
@@ -78,10 +96,11 @@ export function ApplyCondition({ name, preselect, onClose }: ApplyConditionProps
         )}
       </div>
 
-      <div className="modal-actions">
+      <div className="modal-footer">
         <button type="button" className="ghost" onClick={onClose}>
           Cancel
         </button>
+        <span className="spacer" />
         <button type="button" className="primary" disabled={selected.size === 0} onClick={apply}>
           Apply to {selected.size} {selected.size === 1 ? 'combatant' : 'combatants'}
         </button>
