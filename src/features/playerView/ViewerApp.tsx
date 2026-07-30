@@ -8,6 +8,7 @@ import { describeCondition } from '../../data/conditionInfo'
 import { nameRuns } from '../../lib/groups'
 import { hpMeterWidths } from '../../lib/hpMeter'
 import { upNext } from '../../lib/turnOrder'
+import { useServiceWorkerUpdate } from '../../lib/useServiceWorkerUpdate'
 import { useTheme } from '../../lib/useTheme'
 import type { PlayerParticipant, PlayerSnapshot } from './projection'
 import {
@@ -174,6 +175,10 @@ export function ViewerApp({ code }: { code: string }) {
   const [showDice, setShowDice] = useState(false)
   const [conditionInfo, setConditionInfo] = useState<string | null>(null)
   const [theme, toggleTheme] = useTheme()
+  // The viewer is its own root and never mounted the DM app's update banner,
+  // so a second screen left on this URL kept serving whatever build it had
+  // precached — an iPad still showing the previous design a release later.
+  const { needRefresh, reload } = useServiceWorkerUpdate()
   const transportRef = useRef<ViewerTransport | null>(null)
   // stable identity: an arriving snapshot must not re-render the open roller
   // and clobber the expression the player is halfway through typing
@@ -230,6 +235,18 @@ export function ViewerApp({ code }: { code: string }) {
         <Modal title={conditionInfo} onClose={() => setConditionInfo(null)}>
           <p>{describeCondition(conditionInfo) ?? 'A custom effect — ask your DM what it does.'}</p>
         </Modal>
+      )}
+
+      {/* Only when there is actually a newer build waiting. It sits with the
+          connection strips because it is the same kind of message: something
+          about this screen, not about the battle on it. */}
+      {needRefresh && (
+        <div className="pv-state accent" role="status">
+          <p>A new version of the Player View is ready.</p>
+          <button type="button" onClick={reload}>
+            Reload
+          </button>
+        </div>
       )}
 
       <ConnectionState
