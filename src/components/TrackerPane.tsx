@@ -6,7 +6,8 @@ import { evalArithmetic } from '../lib/arithmetic'
 import { d20 } from '../lib/dice'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
-import { CONDITIONS } from '../types'
+import { amountAfterSave, readSave, SAVE_ABILITIES, saveBonus, type SaveVerdict } from '../lib/saves'
+import { CONDITIONS, type Ability } from '../types'
 import { ApplyCondition } from './ApplyCondition'
 import { BattleControls } from './BattleControls'
 import { CombatantRow } from './CombatantRow'
@@ -40,6 +41,13 @@ export function TrackerPane({
   const [editFor, setEditFor] = useState<string | null>(null)
   const [aoeAmount, setAoeAmount] = useState('')
   const [aoeCondition, setAoeCondition] = useState<string | null>(null)
+  // Save helper: the one bit of arithmetic the AoE bar otherwise leaves to the
+  // DM. Rolling for the table is optional — a verdict can be flipped by hand.
+  const [saveAbility, setSaveAbility] = useState<Ability | null>(null)
+  const [saveDc, setSaveDc] = useState('')
+  const [saves, setSaves] = useState<ReadonlyMap<string, { roll: number; total: number; verdict: SaveVerdict }>>(
+    new Map(),
+  )
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -80,8 +88,39 @@ export function TrackerPane({
   const applyAoe = (heal: boolean) => {
     const amount = evalArithmetic(aoeAmount)
     if (amount === null || amount <= 0 || checked.size === 0) return
-    dispatch({ type: heal ? 'applyHealing' : 'applyDamage', ids: [...checked], amount })
+    const type = heal ? ('applyHealing' as const) : ('applyDamage' as const)
+    // A made save halves damage, so the two groups go out as two dispatches —
+    // the reducer applies one amount per action, with its own temp-HP handling
+    // per target either way. Healing is never halved by a save.
+    const halfIds = heal ? [] : [...checked].filter((id) => saves.get(id)?.verdict === 'saved')
+    const fullIds = [...checked].filter((id) => !halfIds.includes(id))
+    const halfAmount = Math.floor(amount / 2)
+    if (fullIds.length) dispatch({ type, ids: fullIds, amount })
+    if (halfIds.length && halfAmount > 0) dispatch({ type, ids: halfIds, amount: halfAmount })
     setAoeAmount('')
+    setSaves(new Map())
+  }
+
+  /** Rolls a save for every checked combatant and reads it against the DC. */
+  const rollSaves = () => {
+    const dc = Number.parseInt(saveDc, 10)
+    if (!saveAbility || !Number.isFinite(dc)) return
+    const next = new Map<string, { roll: number; total: number; verdict: SaveVerdict }>()
+    for (const c of ordered) {
+      if (!checked.has(c.id)) continue
+      const roll = d20()
+      const total = roll + saveBonus(c, saveAbility)
+      next.set(c.id, { roll, total, verdict: readSave(roll, saveBonus(c, saveAbility), dc) })
+    }
+    setSaves(next)
+  }
+
+  const flipVerdict = (id: string) => {
+    const current = saves.get(id)
+    if (!current) return
+    const next = new Map(saves)
+    next.set(id, { ...current, verdict: current.verdict === 'saved' ? 'failed' : 'saved' })
+    setSaves(next)
   }
 
   // NPCs whose initiative is still unset — PCs roll at the table
@@ -105,6 +144,7 @@ export function TrackerPane({
   // produces one, so an empty or half-typed field shows nothing.
   const aoeValue = evalArithmetic(aoeAmount)
   const aoePreview = multiSelect && aoeValue !== null && aoeValue > 0 ? aoeValue : null
+  const savedCount = [...checked].filter((id) => saves.get(id)?.verdict === 'saved').length
 
   return (
     <section className="tracker-pane">
@@ -126,8 +166,12 @@ export function TrackerPane({
                   groupColor={group?.color}
                   groupOut={group ? !group.inBattle : false}
                   aoePreview={
-                    aoePreview !== null && checked.has(c.id) ? { amount: aoePreview, heal: false } : undefined
+                    aoePreview !== null && checked.has(c.id)
+                      ? { amount: amountAfterSave(aoePreview, saves.get(c.id)?.verdict), heal: false }
+                      : undefined
                   }
+                  aoeSave={multiSelect && checked.has(c.id) ? saves.get(c.id) : undefined}
+                  onToggleSave={() => flipVerdict(c.id)}
                   onSelect={() => onSelect(c.id)}
                   onToggleCheck={() => toggleCheck(c.id)}
                   onEditConditions={() => setConditionsFor(c.id)}
@@ -161,7 +205,7 @@ export function TrackerPane({
             onChange={(e) => setAoeAmount(e.target.value)}
           />
           <button type="button" className="danger" disabled={checked.size === 0} onClick={() => applyAoe(false)}>
-            Damage
+            {savedCount > 0 ? `Damage · ${checked.size - savedCount} full, ${savedCount} half` : 'Damage'}
           </button>
           <button type="button" className="ok" disabled={checked.size === 0} onClick={() => applyAoe(true)}>
             Heal
@@ -173,6 +217,44 @@ export function TrackerPane({
           >
             Condition…
           </button>
+          {/* Save helper. Choosing an ability and a DC turns the bar's flat
+              amount into a per-target read: failures take full, passes half. */}
+          <span className="aoe-save">
+            <select
+              aria-label="Save ability"
+              value={saveAbility ?? ''}
+              onChange={(e) => {
+                setSaveAbility((e.target.value || null) as Ability | null)
+                setSaves(new Map())
+              }}
+            >
+              <option value="">No save</option>
+              {SAVE_ABILITIES.map((a) => (
+                <option key={a} value={a}>
+                  {a.toUpperCase()}
+                </option>
+              ))}
+            </select>
+            {saveAbility && (
+              <>
+                <input
+                  className="aoe-dc"
+                  inputMode="numeric"
+                  aria-label="Save DC"
+                  placeholder="DC"
+                  value={saveDc}
+                  onChange={(e) => setSaveDc(e.target.value)}
+                />
+                <button
+                  type="button"
+                  disabled={checked.size === 0 || !Number.isFinite(Number.parseInt(saveDc, 10))}
+                  onClick={rollSaves}
+                >
+                  Roll saves
+                </button>
+              </>
+            )}
+          </span>
           <span className="spacer" />
           <button type="button" className="ghost" onClick={() => onMultiSelectChange(false)}>
             Done

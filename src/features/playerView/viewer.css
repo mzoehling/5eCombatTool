@@ -55,15 +55,59 @@
   font-size: 1rem;
 }
 
-.pv-status {
+/* Connection states. Each keeps the round header above it, so a phone that has
+   lost signal never looks like the app crashed. */
+.pv-state {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
   margin: 0.4em 0;
   padding: 0.4em 0.8em;
-  background: color-mix(in srgb, var(--warn) 20%, var(--bg-panel));
-  border: 1px solid var(--warn);
-  color: var(--text);
-  font-size: 0.8em;
-  font-weight: 600;
   border-radius: var(--radius-sm);
+  font-size: 0.7em;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex: none;
+}
+
+.pv-state p {
+  margin: 0;
+  flex: 1;
+}
+
+.pv-state button {
+  flex: none;
+  min-height: 44px;
+  padding: 0 0.8em;
+  font: inherit;
+  font-weight: 600;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: inherit;
+  cursor: pointer;
+}
+
+.pv-state.accent {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-panel));
+  border-color: var(--accent);
+}
+
+.pv-state.warn {
+  background: color-mix(in srgb, var(--warn) 16%, var(--bg-panel));
+  border-color: var(--warn);
+}
+
+.pv-state.dim-state {
+  color: var(--text-dim);
+}
+
+/* Pinned under the reconnecting notice: the last state is still worth reading,
+   as long as it says plainly that it is the last state. */
+.pv-stale {
+  margin: 0 0 0.4em;
+  font-size: 0.6em;
+  color: var(--text-dim);
   text-align: center;
   flex: none;
 }

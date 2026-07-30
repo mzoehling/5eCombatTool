@@ -1,12 +1,18 @@
 import { mdiDiceMultiple } from '@mdi/js'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import './viewer.css'
 import { DiceRoller } from '../../components/DiceRoller'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { describeCondition } from '../../data/conditionInfo'
 import type { PlayerParticipant, PlayerSnapshot } from './projection'
-import { connectBroadcastViewer, connectPeerViewer, LOCAL_CODE, type ViewerStatus } from './transport'
+import {
+  connectBroadcastViewer,
+  connectPeerViewer,
+  LOCAL_CODE,
+  type ViewerStatus,
+  type ViewerTransport,
+} from './transport'
 
 /** Monster HP stays a status word; only PCs show numbers. */
 function Health({ participant }: { participant: PlayerParticipant }) {
@@ -81,20 +87,86 @@ function Spotlight({
   )
 }
 
+/**
+ * A phone at a table loses signal constantly. Each state keeps the round header
+ * above it so nothing looks crashed, and reconnecting keeps the last state on
+ * screen — stale information still beats a blank page.
+ */
+function ConnectionState({
+  status,
+  code,
+  snapshot,
+  activeName,
+  onRetry,
+}: {
+  status: ViewerStatus
+  code: string
+  snapshot: PlayerSnapshot | null
+  activeName: string | null
+  onRetry: () => void
+}) {
+  if (status === 'connected') return null
+
+  if (status === 'connecting') {
+    return (
+      <div className="pv-state accent" role="status">
+        <p>
+          Joining the table with code <span className="num">{code.toUpperCase()}</span>…
+        </p>
+      </div>
+    )
+  }
+
+  if (status === 'ended') {
+    return (
+      <div className="pv-state dim-state" role="status">
+        <p>Your DM closed the Player View.</p>
+        <button type="button" onClick={() => window.close()}>
+          Leave
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="pv-state warn" role="status">
+        <p>Lost the connection — trying again automatically.</p>
+        {/* Never ask the player to re-enter the code: the app already has it. */}
+        <button type="button" onClick={onRetry}>
+          Retry now
+        </button>
+      </div>
+      {snapshot && (
+        <p className="pv-stale">
+          Showing the last state received · Round <span className="num">{snapshot.round}</span>
+          {activeName && ` · ${activeName} acting`}
+        </p>
+      )}
+    </>
+  )
+}
+
 export function ViewerApp({ code }: { code: string }) {
   const [snapshot, setSnapshot] = useState<PlayerSnapshot | null>(null)
   const [status, setStatus] = useState<ViewerStatus>('connecting')
   const [showDice, setShowDice] = useState(false)
   const [conditionInfo, setConditionInfo] = useState<string | null>(null)
+  const transportRef = useRef<ViewerTransport | null>(null)
   // stable identity: an arriving snapshot must not re-render the open roller
   // and clobber the expression the player is halfway through typing
   const closeDice = useCallback(() => setShowDice(false), [])
+  const retry = useCallback(() => transportRef.current?.retryNow(), [])
 
   useEffect(() => {
     const handlers = { onSnapshot: setSnapshot, onStatus: setStatus }
     const transport =
       code.toLowerCase() === LOCAL_CODE ? connectBroadcastViewer(handlers) : connectPeerViewer(code, handlers)
-    return () => transport.close()
+    transportRef.current = transport
+    return () => {
+      transportRef.current = null
+      transport.close()
+    }
   }, [code])
 
   const active = snapshot?.participants.find((p) => p.id === snapshot.activeId) ?? null
@@ -122,11 +194,13 @@ export function ViewerApp({ code }: { code: string }) {
         </Modal>
       )}
 
-      {status !== 'connected' && (
-        <div className="pv-status" role="status">
-          {status === 'ended' ? 'Session ended.' : `${status === 'connecting' ? 'Connecting' : 'Reconnecting'}…`}
-        </div>
-      )}
+      <ConnectionState
+        status={status}
+        code={code}
+        snapshot={snapshot}
+        activeName={active?.name ?? null}
+        onRetry={retry}
+      />
 
       <div className="pv-body">
         <div className="pv-primary">

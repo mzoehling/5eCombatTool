@@ -4,7 +4,11 @@ import { useState } from 'react'
 import { instantiateEncounter, prepareForAdd, saveEncounter } from '../data/encounters'
 import { db } from '../db'
 import { battleStore, useBattleState } from '../store/battleStore'
-import type { SavedEncounter } from '../types'
+import { combatantFromStatblock } from '../store/createCombatant'
+import { HOMEBREW_PACK_ID, type SavedEncounter } from '../types'
+import { AcShield } from './AcShield'
+import { Checkbox } from './Checkbox'
+import { HomebrewEditor } from './HomebrewEditor'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 
@@ -19,6 +23,39 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
   )
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
+  // An encounter of only PCs is how a DM reuses their party every session, so
+  // it gets a named path instead of hiding behind "save current".
+  const [mode, setMode] = useState<'current' | 'party'>('current')
+  const [partyName, setPartyName] = useState('')
+  const [partyIds, setPartyIds] = useState<ReadonlySet<string>>(new Set())
+  const [newPC, setNewPC] = useState(false)
+  const pcs = useLiveQuery(
+    async () =>
+      ((await db.packs.get(HOMEBREW_PACK_ID))?.pcs ?? []).slice().sort((a, b) => a.name.localeCompare(b.name)),
+    [],
+    [],
+  )
+
+  const togglePc = (id: string) => {
+    const next = new Set(partyIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setPartyIds(next)
+  }
+
+  const saveParty = async () => {
+    const chosen = pcs.filter((p) => partyIds.has(p.id))
+    if (!partyName.trim() || chosen.length === 0) return
+    // A party is a normal encounter — no new data type.
+    const entry = await saveEncounter(
+      partyName,
+      chosen.map((sb) => combatantFromStatblock(sb, sb.name, true)),
+      [],
+    )
+    setMessage(`Saved party "${entry.name}" (${entry.combatants.length} PCs).`)
+    setPartyName('')
+    setPartyIds(new Set())
+  }
 
   const save = async () => {
     if (!name.trim() || state.combatants.length === 0) return
@@ -67,10 +104,73 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
     setMessage('Cleared the tracker.')
   }
 
+  // Swapped in place rather than stacked: two Modals means two backdrops, and
+  // a click outside would close both.
+  if (newPC) {
+    return <HomebrewEditor section="pcs" onClose={() => setNewPC(false)} />
+  }
+
   return (
     <Modal title="Encounters" className="modal-split" onClose={onClose}>
       {/* Fixed band: the save form and its outcome stay put while the list scrolls. */}
       <div className="modal-controls">
+        <div className="segments enc-modes">
+          <button type="button" aria-pressed={mode === 'current'} onClick={() => setMode('current')}>
+            Save current
+          </button>
+          <button type="button" aria-pressed={mode === 'party'} onClick={() => setMode('party')}>
+            Build party
+          </button>
+        </div>
+
+        {mode === 'party' ? (
+          <>
+            <div className="inline-form">
+              <input
+                placeholder="Party name (e.g. The Usual Suspects)"
+                value={partyName}
+                onChange={(e) => setPartyName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveParty()}
+              />
+              <button
+                type="button"
+                className="ok icon-label"
+                disabled={!partyName.trim() || partyIds.size === 0}
+                onClick={saveParty}
+              >
+                <Icon path={mdiContentSave} /> Save party of {partyIds.size}
+              </button>
+            </div>
+            <ul className="apply-list party-list">
+              {pcs.map((pc) => (
+                <li key={pc.id} className="party-row">
+                  <label className="check">
+                    <Checkbox
+                      checked={partyIds.has(pc.id)}
+                      onChange={() => togglePc(pc.id)}
+                      ariaLabel={pc.name}
+                    />
+                    <AcShield value={pc.ac} />
+                    <span className="party-name">
+                      {pc.name}
+                      <span className="result-meta dim">
+                        HP {pc.hp.average} · Init {pc.initiativeBonus >= 0 ? '+' : ''}
+                        {pc.initiativeBonus}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              ))}
+              {pcs.length === 0 && (
+                <li className="dim">No player characters in the Homebrew pack yet.</li>
+              )}
+            </ul>
+            {/* Escape hatch: a party is only as good as the PCs behind it. */}
+            <button type="button" className="ghost icon-label" onClick={() => setNewPC(true)}>
+              <Icon path={mdiPlus} /> New PC in homebrew…
+            </button>
+          </>
+        ) : (
         <div className="inline-form">
           <input
             placeholder="Name (e.g. Goblin Ambush, Party)"
@@ -97,6 +197,7 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
             <Icon path={mdiTrashCanOutline} /> Clear
           </button>
         </div>
+        )}
         {message && <p className="ok-text">{message}</p>}
       </div>
 

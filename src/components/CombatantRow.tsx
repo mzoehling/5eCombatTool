@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { mdiDiceD20, mdiDotsHorizontal, mdiDrag, mdiEyeOff, mdiFormatListChecks } from '@mdi/js'
 import { battleStore } from '../store/battleStore'
 import { d20 } from '../lib/dice'
+import type { SaveVerdict } from '../lib/saves'
 import type { Combatant } from '../types'
 import { AcShield } from './AcShield'
 import { Checkbox } from './Checkbox'
@@ -22,6 +23,9 @@ interface CombatantRowProps {
   groupOut: boolean
   /** While AoE is armed: what this row would receive if it were applied now. */
   aoePreview?: { amount: number; heal: boolean }
+  /** Set once the AoE bar has a save DC: this row's roll and how it read. */
+  aoeSave?: { roll: number; total: number; verdict: SaveVerdict }
+  onToggleSave?: () => void
   onSelect: () => void
   onToggleCheck: () => void
   onEditConditions: () => void
@@ -47,6 +51,8 @@ export function CombatantRow({
   groupColor,
   groupOut,
   aoePreview,
+  aoeSave,
+  onToggleSave,
   onSelect,
   onToggleCheck,
   onEditConditions,
@@ -171,6 +177,20 @@ export function CombatantRow({
           </span>
         )}
       </button>
+
+      {/* Tapping the verdict flips it, for a player who rolled their own. */}
+      {aoeSave && (
+        <button
+          type="button"
+          className={`aoe-verdict ${aoeSave.verdict}`}
+          title={`d20 ${aoeSave.roll} → ${aoeSave.total} — tap to flip`}
+          aria-label={`${c.name} ${aoeSave.verdict} — tap to flip`}
+          onClick={onToggleSave}
+        >
+          <span className="aoe-verdict-roll num">{aoeSave.total}</span>
+          {aoeSave.verdict}
+        </button>
+      )}
 
       {aoePreview && (
         <span className={aoePreview.heal ? 'aoe-preview heal' : 'aoe-preview'}>
