@@ -100,7 +100,7 @@ export function CombatantRow({
           <span className="row-check-caption">{checked ? 'in area' : 'spared'}</span>
         </label>
       ) : (
-        <div className="init-block">
+        <div className={showRoll ? 'init-block with-roll' : 'init-block'}>
           <HpInput
             className="init-value"
             value={c.initiative ?? 0}

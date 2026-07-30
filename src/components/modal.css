@@ -1,7 +1,10 @@
 /* Modal styles live with the component so it works in both the DM app and
    the Player View (which does not load app.css). The button/input baseline
-   below is scoped to .modal and mirrors app.css — in the DM app the rules
-   coincide; in the viewer they are the only source of these styles.
+   below mirrors app.css — in the DM app the rules coincide; in the viewer they
+   are the only source of these styles. Because this file loads after app.css,
+   every baseline rule here is wrapped in `:where(...)` to keep it at zero
+   specificity: a baseline that ties with a variant class wins, and silently
+   flattens it inside dialogs.
 
    One shell for every dialog:
 
@@ -187,7 +190,14 @@
   }
 }
 
-.modal button {
+/* `:where` holds this at zero specificity on purpose. It is a baseline, and
+   every variant class in app.css — .outlined, .segments button, anything added
+   later — has to be able to beat it without restating itself here. Written as
+   a plain `.modal button` it tied with those classes and, loading later, won:
+   the Encounters tabs came out boxed while identical markup in the statblock
+   pane read as pills, and the same collision silently flattened other
+   variants. Do not raise its specificity. */
+:where(.modal) button {
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -196,11 +206,11 @@
   cursor: pointer;
 }
 
-/* A segment group is one control, not a row of buttons: `.modal button` above
-   matches the same specificity as `.segments button` and, loading later, was
-   winning — the Encounters tabs came out as ordinary boxed buttons while the
-   identical markup in the statblock pane read as pills. */
-.modal .segments button {
+/* The Player View loads this file and not app.css, so the segment group needs
+   its baseline here as well — the roll-mode switch is otherwise a row of
+   identical buttons with no sign of which mode is armed. `:where` again, so
+   app.css owns the primitive wherever both are loaded. */
+:where(.modal) :where(.segments) button {
   background: none;
   border-color: transparent;
   border-radius: var(--radius-pill);
@@ -208,8 +218,8 @@
   padding: 0 var(--space-3);
 }
 
-.modal .segments button[aria-pressed='true'],
-.modal .segments button.on {
+:where(.modal) :where(.segments) button[aria-pressed='true'],
+:where(.modal) :where(.segments) button.on {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
@@ -224,8 +234,8 @@
 }
 
 /* Commits nothing by itself — it selects a mode or empties a field, so it
-   reads as an outline. Needed here as well as in app.css: `.modal button`
-   matches at the same specificity, and the Player View loads only this file. */
+   reads as an outline. Restated here because the Player View loads only this
+   file; in the DM app this and app.css say the same thing. */
 .modal button.outlined {
   background: transparent;
   border-color: var(--accent);
@@ -276,9 +286,9 @@
   cursor: default;
 }
 
-.modal input,
-.modal select,
-.modal textarea {
+:where(.modal) input,
+:where(.modal) select,
+:where(.modal) textarea {
   background: var(--surface-sunken);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -287,7 +297,7 @@
   color: var(--text);
 }
 
-.modal textarea {
+:where(.modal) textarea {
   padding: var(--space-2) var(--space-3);
 }
 

@@ -140,6 +140,15 @@ export function TrackerPane({
     dispatch({ type: 'rollInitiative', ids, rolls })
   }
 
+  /** Takes the selection out of whatever groups it is in. The way back from a
+   *  grouping the DM did not mean, and the reason "Group" can refuse a
+   *  selection that is already grouped rather than silently rehoming it. */
+  const ungroupSelection = () => {
+    for (const c of ordered) {
+      if (checked.has(c.id) && c.groupId) dispatch({ type: 'assignGroup', combatantId: c.id, groupId: undefined })
+    }
+  }
+
   /** Turns the current AoE selection into a group — the moment the DM has just
    *  said, by picking them, that these belong together. */
   const groupSelection = () => {
@@ -308,18 +317,27 @@ export function TrackerPane({
           >
             Condition…
           </button>
-          <button
-            type="button"
-            disabled={checked.size === 0 || checkedGrouped > 0}
-            title={
-              checkedGrouped > 0
-                ? 'Some of these are already in a group — move them out from their edit dialog first'
-                : 'Turn this selection into a group'
-            }
-            onClick={groupSelection}
-          >
-            Group
-          </button>
+          {/* One button with two states rather than two buttons: grouping a
+              selection that is already grouped would silently rehome it, so
+              the same slot offers the way back instead. */}
+          {checkedGrouped > 0 ? (
+            <button
+              type="button"
+              title="Take this selection out of its group"
+              onClick={ungroupSelection}
+            >
+              Ungroup
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={checked.size === 0}
+              title="Turn this selection into a group"
+              onClick={groupSelection}
+            >
+              Group
+            </button>
+          )}
           {/* Save helper. Choosing an ability and a DC turns the bar's flat
               amount into a per-target read: failures take full, passes half. */}
           <span className="aoe-save">

@@ -588,8 +588,12 @@ textarea {
 /* An unrolled NPC carries a roll button under its field, and the two together
    overflowed the block they share with the AoE checkbox. The field gives up
    the height rather than the row growing, so nothing to the right shifts when
-   initiative is finally entered. */
-.init-block:has(.roll-btn) .init-value {
+   initiative is finally entered.
+
+   The state comes from a class rather than `:has(.roll-btn)`: Safari only
+   supports `:has` from 16.4, and on an older iPad the rule would silently not
+   apply — which is the overflow this fixes. */
+.init-block.with-roll .init-value {
   min-height: 28px;
   height: 28px;
   font-size: 1rem;
@@ -941,7 +945,7 @@ textarea {
   }
 
   /* Except when the roll button shares the block — see the base rule. */
-  .init-block:has(.roll-btn) .init-value {
+  .init-block.with-roll .init-value {
     min-height: 34px;
     height: 34px;
   }
@@ -1303,9 +1307,12 @@ label.check {
   margin: var(--space-4) 0 var(--space-2);
 }
 
+/* A square swatch, so it states its own min-height: the input baseline is
+   taller and would otherwise stretch it into a rectangle. */
 .group-color {
   width: var(--target-icon);
   height: var(--target-icon);
+  min-height: var(--target-icon);
   padding: var(--space-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
