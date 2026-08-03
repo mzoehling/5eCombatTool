@@ -1,9 +1,9 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { mdiDiceD20, mdiDotsHorizontal, mdiDrag, mdiEyeOff, mdiFormatListChecks } from '@mdi/js'
+import { mdiDiceD20, mdiDrag, mdiEyeOff, mdiFormatListChecks } from '@mdi/js'
 import { battleStore } from '../store/battleStore'
 import { d20 } from '../lib/dice'
-import { hpMeterWidths } from '../lib/hpMeter'
+import { hpFillGradient } from '../lib/hpMeter'
 import type { SaveVerdict } from '../lib/saves'
 import type { Combatant } from '../types'
 import { AcShield } from './AcShield'
@@ -31,7 +31,6 @@ interface CombatantRowProps {
   onSelect: () => void
   onToggleCheck: () => void
   onEditConditions: () => void
-  onEdit: () => void
 }
 
 function hpClass(c: Combatant): string {
@@ -58,7 +57,6 @@ export function CombatantRow({
   onSelect,
   onToggleCheck,
   onEditConditions,
-  onEdit,
 }: CombatantRowProps) {
   const { dispatch } = battleStore
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -82,15 +80,22 @@ export function CombatantRow({
   // entered or rolled value hides it
   const showRoll = (c.initiative ?? 0) === 0
 
-  // Temp HP extends the bar's scale rather than being drawn inside the max:
-  // 20 temp on 90/100 is 20 points, and the bar has to say so.
-  const meter = hpMeterWidths(c.hp, c.maxHp, c.tempHp)
+  // The health bar is the row's background now, not a strip inside it. It is
+  // `background-image`; the row's state colour is `background-color` on the
+  // layer beneath, because one property for both means whichever is written last
+  // silently wins. Temp HP extends the scale rather than being drawn inside the
+  // max: 20 temp on 90/100 is 20 points, and the bar has to say so.
+  const hpFill = hpFillGradient(c.hp, c.maxHp, c.tempHp)
 
   return (
     <li
       ref={setNodeRef}
       className={classes}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        ['--hp-gradient' as string]: hpFill,
+      }}
     >
       {/* The checkbox takes over the initiative block's footprint so nothing
           else in the row shifts when AoE mode is toggled. */}
@@ -158,12 +163,9 @@ export function CombatantRow({
             </span>
           )}
         </span>
-        <span className="hp-meter">
-          <span className="hp-meter-fill" style={{ width: `${meter.hp}%` }} />
-          {meter.temp > 0 && (
-            <span className="hp-meter-temp" style={{ left: `${meter.hp}%`, width: `${meter.temp}%` }} />
-          )}
-        </span>
+        {/* Chips sit on the name's line now that the meter is the row itself —
+            they are what the name is qualified by, and a line of their own cost
+            the row 40px of height. */}
         {c.conditions.length > 0 && (
           <span className="row-conditions">
             {c.conditions.map((cond) => (
@@ -179,30 +181,42 @@ export function CombatantRow({
         )}
       </button>
 
-      {/* Tapping the verdict flips it, for a player who rolled their own. */}
-      {aoeSave && (
-        <button
-          type="button"
-          className={`aoe-verdict ${aoeSave.verdict}`}
-          title={`d20 ${aoeSave.roll} → ${aoeSave.total} — tap to flip`}
-          aria-label={`${c.name} ${aoeSave.verdict} — tap to flip`}
-          onClick={onToggleSave}
-        >
-          <span className="aoe-verdict-roll num">{aoeSave.total}</span>
-          {aoeSave.verdict}
-        </button>
-      )}
-
-      {aoePreview && <span className="aoe-preview">{aoePreview}</span>}
-
+      {/* One button, to the conditions. Editing a combatant is not a mid-combat
+          action and lives in the statblock header instead — the row's right side
+          is for the numbers the DM changes while the fight runs. */}
       <button type="button" className="ghost cond-btn" aria-label={`Conditions for ${c.name}`} onClick={onEditConditions}>
         <Icon path={mdiFormatListChecks} />
       </button>
 
       <AcShield value={c.armorClass} />
 
-      <div className="hp-block">
-        <div className="hp-values">
+      {/* While AoE is armed the HP fields give way to the verdict and the
+          preview: nothing is typed per row when you are picking targets, and the
+          two need the room. Current health is still readable — it is the row's
+          own fill. The footprint is shared so toggling AoE shifts nothing. */}
+      {multiSelect ? (
+        <div className="hp-block aoe-block">
+          {/* Tapping the verdict flips it, for a player who rolled their own. */}
+          {aoeSave ? (
+            <button
+              type="button"
+              className={`aoe-verdict ${aoeSave.verdict}`}
+              title={`d20 ${aoeSave.roll} → ${aoeSave.total} — tap to flip`}
+              aria-label={`${c.name} ${aoeSave.verdict} — tap to flip`}
+              onClick={onToggleSave}
+            >
+              <span className="aoe-verdict-roll num">{aoeSave.total}</span>
+              {aoeSave.verdict}
+            </button>
+          ) : (
+            <span className="hp-values dim num">
+              {c.hp}/{c.maxHp}
+            </span>
+          )}
+          {aoePreview && <span className="aoe-preview">{aoePreview}</span>}
+        </div>
+      ) : (
+        <div className="hp-block">
           <HpInput
             className="hp-current"
             value={c.hp}
@@ -216,16 +230,12 @@ export function CombatantRow({
             ariaLabel={`${c.name} temp HP`}
             onCommit={(v) => dispatch({ type: 'updateCombatant', id: c.id, patch: { tempHp: Math.max(0, v) } })}
           />
+          <DamageHealInput
+            combatantName={c.name}
+            onApply={(amount, heal) => dispatch({ type: heal ? 'applyHealing' : 'applyDamage', ids: [c.id], amount })}
+          />
         </div>
-        <DamageHealInput
-          combatantName={c.name}
-          onApply={(amount, heal) => dispatch({ type: heal ? 'applyHealing' : 'applyDamage', ids: [c.id], amount })}
-        />
-      </div>
-
-      <button type="button" className="ghost edit-btn" aria-label={`Edit ${c.name}`} onClick={onEdit}>
-        <Icon path={mdiDotsHorizontal} />
-      </button>
+      )}
     </li>
   )
 }

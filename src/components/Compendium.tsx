@@ -14,7 +14,7 @@ import { rankByName, stripPostfix, suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
 import type { Statblock } from '../types'
-import { ApplyCondition } from './ApplyCondition'
+import { ConditionInfo } from './ConditionInfo'
 import { CreatureInfo } from './CreatureInfo'
 import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
@@ -402,8 +402,10 @@ export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void
       {itemFor !== null && <ItemInfo name={itemFor} {...actions} onClose={() => setItemFor(null)} />}
       {spellFor !== null && <SpellInfo name={spellFor} {...actions} onClose={() => setSpellFor(null)} />}
       {ruleFor !== null && <RuleInfo name={ruleFor} {...actions} onClose={() => setRuleFor(null)} />}
-      {rollExpr !== null && <DiceRoller allowApply initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
-      {conditionFor !== null && <ApplyCondition name={conditionFor} onClose={() => setConditionFor(null)} />}
+      {rollExpr !== null && <DiceRoller initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
+      {/* Looking a condition up from the compendium is reading, never applying —
+          the compendium has no combatant in hand to apply it to. */}
+      {conditionFor !== null && <ConditionInfo name={conditionFor} onClose={() => setConditionFor(null)} />}
 
       {notice && <div className="toast">{notice}</div>}
     </Modal>

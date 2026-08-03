@@ -1,4 +1,4 @@
-import { mdiPin, mdiPinOutline, mdiRestore } from '@mdi/js'
+import { mdiDotsHorizontal, mdiPin, mdiPinOutline, mdiRestore } from '@mdi/js'
 import { Fragment, useState } from 'react'
 import { originLabel, type Origin } from '../data/compendium'
 import { describeCondition } from '../data/conditionInfo'
@@ -7,13 +7,14 @@ import { provenanceLabel, sourceLabel } from '../lib/format'
 import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
 import { abilityMod, type Ability, type Combatant, type Statblock, type StatblockEntry } from '../types'
-import { ApplyCondition } from './ApplyCondition'
+import { ConditionInfo } from './ConditionInfo'
 import { CreatureInfo } from './CreatureInfo'
 import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
 import { ItemInfo } from './ItemInfo'
 import { RuleInfo } from './RuleInfo'
 import { SpellInfo } from './SpellInfo'
+import { EditCombatant } from './EditCombatant'
 import { StatLine } from './StatLine'
 import { TaggedText } from './TaggedText'
 
@@ -33,8 +34,8 @@ interface StatblockPanelProps {
   combatant: Combatant
   pinned: boolean
   onTogglePin: () => void
-  /** Combatants pre-checked when applying a condition (AoE selection). */
-  preselectIds?: ReadonlySet<string>
+  /** Hands a rolled total to the AoE bar; absent where there is no tracker. */
+  onSendRollToAoe?: (amount: number) => void
   /** Where the statblock was looked up. Set by the compendium/reference views;
    *  omitted for tracker combatants, which have no compendium provenance. */
   origin?: Origin
@@ -358,8 +359,9 @@ function UsesTab({ combatant }: { combatant: Combatant }) {
   )
 }
 
-export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds, origin }: StatblockPanelProps) {
+export function StatblockPanel({ combatant, pinned, onTogglePin, onSendRollToAoe, origin }: StatblockPanelProps) {
   const [tab, setTab] = useState<Tab>('general')
+  const [editing, setEditing] = useState(false)
   const [rollExpr, setRollExpr] = useState<string | null>(null)
   const [conditionFor, setConditionFor] = useState<string | null>(null)
   const [spellFor, setSpellFor] = useState<string | null>(null)
@@ -398,6 +400,18 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds, o
       <div className="sb-sticky">
         <header className="sb-header">
           <h2>{sb?.name ?? combatant.name}</h2>
+          {/* Editing a combatant lives here rather than in its row: name, max HP
+              and AC are prep, not something reached for mid-turn, and the row's
+              right side is for the numbers that do change during a fight. */}
+          <button
+            type="button"
+            className="icon-only edit-btn"
+            onClick={() => setEditing(true)}
+            aria-label={`Edit ${combatant.name}`}
+            title="Edit this combatant"
+          >
+            <Icon path={mdiDotsHorizontal} />
+          </button>
           <button
             type="button"
             className={pinned ? 'primary icon-only' : 'icon-only'}
@@ -506,10 +520,13 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, preselectIds, o
           onClose={() => setRuleFor(null)}
         />
       )}
-      {rollExpr !== null && <DiceRoller allowApply initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
-      {conditionFor !== null && (
-        <ApplyCondition name={conditionFor} preselect={preselectIds} onClose={() => setConditionFor(null)} />
+      {rollExpr !== null && (
+        <DiceRoller initialExpression={rollExpr} onSendToAoe={onSendRollToAoe} onClose={() => setRollExpr(null)} />
       )}
+      {/* A reader, not a form: tapping "Prone" in an attack's text is a question
+          about the rules. Setting the condition is the row's job. */}
+      {conditionFor !== null && <ConditionInfo name={conditionFor} onClose={() => setConditionFor(null)} />}
+      {editing && <EditCombatant combatant={combatant} onClose={() => setEditing(false)} />}
     </div>
   )
 }

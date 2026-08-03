@@ -2,7 +2,6 @@ import { mdiChevronDown, mdiChevronRight, mdiDiceMultiple } from '@mdi/js'
 import { memo, useRef, useState } from 'react'
 import './diceRoller.css'
 import { doubleDiceTerms, formatBreakdown, rollWithMode, type ModedRollResult, type RollMode } from '../lib/diceExpr'
-import { ApplyRoll } from './ApplyRoll'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 
@@ -10,8 +9,12 @@ interface DiceRollerProps {
   onClose: () => void
   /** Pre-filled expression (not rolled yet) — used by clickable dice links. */
   initialExpression?: string
-  /** Show "Apply…" on results to damage/heal combatants (DM view only). */
-  allowApply?: boolean
+  /**
+   * Hands a rolled total to the AoE bar (DM view only; absent in the Player
+   * View). The roller never applies anything itself — see the note on the
+   * button.
+   */
+  onSendToAoe?: (amount: number) => void
 }
 
 /* Short labels because the group has to fit the width of the dice pad on a
@@ -49,13 +52,12 @@ const SELECT_ON_FOCUS = typeof matchMedia === 'function' && !matchMedia('(pointe
 export const DiceRoller = memo(function DiceRoller({
   onClose,
   initialExpression = '',
-  allowApply = false,
+  onSendToAoe,
 }: DiceRollerProps) {
   const [text, setText] = useState(initialExpression)
   const [mode, setMode] = useState<RollMode>('normal')
   const [invalid, setInvalid] = useState(false)
   const [history, setHistory] = useState<ModedRollResult[]>([])
-  const [applyAmount, setApplyAmount] = useState<number | null>(null)
   // Pad state. `text` stays the single source of truth for what gets rolled;
   // the pad simply writes into it, so notation typed by hand is never lost
   // until the next pad tap recomposes the expression.
@@ -219,9 +221,14 @@ export const DiceRoller = memo(function DiceRoller({
                   <s>{latest.discarded.total}</s> ({formatBreakdown(latest.discarded)})
                 </div>
               )}
-              {allowApply && (
-                <button type="button" className="apply-roll-btn" onClick={() => setApplyAmount(latest.kept.total)}>
-                  Apply to combatants…
+              {/* The roller does not apply damage: it writes the total into the
+                  AoE bar and arms it, where picking targets, halving for made
+                  saves and applying already live. Doing it here as well meant
+                  two implementations of one thing, and this one dispatched
+                  twice — so one gesture cost two undos. */}
+              {onSendToAoe && (
+                <button type="button" className="apply-roll-btn" onClick={() => onSendToAoe(latest.kept.total)}>
+                  Send to AoE bar →
                 </button>
               )}
             </div>
@@ -266,7 +273,6 @@ export const DiceRoller = memo(function DiceRoller({
         </button>
       </div>
 
-      {applyAmount !== null && <ApplyRoll amount={applyAmount} onClose={() => setApplyAmount(null)} />}
     </Modal>
   )
 })

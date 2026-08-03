@@ -9,14 +9,12 @@ import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
 import { groupedInitiativeRolls, groupRuns } from '../lib/groups'
 import { amountAfterSave, readSave, SAVE_ABILITIES, saveBonus, type SaveVerdict } from '../lib/saves'
-import { CONDITIONS, type Ability, type Combatant } from '../types'
-import { ApplyCondition } from './ApplyCondition'
+import type { Ability, Combatant } from '../types'
 import { AssignGroup } from './AssignGroup'
 import { CombatantRow } from './CombatantRow'
 import { GroupRow } from './GroupRow'
-import { ConditionEditor } from './ConditionEditor'
+import { ConditionsDialog } from './ConditionsDialog'
 import { DiceRoller } from './DiceRoller'
-import { EditCombatant } from './EditCombatant'
 import { Icon } from './Icon'
 
 interface TrackerPaneProps {
@@ -27,6 +25,13 @@ interface TrackerPaneProps {
   onMultiSelectChange: (on: boolean) => void
   checked: ReadonlySet<string>
   onCheckedChange: (checked: ReadonlySet<string>) => void
+  /** The AoE amount field. Owned by App because the dice roller writes into it,
+   *  and the roller is opened from the statblock as well as from this dock. */
+  aoeAmount: string
+  onAoeAmountChange: (amount: string) => void
+  /** Puts a rolled total into the AoE bar and arms it. Owned by App because the
+   *  statblock's dice links open the same roller. */
+  onSendRollToAoe: (amount: number) => void
 }
 
 export function TrackerPane({
@@ -36,14 +41,16 @@ export function TrackerPane({
   onMultiSelectChange,
   checked,
   onCheckedChange,
+  aoeAmount,
+  onAoeAmountChange,
+  onSendRollToAoe,
 }: TrackerPaneProps) {
   const { dispatch } = battleStore
   const state = useBattleState()
   const [showDice, setShowDice] = useState(false)
-  const [conditionsFor, setConditionsFor] = useState<string | null>(null)
-  const [editFor, setEditFor] = useState<string | null>(null)
-  const [aoeAmount, setAoeAmount] = useState('')
-  const [aoeCondition, setAoeCondition] = useState<string | null>(null)
+  // One dialog for conditions, whether it is aimed at one row or at the whole
+  // AoE selection — the write model differs, the surface does not.
+  const [conditionsFor, setConditionsFor] = useState<'selection' | string | null>(null)
   // The selection being grouped, frozen when the picker opens.
   const [groupFor, setGroupFor] = useState<ReadonlySet<string> | null>(null)
   // Collapsed by default: a group the DM never opens is a group they read as
@@ -111,7 +118,7 @@ export function TrackerPane({
       ...(fullIds.length ? [{ type, ids: fullIds, amount }] : []),
       ...(halfIds.length && halfAmount > 0 ? [{ type, ids: halfIds, amount: halfAmount }] : []),
     ])
-    setAoeAmount('')
+    onAoeAmountChange('')
     setSaves(new Map())
   }
 
@@ -152,8 +159,12 @@ export function TrackerPane({
     onCheckedChange(next)
   }
 
-  const conditionsCombatant = state.combatants.find((c) => c.id === conditionsFor)
-  const editCombatant = state.combatants.find((c) => c.id === editFor)
+  const conditionTargets =
+    conditionsFor === null
+      ? []
+      : conditionsFor === 'selection'
+        ? ordered.filter((c) => checked.has(c.id))
+        : state.combatants.filter((c) => c.id === conditionsFor)
 
   // Live per-row preview of what the AoE bar would apply. Only a usable amount
   // produces one, so an empty or half-typed field shows nothing. Dice cannot be
@@ -193,7 +204,6 @@ export function TrackerPane({
                   onSelect={() => onSelect(c.id)}
                   onToggleCheck={() => toggleCheck(c.id)}
                   onEditConditions={() => setConditionsFor(c.id)}
-                  onEdit={() => setEditFor(c.id)}
                 />
     )
   }
@@ -277,7 +287,7 @@ export function TrackerPane({
             aria-label="AoE amount"
             placeholder="8+3"
             value={aoeAmount}
-            onChange={(e) => setAoeAmount(e.target.value)}
+            onChange={(e) => onAoeAmountChange(e.target.value)}
           />
           <button type="button" className="danger" disabled={checked.size === 0} onClick={() => applyAoe(false)}>
             {savedCount > 0 ? `Damage · ${checked.size - savedCount} full, ${savedCount} half` : 'Damage'}
@@ -285,11 +295,7 @@ export function TrackerPane({
           <button type="button" className="ok" disabled={checked.size === 0} onClick={() => applyAoe(true)}>
             Heal
           </button>
-          <button
-            type="button"
-            disabled={checked.size === 0}
-            onClick={() => setAoeCondition(CONDITIONS[0])}
-          >
+          <button type="button" disabled={checked.size === 0} onClick={() => setConditionsFor('selection')}>
             Condition…
           </button>
           {/* Opens the picker rather than acting: which group the selection
@@ -381,18 +387,22 @@ export function TrackerPane({
         </div>
       )}
 
-      {showDice && <DiceRoller allowApply onClose={() => setShowDice(false)} />}
-      {aoeCondition && (
-        <ApplyCondition
-          name={aoeCondition}
-          preselect={checked}
-          onPickCondition={setAoeCondition}
-          onClose={() => setAoeCondition(null)}
+      {/* The roller hands its total to the AoE bar rather than applying anything
+          itself — see App.sendRollToAoe. Closing it is this pane's business,
+          since this pane opened it. */}
+      {showDice && (
+        <DiceRoller
+          onSendToAoe={(amount) => {
+            onSendRollToAoe(amount)
+            setShowDice(false)
+          }}
+          onClose={() => setShowDice(false)}
         />
       )}
       {groupFor && <AssignGroup ids={groupFor} onClose={() => setGroupFor(null)} />}
-      {conditionsCombatant && <ConditionEditor combatant={conditionsCombatant} onClose={() => setConditionsFor(null)} />}
-      {editCombatant && <EditCombatant combatant={editCombatant} onClose={() => setEditFor(null)} />}
+      {conditionsFor !== null && (
+        <ConditionsDialog targets={conditionTargets} onClose={() => setConditionsFor(null)} />
+      )}
     </section>
   )
 }

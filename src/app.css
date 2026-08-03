@@ -264,36 +264,12 @@ textarea {
   color: var(--text-dim);
 }
 
-/* HP meter. The fill hue comes from the ratio, set by CombatantRow as
-   --hp-fill; temp HP is a hatched overhang past the fill. */
-.hp-meter {
-  position: relative;
-  height: 11px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.hp-meter-fill {
-  /* The fill is a <span>: without this it stays inline, where width and height
-     do not apply, and the bar renders empty at every health level. */
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--hp-fill, var(--ok));
-}
-
-.hp-meter-temp {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: repeating-linear-gradient(
-    135deg,
-    var(--accent) 0 3px,
-    color-mix(in srgb, var(--accent) 35%, transparent) 3px 6px
-  );
-}
+/* The HP meter primitive is gone from the DM app: health is the row's own
+   background fill now (see .combatant-row and lib/hpMeter.ts), for combatants
+   and for a collapsed group's pooled HP alike. The Player View still draws a
+   bar, and carries its own copy scoped to `.pv-app` in viewer.css — which is
+   the arrangement the styling notes in CLAUDE.md ask for, and the reason
+   deleting this one breaks nothing. */
 
 /* Section headings: gold, uppercase, hairline under. Used by the statblock,
    the info sheets and the long forms alike. */
@@ -676,41 +652,66 @@ textarea {
   flex: 1;
 }
 
-/* Row order, identical in landscape and portrait:
-     initiative │ name + badges │ HP meter │ conditions
-                │ [cond] [AC shield] [hp/max/temp] [±HP] [edit] */
+/* One line, identical in landscape and portrait:
+     initiative │ name + badges + condition chips
+                │ [cond] [AC shield] [hp/max] [temp] [±HP]
+   The health bar is the row's own background rather than a strip inside it,
+   which is what let the row lose a third of its height.
+
+   Two separate layers, and they must stay separate: `background-image` carries
+   the health fill, `background-color` the row's state (active turn, AoE
+   selection). Collapsing them into the `background` shorthand means whichever
+   rule is written last wins and the other silently vanishes. */
 .combatant-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: 9px var(--space-3);
   margin-bottom: var(--space-2);
-  background: var(--bg-panel);
+  background-color: var(--bg-panel);
+  background-image: var(--hp-gradient, none);
+  background-repeat: no-repeat;
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: 14px;
 }
 
+/* The fill hue comes from the health ratio; the temp slice keeps one hue at every
+   ratio, because temp HP is not a health level — it is a different kind of
+   quantity that happens to sit on the same scale.
+
+   That hue is `--magic` rather than `--accent`: the accent is oxblood, and next
+   to the danger fill of a critical creature the two read as one muddy band, so
+   the boundary between "nearly dead" and "has a cushion" disappeared exactly
+   where it matters most. Violet cannot collide with green, amber or red.
+
+   Both are tinted well down: this is a row background with text over it, not an
+   11px bar. */
+.combatant-row {
+  --hp-temp-fill: color-mix(in srgb, var(--magic) 30%, transparent);
+}
+
 .combatant-row.hp-ok {
   border-left-color: var(--ok);
-  --hp-fill: var(--ok);
+  --hp-fill: color-mix(in srgb, var(--ok) 22%, transparent);
 }
 .combatant-row.hp-bloodied {
   border-left-color: var(--warn);
-  --hp-fill: var(--warn);
+  --hp-fill: color-mix(in srgb, var(--warn) 26%, transparent);
 }
 .combatant-row.hp-critical {
   border-left-color: var(--danger);
-  --hp-fill: var(--danger);
+  --hp-fill: color-mix(in srgb, var(--danger) 26%, transparent);
 }
 .combatant-row.hp-down {
   border-left-color: var(--text-dim);
-  --hp-fill: var(--text-dim);
+  --hp-fill: color-mix(in srgb, var(--text-dim) 22%, transparent);
   opacity: 0.75;
 }
 
+/* background-*color* only — see the note on .combatant-row. */
 .combatant-row.active-turn {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-panel));
+  background-color: color-mix(in srgb, var(--accent) 12%, var(--bg-panel));
   border-color: var(--gold);
 }
 
@@ -742,6 +743,12 @@ textarea {
   /* Both blocks are the same box, so toggling AoE swaps their contents without
      changing the row's height or the position of anything to the right. */
   height: 56px;
+}
+
+/* The row's fill is drawn behind everything, so anything with its own surface —
+   the number fields, the shield, the chips — has to sit above it. */
+.combatant-row > * {
+  position: relative;
 }
 
 .init-value {
@@ -780,13 +787,15 @@ textarea {
   color: var(--text-dim);
 }
 
+/* A single line: the name and its chips read as one phrase, and giving the
+   chips a line of their own cost the row about 40px of height. */
 .row-main {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-1);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
   background: none;
   border: none;
   text-align: left;
@@ -802,7 +811,8 @@ textarea {
   align-items: center;
   font-weight: 600;
   min-width: 0;
-  max-width: 100%;
+  /* Shrinks and ellipsizes before the chips are pushed off the row. */
+  flex: 0 1 auto;
 }
 
 .row-name-text {
@@ -816,10 +826,16 @@ textarea {
   flex: none;
 }
 
+/* Never wraps: a fifth condition must not make this row taller than its
+   neighbours. It is clipped instead, and the full set is in the conditions
+   dialog one tap away. */
 .row-conditions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Item prices, shown in a list row only while it is sorted by price. Tabular
@@ -862,17 +878,23 @@ textarea {
   color: var(--text);
 }
 
+/* The HP controls and, in AoE mode, the verdict and preview that replace them.
+   Both share this footprint so arming AoE shifts nothing. */
 .hp-block {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-2);
   flex: none;
+  min-width: 15rem;
 }
 
 .hp-values {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Centred, not right-aligned: hard against the "/max" it read as "12/ 40". */
@@ -915,6 +937,11 @@ textarea {
   min-height: var(--target-icon);
   padding: 0;
   flex: none;
+}
+
+/* Both blocks are the same box — see .hp-block. */
+.aoe-block {
+  gap: var(--space-2);
 }
 
 /* Only rendered when the row shares its initiative with a neighbour — the only
@@ -984,10 +1011,11 @@ textarea {
 
 /* Selected rows gain the gold treatment; unselected ones drop back so the
    selection reads at a glance across a full screen of combatants. */
+/* background-*color* only — see the note on .combatant-row. */
 .combatant-row.aoe-selected {
   border-color: var(--gold);
   outline: 2px solid var(--gold);
-  background: color-mix(in srgb, var(--gold) 12%, var(--bg-panel));
+  background-color: color-mix(in srgb, var(--gold) 12%, var(--bg-panel));
 }
 
 .combatant-row.aoe-unselected {
@@ -1107,7 +1135,7 @@ textarea {
    to the finger. */
 @media (min-width: 700px) {
   .combatant-row {
-    padding: 14px 18px;
+    padding: 10px 18px;
   }
 
   .init-value,
@@ -1124,10 +1152,12 @@ textarea {
   }
 
   /* Both blocks grow together — they share a footprint, and AoE mode must not
-     change the height of a row. */
+     change the height of a row. 60px is what the taller of the two contents
+     needs (a 34px field over a 24px roll button); the row is one line now, so
+     any more than that is height for nothing. */
   .init-block,
   .row-check-block {
-    height: 68px;
+    height: 60px;
   }
 
   .cond-btn,
@@ -1139,10 +1169,6 @@ textarea {
   .ac-shield {
     width: 52px;
     height: 52px;
-  }
-
-  .hp-meter {
-    height: 14px;
   }
 }
 
@@ -1624,14 +1650,7 @@ label.check {
 
 /* The AoE bar's "Condition…" opens the apply dialog with nothing chosen yet,
    so that one case gets a picker above the rules text. */
-.apply-picker {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  margin-bottom: var(--space-3);
-}
+
 
 .dim {
   color: var(--text-dim);
@@ -2145,43 +2164,24 @@ label.check {
   border-top: 1px solid var(--border);
 }
 
-/* ---------- apply-roll dialog ---------- */
+/* ---------- conditions dialog ---------- */
 
-.apply-roll-row {
+/* Who the dialog will hit. With one target the title says it; with several this
+   band is the only place the selection stays visible once the dialog covers the
+   rows it was made from. */
+.condition-targets {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
 }
 
-.apply-roll-row .check {
-  flex: 1;
-  min-width: 0;
-}
-
-/* A made save halves the roll for this target. Plain square, no number on it —
-   the resulting amount appears once, on the right of the row. */
-.half-btn {
-  flex: none;
-  min-width: var(--target-icon);
-  min-height: var(--target-icon);
-  padding: 0;
-  font-size: 0.95rem;
-}
-
-.half-btn[aria-pressed='true'] {
-  background: var(--gold);
-  border-color: var(--gold);
-  color: var(--on-accent);
-  font-weight: 700;
-}
-
-.apply-roll-amount {
-  flex: none;
-  min-width: 3.2rem;
-  text-align: right;
-  font-family: var(--font-num);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+/* "on 2 of 5" — several targets rarely agree, and a plain on/off toggle would
+   be lying about that. */
+.condition-count {
+  margin-left: var(--space-2);
+  font-size: 0.78rem;
+  font-weight: 400;
 }
 
 }

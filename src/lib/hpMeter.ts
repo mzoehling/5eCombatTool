@@ -17,3 +17,55 @@ export function hpMeterWidths(hp: number, maxHp: number, tempHp = 0): { hp: numb
   const tempPercent = Math.max(0, Math.min(100 - hpPercent, (Math.max(0, tempHp) / scale) * 100))
   return { hp: hpPercent, temp: tempPercent }
 }
+
+/**
+ * How far across the row a full bar reaches, in percent.
+ *
+ * The health bar is the row's own background now rather than an 11px strip, so
+ * it has to stop before the number column: no tint ever sits behind a digit.
+ * The consequence is deliberate — a full bar reads as "up to the numbers", not
+ * as a full row.
+ */
+export const HP_FILL_EXTENT = 62
+
+/** Width of the soft edge at the outer end of the fill, in percent of the row. */
+const FADE = 5
+
+/**
+ * The row-background gradient for a health bar, as a CSS `linear-gradient`.
+ *
+ * Built here rather than in CSS because the shape genuinely differs with and
+ * without temp HP — temp is the outermost section and needs its own colour stop
+ * — and because a string is something a test can pin down exactly. Colours stay
+ * in CSS: the stops reference `--hp-fill` and `--hp-temp-fill`, which
+ * `CombatantRow` and the theme set.
+ *
+ * This is `background-image`. The row's state (active turn, AoE selection, out
+ * of battle) is `background-color`, a separate layer underneath — collapsing the
+ * two into one property means whichever is written last wins and the other
+ * silently disappears.
+ */
+export function hpFillGradient(hp: number, maxHp: number, tempHp = 0): string {
+  const { hp: hpPercent, temp: tempPercent } = hpMeterWidths(hp, maxHp, tempHp)
+  const scale = HP_FILL_EXTENT / 100
+  const hpEnd = hpPercent * scale
+  const end = (hpPercent + tempPercent) * scale
+  if (end <= 0) return 'none'
+
+  const round = (n: number) => `${Math.round(n * 100) / 100}%`
+
+  if (tempPercent > 0) {
+    // Temp HP is part of the fill: it extends the scale and takes the outermost
+    // slice, tinted differently. Never an overhang, never clipped — see
+    // `hpMeterWidths`. The fade is held at the hp/temp boundary at the earliest,
+    // so a temp slice narrower than the fade simply *is* the fade instead of
+    // bleeding the softness back into the current-HP colour.
+    const fadeStart = Math.max(hpEnd, end - FADE)
+    return `linear-gradient(90deg, var(--hp-fill) 0 ${round(hpEnd)}, var(--hp-temp-fill) ${round(hpEnd)} ${round(fadeStart)}, transparent ${round(end)})`
+  }
+
+  // The fade eats into the fill rather than extending past it, so the bar never
+  // reads as longer than the hit points it stands for.
+  const fadeStart = Math.max(0, end - FADE)
+  return `linear-gradient(90deg, var(--hp-fill) 0 ${round(fadeStart)}, transparent ${round(end)})`
+}

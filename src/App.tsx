@@ -59,10 +59,12 @@ function App() {
   // rather than in the tracker pane. Content is a tab of Encounters now, not a
   // dialog of its own.
   const [libraryModal, setLibraryModal] = useState<'compendium' | 'encounters' | null>(null)
-  // AoE multi-select lives here so the statblock's "apply condition" dialog
-  // can pre-select the checked combatants
+  // The AoE bar's state lives here, not in the tracker pane, because the dice
+  // roller writes into it — and the roller is opened from the statblock (dice
+  // links in attack text) as well as from the dock.
   const [multiSelect, setMultiSelect] = useState(false)
   const [checked, setChecked] = useState<ReadonlySet<string>>(new Set())
+  const [aoeAmount, setAoeAmount] = useState('')
   const [theme, toggleTheme] = useTheme()
   const state = useBattleState()
   const activeId = state.battle.activeCombatantId
@@ -105,6 +107,17 @@ function App() {
 
   // unpinned panel follows the turn: a turn change resets manual selection
   useEffect(() => setSelectedId(null), [activeId])
+
+  /** A rolled total goes into the AoE bar, which is the one place that applies
+   *  damage to a selection. Arming AoE is part of it — otherwise the number
+   *  would land in a bar the DM cannot see. */
+  const sendRollToAoe = (amount: number) => {
+    setAoeAmount(String(amount))
+    setMultiSelect((on) => {
+      if (!on) setChecked(new Set())
+      return true
+    })
+  }
 
   if (!hydrated) {
     return (
@@ -201,6 +214,9 @@ function App() {
           }}
           checked={checked}
           onCheckedChange={setChecked}
+          aoeAmount={aoeAmount}
+          onAoeAmountChange={setAoeAmount}
+          onSendRollToAoe={sendRollToAoe}
         />
         <Drawer state={drawer} title="Statblock">
           {shown ? (
@@ -208,7 +224,7 @@ function App() {
               combatant={shown}
               pinned={pinnedId === shown.id}
               onTogglePin={() => setPinnedId(pinnedId === shown.id ? null : shown.id)}
-              preselectIds={multiSelect ? checked : undefined}
+              onSendRollToAoe={sendRollToAoe}
             />
           ) : (
             <p className="dim empty-hint">Select a combatant to see its statblock.</p>
