@@ -52,6 +52,39 @@ describe('historySteps', () => {
     expect(steps[0].reverted).toBe(true)
   })
 
+  it('moves the icon down to the next step after an undo, so undo repeats', () => {
+    // The bug this covers: the icon was anchored to the newest step outright,
+    // which after an undo is the struck-through one — so it vanished and undo
+    // looked like a once-per-session action.
+    const log = [line(1, 'a'), line(2, 'b'), line(3, 'c', { reverted: true })]
+    const steps = historySteps(log, { undoableStep: 2, preReloadStep: -1 })
+    expect(steps.map((s) => [s.step, s.undoable])).toEqual([
+      [3, false],
+      [2, true],
+      [1, false],
+    ])
+  })
+
+  it('keeps walking down as undo is repeated', () => {
+    const log = [line(1, 'a'), line(2, 'b', { reverted: true }), line(3, 'c', { reverted: true })]
+    const steps = historySteps(log, { undoableStep: 1, preReloadStep: -1 })
+    expect(steps.find((s) => s.undoable)?.step).toBe(1)
+  })
+
+  it('offers nothing once every step has been undone', () => {
+    const log = [line(1, 'a', { reverted: true }), line(2, 'b', { reverted: true })]
+    const steps = historySteps(log, { undoableStep: null, preReloadStep: -1 })
+    expect(steps.every((s) => !s.undoable)).toBe(true)
+  })
+
+  it('does not offer undo on a reverted step even when it is the stack top', () => {
+    // Reverted lines from before a reload can outlive the stack that made them,
+    // so a step can be both reverted and named by a stale `undoableStep`.
+    const log = [line(1, 'a'), line(2, 'b', { reverted: true })]
+    const steps = historySteps(log, { undoableStep: 2, preReloadStep: -1 })
+    expect(steps.every((s) => !s.undoable)).toBe(true)
+  })
+
   it('marks the boundary above the newest step that predates the reload', () => {
     const log = [line(1, 'old'), line(2, 'old too'), line(3, 'after reload')]
     const steps = historySteps(log, { undoableStep: 3, preReloadStep: 2 })

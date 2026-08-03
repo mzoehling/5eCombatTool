@@ -1409,10 +1409,13 @@ label.check {
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
+  /* A 12-hour locale renders "02:01 PM", which wrapped to two lines and made
+     every row double height. The column is sized for that form. */
+  white-space: nowrap;
 }
 
 .history-time {
-  flex-basis: 3.4rem;
+  flex-basis: 5.2rem;
 }
 
 .history-round {
@@ -1493,10 +1496,12 @@ label.check {
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
+  white-space: nowrap;
 }
 
+/* Sized for a 12-hour locale's "02:01 PM" — see the history popover. */
 .combat-log .log-time {
-  flex: 0 0 3.4rem;
+  flex: 0 0 5.2rem;
 }
 
 .combat-log .log-round {

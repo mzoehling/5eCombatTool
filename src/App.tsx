@@ -1,4 +1,11 @@
-import { mdiBookOpenVariant, mdiCog, mdiFileDocumentOutline, mdiMonitor } from '@mdi/js'
+import {
+  mdiBookOpenVariant,
+  mdiCog,
+  mdiFileDocumentOutline,
+  mdiMonitor,
+  mdiWeatherNight,
+  mdiWeatherSunny,
+} from '@mdi/js'
 import { useEffect, useState } from 'react'
 import './app.css'
 import { Icon } from './components/Icon'
@@ -13,6 +20,7 @@ import { StatblockPanel } from './components/StatblockPanel'
 import { TrackerPane } from './components/TrackerPane'
 import { UpdateBanner } from './components/UpdateBanner'
 import { rollDie } from './lib/dice'
+import { useTheme } from './lib/useTheme'
 import { battleStore, useBattleState } from './store/battleStore'
 
 /** Pre-rolled d6 pool for the reducer's recharge checks (it stays pure). */
@@ -55,6 +63,7 @@ function App() {
   // can pre-select the checked combatants
   const [multiSelect, setMultiSelect] = useState(false)
   const [checked, setChecked] = useState<ReadonlySet<string>>(new Set())
+  const [theme, toggleTheme] = useTheme()
   const state = useBattleState()
   const activeId = state.battle.activeCombatantId
   useLocalPlayerViewHost()
@@ -145,6 +154,18 @@ function App() {
             onClick={() => setShowPlayerView(true)}
           >
             <Icon path={mdiMonitor} />
+          </button>
+          {/* Stays in the bar rather than moving into Settings: the room light
+              changes over an evening at the table, which makes this a frequent
+              one-tap action, not a setting. */}
+          <button
+            type="button"
+            className="ghost icon-only"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            onClick={toggleTheme}
+          >
+            <Icon path={theme === 'dark' ? mdiWeatherSunny : mdiWeatherNight} />
           </button>
           <button
             type="button"

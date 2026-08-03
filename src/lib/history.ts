@@ -65,9 +65,15 @@ export function historySteps(log: readonly LogEntry[], input: HistoryInput): His
   }
   groups.reverse()
 
-  const newest = groups[0]
-  if (newest && input.undoableStep !== null && newest.step === input.undoableStep && !newest.reverted) {
-    newest.undoable = true
+  // The icon goes on the newest step that has *not* already been reverted, not
+  // on the newest step outright: after an undo the topmost group is the struck-
+  // through one, and anchoring to it stopped the icon appearing at all, so undo
+  // looked like a once-per-session action. Undo is a stack, so walking past the
+  // reverted steps lands exactly on what the store would pop next — which the
+  // `undoableStep` check then confirms rather than assumes.
+  const target = groups.find((g) => !g.reverted)
+  if (target && input.undoableStep !== null && target.step === input.undoableStep) {
+    target.undoable = true
   }
 
   // Newest first, so the first group at or below the boundary is the one the
