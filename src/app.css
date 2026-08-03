@@ -617,14 +617,70 @@ textarea {
   padding: var(--space-4);
 }
 
+/* Content that keeps a fixed band — the compendium's tabs and search — needs the
+   body to be a flex column with the scrolling happening in a child. Everything
+   else scrolls as one piece, which is what a statblock or a rules sheet wants. */
+.drawer-body-split {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* A wrapper that exists only to be hidden: the compendium stays mounted while
+   something sits on top of it in the stack, so its query and filters survive the
+   trip. `display: contents` keeps the wrapper out of the layout, so the band and
+   the scrolling pane inside remain direct flex children of the split body. */
+.drawer-view {
+  display: contents;
+}
+
+.drawer-view[hidden] {
+  display: none;
+}
+
 /* Hard in the corner, where a thumb reaches it. It floats over the drawer's
    content, so whatever the content puts in its own top-right — the statblock's
-   pin — has to be given room for it. */
+   pin — has to be given room for it. Only used at the floor of the stack; one
+   level in, the close button sits in `.drawer-nav` instead. */
 .drawer-close {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
   z-index: 3;
+}
+
+/* The way back out, one level of the reference stack at a time. Only rendered
+   when there is somewhere to go: at the floor the statblock's own sticky header
+   already carries the name. */
+.drawer-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--gold);
+}
+
+.drawer-back {
+  flex: none;
+  min-height: var(--target-pencil);
+}
+
+/* The name of what is being read. Elides rather than wrapping — a long spell
+   name must not push the row's height around. */
+.drawer-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .drawer .sb-header {
@@ -2168,6 +2224,15 @@ label.check {
   font-size: 0.68rem;
   color: var(--text-dim);
   border-top: 1px solid var(--border);
+}
+
+/* A referenced creature's sheet leads with the reason it was opened: adding the
+   thing to the fight. It cannot be a pinned footer any more — the drawer scrolls
+   as one body — so it goes first instead of last. */
+.creature-add {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-3);
 }
 
 /* ---------- conditions dialog ---------- */

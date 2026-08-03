@@ -1,5 +1,4 @@
 import { describeCondition } from '../data/conditionInfo'
-import { Modal } from './Modal'
 
 /**
  * Rules text for a condition. Nothing else.
@@ -10,11 +9,10 @@ import { Modal } from './Modal'
  * and an "Apply to 2" button: a reference work with an action form bolted on.
  * Setting a condition is a separate gesture with its own surface
  * (`ConditionsDialog`), reached from the row.
+ *
+ * A body in the reference drawer's stack: the drawer owns the shell, the title
+ * and the `‹` way back.
  */
-export function ConditionInfo({ name, onClose }: { name: string; onClose: () => void }) {
-  return (
-    <Modal title={name} onClose={onClose}>
-      <p className="condition-rules">{describeCondition(name) ?? 'Custom effect — no rules text.'}</p>
-    </Modal>
-  )
+export function ConditionInfo({ name }: { name: string }) {
+  return <p className="condition-rules">{describeCondition(name) ?? 'Custom effect — no rules text.'}</p>
 }
