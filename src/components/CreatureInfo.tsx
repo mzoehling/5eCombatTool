@@ -5,36 +5,40 @@ import { findMonsterByName } from '../data/compendium'
 import { suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
-import type { ReferenceView } from '../lib/referenceStack'
 import { Icon } from './Icon'
+import { Modal } from './Modal'
 import { StatblockPanel } from './StatblockPanel'
 
 interface CreatureInfoProps {
   /** Creature name from a {@creature} reference. */
   name: string
-  /** Hands a rolled total to the AoE bar; threaded to the embedded statblock. */
-  onSendRollToAoe?: (amount: number) => void
-  /** Follows a reference out of the embedded statblock's text. Without it the
-   *  links inside a referenced creature would be a dead end. */
-  onOpenReference?: (view: ReferenceView) => void
+  onClose: () => void
 }
 
 /**
  * Statblock preview for a referenced creature (summons, "calls two guards")
- * with a one-click add to the battle. The embedded StatblockPanel brings its own
- * dice/condition/spell/item/creature link handling.
- *
- * A body in the reference drawer's stack — the drawer owns the shell and the
- * `‹` way back.
+ * with a one-click add to the battle. The embedded StatblockPanel brings its
+ * own dice/condition/spell/item/creature link handling.
  */
-export function CreatureInfo({ name, onSendRollToAoe, onOpenReference }: CreatureInfoProps) {
+export function CreatureInfo({ name, onClose }: CreatureInfoProps) {
   // null = looked up and missing; undefined = query still pending
   const found = useLiveQuery(async () => (await findMonsterByName(name)) ?? null, [name])
   const [notice, setNotice] = useState('')
 
-  if (found === undefined) return <p className="dim">Loading…</p>
+  if (found === undefined) {
+    return (
+      <Modal title={name} onClose={onClose}>
+        <p className="dim">Loading…</p>
+      </Modal>
+    )
+  }
+
   if (found === null) {
-    return <p className="dim">This creature isn’t in the compendium (SRD + imported packs + homebrew).</p>
+    return (
+      <Modal title={name} onClose={onClose}>
+        <p className="dim">This creature isn’t in the compendium (SRD + imported packs + homebrew).</p>
+      </Modal>
+    )
   }
 
   const { entry: statblock, origin, section } = found
@@ -52,23 +56,24 @@ export function CreatureInfo({ name, onSendRollToAoe, onOpenReference }: Creatur
   }
 
   return (
-    <>
-      {/* "Add to battle" comes first here rather than in a pinned footer: the
-          drawer scrolls as one body, and it is the reason the sheet was opened. */}
-      <div className="creature-add">
+    // "Add to battle" is pinned in the footer so it survives scrolling a long
+    // statblock — it is the reason the sheet was opened.
+    <Modal title={statblock.name} className="modal-split" onClose={onClose}>
+      <div className="modal-scroll">
+        <StatblockPanel
+          combatant={combatantFromStatblock(statblock)}
+          origin={origin}
+          pinned={false}
+          onTogglePin={() => {}}
+        />
+      </div>
+      <div className="modal-footer">
+        <span className="spacer" />
         <button type="button" className="primary icon-label" onClick={addToBattle}>
           <Icon path={mdiPlus} /> Add to battle
         </button>
       </div>
-      <StatblockPanel
-        combatant={combatantFromStatblock(statblock)}
-        origin={origin}
-        pinned={false}
-        onTogglePin={() => {}}
-        onSendRollToAoe={onSendRollToAoe}
-        onOpenReference={onOpenReference}
-      />
       {notice && <div className="toast">{notice}</div>}
-    </>
+    </Modal>
   )
 }

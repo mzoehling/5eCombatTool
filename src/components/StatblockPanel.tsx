@@ -6,10 +6,14 @@ import { parseDiceExpression } from '../lib/diceExpr'
 import { provenanceLabel, sourceLabel } from '../lib/format'
 import { renderTags } from '../lib/tagRenderer'
 import { battleStore } from '../store/battleStore'
-import type { ReferenceView } from '../lib/referenceStack'
 import { abilityMod, type Ability, type Combatant, type Statblock, type StatblockEntry } from '../types'
+import { ConditionInfo } from './ConditionInfo'
+import { CreatureInfo } from './CreatureInfo'
 import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
+import { ItemInfo } from './ItemInfo'
+import { RuleInfo } from './RuleInfo'
+import { SpellInfo } from './SpellInfo'
 import { EditCombatant } from './EditCombatant'
 import { StatLine } from './StatLine'
 import { TaggedText } from './TaggedText'
@@ -32,12 +36,6 @@ interface StatblockPanelProps {
   onTogglePin: () => void
   /** Hands a rolled total to the AoE bar; absent where there is no tracker. */
   onSendRollToAoe?: (amount: number) => void
-  /**
-   * Follows a reference from the statblock's text — a spell, item, creature,
-   * rule or condition. The drawer pushes it onto its stack; when absent (the
-   * embedded preview inside another sheet) the links simply do not navigate.
-   */
-  onOpenReference?: (view: ReferenceView) => void
   /** Where the statblock was looked up. Set by the compendium/reference views;
    *  omitted for tracker combatants, which have no compendium provenance. */
   origin?: Origin
@@ -361,29 +359,23 @@ function UsesTab({ combatant }: { combatant: Combatant }) {
   )
 }
 
-export function StatblockPanel({
-  combatant,
-  pinned,
-  onTogglePin,
-  onSendRollToAoe,
-  onOpenReference,
-  origin,
-}: StatblockPanelProps) {
+export function StatblockPanel({ combatant, pinned, onTogglePin, onSendRollToAoe, origin }: StatblockPanelProps) {
   const [tab, setTab] = useState<Tab>('general')
   const [editing, setEditing] = useState(false)
   const [rollExpr, setRollExpr] = useState<string | null>(null)
+  const [conditionFor, setConditionFor] = useState<string | null>(null)
+  const [spellFor, setSpellFor] = useState<string | null>(null)
+  const [itemFor, setItemFor] = useState<string | null>(null)
+  const [creatureFor, setCreatureFor] = useState<string | null>(null)
+  const [ruleFor, setRuleFor] = useState<string | null>(null)
   const sb = combatant.statblock
-  // Every reference in the text goes one level deeper into the drawer's stack
-  // rather than opening a modal over this panel. Dice are the exception: rolling
-  // is an action, not something to read, so it stays a dialog.
-  const open = (view: ReferenceView) => onOpenReference?.(view)
   const actions: TextActions = {
     onDice: setRollExpr,
-    onCondition: (name) => open({ kind: 'condition', name }),
-    onSpell: (name) => open({ kind: 'spell', name }),
-    onRule: (name) => open({ kind: 'rule', name }),
-    onItem: (name) => open({ kind: 'item', name }),
-    onCreature: (name) => open({ kind: 'creature', name }),
+    onCondition: setConditionFor,
+    onSpell: setSpellFor,
+    onRule: setRuleFor,
+    onItem: setItemFor,
+    onCreature: setCreatureFor,
   }
 
   // Conditions leads when there are any: it is the only tab whose
@@ -490,12 +482,50 @@ export function StatblockPanel({
         {shownTab === 'conditions' && <ConditionsTab combatant={combatant} actions={actions} />}
       </div>
 
-      {/* Everything the text references is shown by the drawer, one level deeper
-          on its stack — no dialogs over this panel any more. Dice stay a dialog:
-          rolling is an action, not reading. */}
+      {/* reference modals first: dice/condition dialogs opened from their text must stack above */}
+      {creatureFor !== null && <CreatureInfo name={creatureFor} onClose={() => setCreatureFor(null)} />}
+      {itemFor !== null && (
+        <ItemInfo
+          name={itemFor}
+          onDice={setRollExpr}
+          onCondition={setConditionFor}
+          onSpell={setSpellFor}
+          onItem={setItemFor}
+          onCreature={setCreatureFor}
+          onRule={setRuleFor}
+          onClose={() => setItemFor(null)}
+        />
+      )}
+      {spellFor !== null && (
+        <SpellInfo
+          name={spellFor}
+          onDice={setRollExpr}
+          onCondition={setConditionFor}
+          onSpell={setSpellFor}
+          onItem={setItemFor}
+          onCreature={setCreatureFor}
+          onRule={setRuleFor}
+          onClose={() => setSpellFor(null)}
+        />
+      )}
+      {ruleFor !== null && (
+        <RuleInfo
+          name={ruleFor}
+          onDice={setRollExpr}
+          onCondition={setConditionFor}
+          onSpell={setSpellFor}
+          onItem={setItemFor}
+          onCreature={setCreatureFor}
+          onRule={setRuleFor}
+          onClose={() => setRuleFor(null)}
+        />
+      )}
       {rollExpr !== null && (
         <DiceRoller initialExpression={rollExpr} onSendToAoe={onSendRollToAoe} onClose={() => setRollExpr(null)} />
       )}
+      {/* A reader, not a form: tapping "Prone" in an attack's text is a question
+          about the rules. Setting the condition is the row's job. */}
+      {conditionFor !== null && <ConditionInfo name={conditionFor} onClose={() => setConditionFor(null)} />}
       {editing && <EditCombatant combatant={combatant} onClose={() => setEditing(false)} />}
     </div>
   )

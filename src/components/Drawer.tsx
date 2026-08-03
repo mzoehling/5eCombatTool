@@ -1,4 +1,4 @@
-import { mdiChevronLeft, mdiClose, mdiUnfoldMoreVertical } from '@mdi/js'
+import { mdiClose, mdiUnfoldMoreVertical } from '@mdi/js'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { readDrawerSize, writeDrawerSize } from '../data/uiPrefs'
 import {
@@ -181,33 +181,21 @@ export function useDrawer(host: HTMLElement | null): DrawerState {
 
 interface DrawerProps {
   state: DrawerState
-  /** Names the current view; shown in the header once there is a way back. */
   title: string
-  /** Steps one level back out of the reference stack. Absent at the floor. */
-  onBack?: () => void
-  /**
-   * The body is a flex column with its own scrolling child, for content that
-   * keeps a fixed band (the compendium's tabs and search). Without it the body
-   * scrolls as one piece, which is what a statblock or a rules sheet wants.
-   */
-  split?: boolean
   children: ReactNode
 }
 
 /**
- * The reference surface: statblocks, the compendium, and every sheet reached
- * from their text. It is a drawer rather than a flex sibling because "what I am
- * looking up" is not always on-screen — and when it is, how much room it
- * deserves is the DM's call, not a ratio baked into the layout.
+ * The reference surface: statblocks now, the compendium later. It is a drawer
+ * rather than a flex sibling because "what I am looking up" is not always
+ * on-screen — and when it is, how much room it deserves is the DM's call, not a
+ * ratio baked into the layout.
  *
  * Docked it is inset, taking room from the tracker. While the handle is being
  * dragged it floats over the tracker instead, so the rows reflow once on
  * release rather than on every frame of the gesture.
- *
- * Depth is a stack, not a pile of dialogs: `onBack` steps out one level. See
- * lib/referenceStack.ts for why.
  */
-export function Drawer({ state, title, onBack, split, children }: DrawerProps) {
+export function Drawer({ state, title, children }: DrawerProps) {
   const { side, mode, size, dragSize } = state
   const dragging = dragSize !== null
   const axis = side === 'right' ? 'width' : 'height'
@@ -246,37 +234,16 @@ export function Drawer({ state, title, onBack, split, children }: DrawerProps) {
       >
         <Icon path={mdiUnfoldMoreVertical} />
       </div>
-      <div className={`drawer-body${split ? ' drawer-body-split' : ''}`}>
-        {/* The header only appears once there is somewhere to go back to. At the
-            floor the statblock's own sticky header carries the name, and a
-            second title above it would just be the same words twice. */}
-        {onBack ? (
-          <header className="drawer-nav">
-            <button type="button" className="ghost icon-label drawer-back" onClick={onBack}>
-              <Icon path={mdiChevronLeft} /> Back
-            </button>
-            <h2 className="drawer-title">{title}</h2>
-            <button
-              type="button"
-              className="ghost icon-only"
-              aria-label={`Close ${title}`}
-              title={`Close ${title}`}
-              onClick={state.close}
-            >
-              <Icon path={mdiClose} />
-            </button>
-          </header>
-        ) : (
-          <button
-            type="button"
-            className="ghost icon-only drawer-close"
-            aria-label={`Close ${title}`}
-            title={`Close ${title}`}
-            onClick={state.close}
-          >
-            <Icon path={mdiClose} />
-          </button>
-        )}
+      <div className="drawer-body">
+        <button
+          type="button"
+          className="ghost icon-only drawer-close"
+          aria-label={`Close ${title}`}
+          title={`Close ${title}`}
+          onClick={state.close}
+        >
+          <Icon path={mdiClose} />
+        </button>
         {children}
       </div>
     </aside>

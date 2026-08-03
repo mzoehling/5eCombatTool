@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { findSpellByName, originLabel } from '../data/compendium'
 import { provenanceLabel } from '../lib/format'
+import { Modal } from './Modal'
 import { StatLine } from './StatLine'
 import { TaggedText } from './TaggedText'
 
@@ -14,28 +15,34 @@ interface SpellInfoProps {
   onItem?: (name: string) => void
   onCreature?: (name: string) => void
   onRule?: (name: string) => void
+  onClose: () => void
 }
 
-/**
- * Full rules text for a spell, looked up in the compendium (SRD + packs).
- *
- * A body, not a dialog: it lives in the reference drawer's stack, which owns the
- * shell, the title and the `‹` way back. It used to bring its own `Modal` and be
- * stacked on top of whatever opened it.
- */
-export function SpellInfo({ name, ...handlers }: SpellInfoProps) {
+/** Full rules text for a spell, looked up in the compendium (SRD + packs). */
+export function SpellInfo({ name, onClose, ...handlers }: SpellInfoProps) {
   // null = looked up and missing; undefined = query still pending
   const found = useLiveQuery(async () => (await findSpellByName(name)) ?? null, [name])
 
-  if (found === undefined) return <p className="dim">Loading…</p>
+  if (found === undefined) {
+    return (
+      <Modal title={name} onClose={onClose}>
+        <p className="dim">Loading…</p>
+      </Modal>
+    )
+  }
+
   if (found === null) {
-    return <p className="dim">This spell isn’t in the compendium (SRD + imported packs).</p>
+    return (
+      <Modal title={name} onClose={onClose}>
+        <p className="dim">This spell isn’t in the compendium (SRD + imported packs).</p>
+      </Modal>
+    )
   }
 
   const { entry: spell, origin } = found
 
   return (
-    <>
+    <Modal title={spell.name} onClose={onClose}>
       <p className="sheet-meta">
         {spell.level === 0 ? 'Cantrip' : `Level ${spell.level}`} · {spell.school}
         {` · ${provenanceLabel(originLabel(origin), spell.source, spell.page)}`}
@@ -69,6 +76,6 @@ export function SpellInfo({ name, ...handlers }: SpellInfoProps) {
           ))}
         </>
       )}
-    </>
+    </Modal>
   )
 }

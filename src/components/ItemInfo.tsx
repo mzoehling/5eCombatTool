@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { findItemByName, originLabel } from '../data/compendium'
 import { provenanceLabel } from '../lib/format'
 import { itemStatsLine } from '../lib/itemPrice'
+import { Modal } from './Modal'
 import { StatLine } from './StatLine'
 import { TaggedText } from './TaggedText'
 
@@ -15,22 +16,35 @@ interface ItemInfoProps {
   onItem?: (name: string) => void
   onCreature?: (name: string) => void
   onRule?: (name: string) => void
+  onClose: () => void
 }
 
-/** Full rules text for an item. A body in the reference drawer's stack — the
- *  drawer owns the shell and the way back. */
-export function ItemInfo({ name, ...handlers }: ItemInfoProps) {
+/** Full rules text for an item, looked up in the compendium (SRD + packs). */
+export function ItemInfo({ name, onClose, ...handlers }: ItemInfoProps) {
   // null = looked up and missing; undefined = query still pending
   const found = useLiveQuery(async () => (await findItemByName(name)) ?? null, [name])
 
-  if (found === undefined) return <p className="dim">Loading…</p>
-  if (found === null) return <p className="dim">This item isn’t in the compendium (SRD + imported packs).</p>
+  if (found === undefined) {
+    return (
+      <Modal title={name} onClose={onClose}>
+        <p className="dim">Loading…</p>
+      </Modal>
+    )
+  }
+
+  if (found === null) {
+    return (
+      <Modal title={name} onClose={onClose}>
+        <p className="dim">This item isn’t in the compendium (SRD + imported packs).</p>
+      </Modal>
+    )
+  }
 
   const { entry: item, origin } = found
   const stats = itemStatsLine(item)
 
   return (
-    <>
+    <Modal title={item.name} onClose={onClose}>
       <p className="sheet-meta">{provenanceLabel(originLabel(origin), item.source, item.page)}</p>
       <StatLine
         stats={[
@@ -51,6 +65,6 @@ export function ItemInfo({ name, ...handlers }: ItemInfoProps) {
         </p>
       ))}
       {item.text.length === 0 && <p className="dim">No rules text.</p>}
-    </>
+    </Modal>
   )
 }

@@ -13,10 +13,15 @@ import { itemPriceShort, itemPriceSortValue, itemStatsLine } from '../lib/itemPr
 import { rankByName, stripPostfix, suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
-import type { ReferenceView } from '../lib/referenceStack'
 import type { Statblock } from '../types'
+import { ConditionInfo } from './ConditionInfo'
+import { CreatureInfo } from './CreatureInfo'
 import { DiceRoller } from './DiceRoller'
 import { Icon } from './Icon'
+import { ItemInfo } from './ItemInfo'
+import { Modal } from './Modal'
+import { RuleInfo } from './RuleInfo'
+import { SpellInfo } from './SpellInfo'
 import { StatblockPanel } from './StatblockPanel'
 import { TaggedText } from './TaggedText'
 
@@ -62,24 +67,7 @@ function OriginBadge({ origin }: { origin: Origin }) {
   )
 }
 
-interface CompendiumProps {
-  initialQuery?: string
-  /** Follows a reference out of an expanded row — the drawer pushes it onto its
-   *  stack, one level above the compendium. */
-  onOpenReference?: (view: ReferenceView) => void
-  /** Hands a rolled total to the AoE bar. */
-  onSendRollToAoe?: (amount: number) => void
-}
-
-/**
- * The library: monsters, PCs, spells, items and rules, searchable and filtered.
- *
- * A body in the reference drawer's stack rather than a dialog of its own. It used
- * to be a side sheet whose own modal stack grew a layer for every reference
- * followed out of it; now following one goes deeper into the same drawer, with a
- * `‹` back out.
- */
-export function Compendium({ initialQuery = '', onOpenReference, onSendRollToAoe }: CompendiumProps) {
+export function Compendium({ onClose, initialQuery = '' }: { onClose: () => void; initialQuery?: string }) {
   const data = useCompendium()
   const [tab, setTab] = useState<Tab>('monsters')
   const [query, setQuery] = useState(stripPostfix(initialQuery))
@@ -94,14 +82,18 @@ export function Compendium({ initialQuery = '', onOpenReference, onSendRollToAoe
   const [preview, setPreview] = useState<{ entry: CompendiumEntry<Statblock>; isPC: boolean } | null>(null)
   const [notice, setNotice] = useState('')
   const [rollExpr, setRollExpr] = useState<string | null>(null)
-  const open = (view: ReferenceView) => onOpenReference?.(view)
+  const [conditionFor, setConditionFor] = useState<string | null>(null)
+  const [spellFor, setSpellFor] = useState<string | null>(null)
+  const [itemFor, setItemFor] = useState<string | null>(null)
+  const [creatureFor, setCreatureFor] = useState<string | null>(null)
+  const [ruleFor, setRuleFor] = useState<string | null>(null)
   const actions: DetailActions = {
     onDice: setRollExpr,
-    onCondition: (name) => open({ kind: 'condition', name }),
-    onSpell: (name) => open({ kind: 'spell', name }),
-    onItem: (name) => open({ kind: 'item', name }),
-    onCreature: (name) => open({ kind: 'creature', name }),
-    onRule: (name) => open({ kind: 'rule', name }),
+    onCondition: setConditionFor,
+    onSpell: setSpellFor,
+    onItem: setItemFor,
+    onCreature: setCreatureFor,
+    onRule: setRuleFor,
   }
 
   const monsters = useMemo(() => {
@@ -194,20 +186,14 @@ export function Compendium({ initialQuery = '', onOpenReference, onSendRollToAoe
     if (shownTab !== tab) setTab(shownTab)
   }, [shownTab, tab])
 
-  // Swapped in place rather than pushed onto the drawer's stack: the preview
-  // belongs to a search result, carries the isPC the entry alone does not say,
-  // and its "Add to battle" is the reason it was opened. Its own Back returns to
-  // the results with the query and filters intact.
   if (preview) {
     return (
-      <>
+      <Modal title={preview.entry.entry.name} className="modal-wide" onClose={() => setPreview(null)}>
         <StatblockPanel
           combatant={combatantFromStatblock(preview.entry.entry)}
           origin={preview.entry.origin}
           pinned={false}
           onTogglePin={() => {}}
-          onOpenReference={onOpenReference}
-          onSendRollToAoe={onSendRollToAoe}
         />
         <div className="modal-actions">
           <button type="button" className="ghost icon-label" onClick={() => setPreview(null)}>
@@ -224,15 +210,15 @@ export function Compendium({ initialQuery = '', onOpenReference, onSendRollToAoe
             Add to battle
           </button>
         </div>
-      </>
+      </Modal>
     )
   }
 
+  // A right-hand side sheet rather than a centred dialog, so the tracker stays
+  // visible while creatures are added to it.
   return (
-    <>
-      {/* Fixed band: tabs and filters stay put while only the results scroll.
-          The drawer puts its body in split mode for this view, which is what
-          makes the band hold still — see Drawer's `split`. */}
+    <Modal title="Compendium" className="modal-wide modal-tall modal-split" onClose={onClose}>
+      {/* Fixed band: tabs and filters stay put while only the results scroll. */}
       <div className="modal-controls">
         <div className="sb-tabs segments">
           {tabs
@@ -411,15 +397,18 @@ export function Compendium({ initialQuery = '', onOpenReference, onSendRollToAoe
         )}
       </div>
 
-      {/* References followed out of a row go one level deeper into the drawer,
-          not into a modal over this one. Dice stay a dialog: rolling is an
-          action rather than something to read. */}
-      {rollExpr !== null && (
-        <DiceRoller initialExpression={rollExpr} onSendToAoe={onSendRollToAoe} onClose={() => setRollExpr(null)} />
-      )}
+      {/* reference modals stack over the compendium; dice/condition dialogs above those */}
+      {creatureFor !== null && <CreatureInfo name={creatureFor} onClose={() => setCreatureFor(null)} />}
+      {itemFor !== null && <ItemInfo name={itemFor} {...actions} onClose={() => setItemFor(null)} />}
+      {spellFor !== null && <SpellInfo name={spellFor} {...actions} onClose={() => setSpellFor(null)} />}
+      {ruleFor !== null && <RuleInfo name={ruleFor} {...actions} onClose={() => setRuleFor(null)} />}
+      {rollExpr !== null && <DiceRoller initialExpression={rollExpr} onClose={() => setRollExpr(null)} />}
+      {/* Looking a condition up from the compendium is reading, never applying —
+          the compendium has no combatant in hand to apply it to. */}
+      {conditionFor !== null && <ConditionInfo name={conditionFor} onClose={() => setConditionFor(null)} />}
 
       {notice && <div className="toast">{notice}</div>}
-    </>
+    </Modal>
   )
 }
 
