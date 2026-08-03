@@ -1,4 +1,4 @@
-import { mdiContentSave, mdiDelete, mdiPlus, mdiSwapHorizontal, mdiTrashCanOutline } from '@mdi/js'
+import { mdiContentSave, mdiDelete, mdiPlus, mdiStop, mdiSwapHorizontal, mdiTrashCanOutline } from '@mdi/js'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { instantiateEncounter, prepareForAdd, saveEncounter } from '../data/encounters'
@@ -10,6 +10,7 @@ import { newId } from '../lib/id'
 import { HOMEBREW_PACK_ID, type Group, type SavedEncounter } from '../types'
 import { AcShield } from './AcShield'
 import { Checkbox } from './Checkbox'
+import { ContentPanel, type HomebrewEditorTarget } from './ContentPanel'
 import { GroupRoster } from './GroupRoster'
 import { HomebrewEditor } from './HomebrewEditor'
 import { Icon } from './Icon'
@@ -27,11 +28,16 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
   // An encounter of only PCs is how a DM reuses their party every session, so
-  // it gets a named path instead of hiding behind "save current".
-  const [mode, setMode] = useState<'current' | 'party' | 'groups'>('current')
+  // it gets a named path instead of hiding behind "save current". Content joined
+  // these tabs from its own top-bar button: "what is in my library" is the same
+  // question as the rest of this dialog asks.
+  const [mode, setMode] = useState<'current' | 'party' | 'groups' | 'content'>('current')
   const [partyName, setPartyName] = useState('')
   const [partyIds, setPartyIds] = useState<ReadonlySet<string>>(new Set())
   const [newPC, setNewPC] = useState(false)
+  // The homebrew editor the Content tab asks for. It lives here because opening
+  // it swaps out this whole dialog — see the note below.
+  const [editor, setEditor] = useState<HomebrewEditorTarget | null>(null)
   // The encounter whose open dialog is showing.
   const [opening, setOpening] = useState<SavedEncounter | null>(null)
   const pcs = useLiveQuery(
@@ -112,6 +118,9 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
   if (newPC) {
     return <HomebrewEditor section="pcs" onClose={() => setNewPC(false)} />
   }
+  if (editor) {
+    return <HomebrewEditor section={editor.section} existing={editor.existing} onClose={() => setEditor(null)} />
+  }
 
   return (
     <>
@@ -130,9 +139,14 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
           <button type="button" aria-pressed={mode === 'groups'} onClick={() => setMode('groups')}>
             Groups
           </button>
+          <button type="button" aria-pressed={mode === 'content'} onClick={() => setMode('content')}>
+            Content
+          </button>
         </div>
 
-        {mode === 'groups' ? (
+        {/* Content brings its own band and scroll region, so it is rendered
+            below this one rather than inside it. */}
+        {mode === 'content' ? null : mode === 'groups' ? (
           <GroupRoster />
         ) : mode === 'party' ? (
           <>
@@ -198,6 +212,19 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
           >
             <Icon path={mdiContentSave} /> Save current
           </button>
+          {/* Ending the fight belongs next to clearing the tracker, not next to
+              the turn button: both are "this fight is over", and neither is a
+              thing you reach for mid-combat. */}
+          {state.battle.isRunning && (
+            <button
+              type="button"
+              className="icon-label"
+              title="Stop the battle, keeping the combatants on the tracker"
+              onClick={() => dispatch({ type: 'endBattle' })}
+            >
+              <Icon path={mdiStop} /> End battle
+            </button>
+          )}
           <button
             type="button"
             className="danger icon-label"
@@ -212,6 +239,9 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
         {message && <p className="ok-text">{message}</p>}
       </div>
 
+      {mode === 'content' && <ContentPanel onEditor={setEditor} />}
+
+      {mode !== 'content' && (
       <div className="modal-scroll">
         <ul className="group-list">
           {encounters.map((e) => (
@@ -246,6 +276,7 @@ export function EncountersManager({ onClose }: { onClose: () => void }) {
           )}
         </ul>
       </div>
+      )}
     </Modal>
       {/* Rendered after the Encounters dialog so its backdrop is painted on
           top; a click outside then closes only this one and leaves the list

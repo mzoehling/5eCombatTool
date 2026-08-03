@@ -8,9 +8,7 @@ import { suffixedNames } from '../lib/search'
 import { battleStore } from '../store/battleStore'
 import { combatantFromStatblock } from '../store/createCombatant'
 import { HOMEBREW_PACK_ID, type ContentPack, type CreatureSection, type Statblock } from '../types'
-import { HomebrewEditor } from './HomebrewEditor'
 import { Icon } from './Icon'
-import { Modal } from './Modal'
 
 /** A homebrew entry paired with the section it lives in — the section is what
  *  makes it a PC, so it has to travel with the statblock. */
@@ -44,15 +42,30 @@ function packCounts(pack: ContentPack): string {
   )
 }
 
+/** Which homebrew entry the editor should open on. */
+export interface HomebrewEditorTarget {
+  section: CreatureSection
+  existing?: Statblock
+}
+
+interface ContentPanelProps {
+  /** Lifted to the container: opening the editor swaps out the whole dialog,
+   *  and only the owner of the dialog shell can do that. */
+  onEditor: (target: HomebrewEditorTarget) => void
+}
+
 /**
  * One home for every source of content: the built-in Homebrew pack the user
  * authors here, and the packs they import. Homebrew and imported packs are the
  * same thing in storage, so managing them in two dialogs only made the split
  * look meaningful.
+ *
+ * This is a body, not a dialog: it brings no `<Modal>` of its own, so it can be
+ * a tab of Encounters. Content was a third top-bar button for what is the same
+ * question as "what is in my library".
  */
-export function ContentManager({ onClose }: { onClose: () => void }) {
+export function ContentPanel({ onEditor }: ContentPanelProps) {
   const packs = useLiveQuery(() => db.packs.toArray(), [], [])
-  const [editor, setEditor] = useState<{ section: CreatureSection; existing?: Statblock } | null>(null)
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null)
   const [homebrewOpen, setHomebrewOpen] = useState(true)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -96,21 +109,15 @@ export function ContentManager({ onClose }: { onClose: () => void }) {
     })
   }
 
-  // Swapped in place rather than stacked: two Modals means two backdrops, and a
-  // click outside would close both.
-  if (editor) {
-    return <HomebrewEditor section={editor.section} existing={editor.existing} onClose={() => setEditor(null)} />
-  }
-
   return (
-    <Modal title="Content" className="modal-wide modal-tall modal-split" onClose={onClose}>
+    <>
       {/* Fixed band: the actions and their outcome stay put while the list scrolls. */}
       <div className="modal-controls">
         <div className="modal-actions">
-          <button type="button" className="primary icon-label" onClick={() => setEditor({ section: 'pcs' })}>
+          <button type="button" className="primary icon-label" onClick={() => onEditor({ section: 'pcs' })}>
             <Icon path={mdiPlus} /> New PC
           </button>
-          <button type="button" className="primary icon-label" onClick={() => setEditor({ section: 'monsters' })}>
+          <button type="button" className="primary icon-label" onClick={() => onEditor({ section: 'monsters' })}>
             <Icon path={mdiPlus} /> New monster
           </button>
           <input
@@ -157,7 +164,7 @@ export function ContentManager({ onClose }: { onClose: () => void }) {
                 <button
                   type="button"
                   className="result-main"
-                  onClick={() => setEditor({ section: row.section, existing: row.statblock })}
+                  onClick={() => onEditor({ section: row.section, existing: row.statblock })}
                 >
                   <span className="result-name">
                     {row.statblock.name}
@@ -216,6 +223,6 @@ export function ContentManager({ onClose }: { onClose: () => void }) {
           {imported.length === 0 && <li className="dim">No content packs imported.</li>}
         </ul>
       </div>
-    </Modal>
+    </>
   )
 }

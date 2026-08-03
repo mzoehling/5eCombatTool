@@ -34,10 +34,26 @@ describe('battleStore undo & log', () => {
     const messages = battleStore.getLog().map((e) => e.message)
     expect(messages).toContain('Undo Goblin added')
     expect(messages).toContain('12 damage → Undo Goblin')
-    expect(messages).toContain('Undid the last change')
+    // Undo strikes the reverted lines through instead of appending a line of its
+    // own: that line was itself un-undoable, and as the newest entry it left the
+    // History view's top step unable to carry the undo icon.
+    expect(messages).not.toContain('Undid the last change')
+    expect(battleStore.getLog().find((e) => e.message === '12 damage → Undo Goblin')?.reverted).toBe(true)
 
     // clean up shared singleton state for other suites
     battleStore.dispatch({ type: 'removeCombatants', ids: ['u1'] })
+  })
+
+  it('stamps the lines of one dispatch with one step, so History can group them', () => {
+    battleStore.dispatch({ type: 'addCombatant', combatant: makeCombatant('s1', 'Step Goblin') })
+    const step = battleStore.undoableStep()
+    expect(step).not.toBeNull()
+    expect(battleStore.getLog().at(-1)?.step).toBe(step)
+
+    battleStore.dispatch({ type: 'applyDamage', ids: ['s1'], amount: 3 })
+    expect(battleStore.undoableStep()).toBe((step ?? 0) + 1)
+
+    battleStore.dispatch({ type: 'removeCombatants', ids: ['s1'] })
   })
 
   it('does nothing when there is nothing to undo', () => {

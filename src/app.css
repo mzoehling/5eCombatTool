@@ -399,25 +399,32 @@ textarea {
   white-space: nowrap;
 }
 
-/* Separates the navigation group from the history icons, and those from the
-   right-aligned view controls. */
-.topbar-spacer {
-  margin-left: auto;
+/* Three zones, and the round has to sit in the middle of the bar rather than
+   after however wide the left group happens to be: the two outer groups take
+   equal shares of the leftover space, which centres the group between them
+   without taking it out of the flow. */
+.topbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 0;
+  min-width: 0;
 }
 
-.topbar-divider {
-  width: 1px;
-  align-self: stretch;
-  margin: var(--space-1) var(--space-1);
-  background: var(--border);
+.topbar-group.end {
+  justify-content: flex-end;
 }
 
-/* Mid-battle the bar needs every pixel: with the title it comes to 844px, which
-   overflows an iPad held in portrait — the app's own use case. The title is
-   branding rather than navigation once you are inside the app, so below the
-   width where it fits it is hidden visually but kept in the accessibility tree,
-   so the page still has its heading. */
-@media (max-width: 900px) {
+/* Mid-battle the bar needs every pixel, and the round block in the middle needs
+   its own. With the title, the bar wraps on an iPad held in portrait (1024px) —
+   the app's own use case — which pushed Encounters and History onto a second
+   row. The title is branding rather than navigation once you are inside the app,
+   so below the width where it fits it is hidden visually but kept in the
+   accessibility tree, so the page still has its heading. That is also why the
+   plan's fallback of reducing Compendium and Encounters to icons is not needed:
+   without the title, the labelled buttons fit at 1024px with room to spare. */
+@media (max-width: 1100px) {
   .app-title {
     position: absolute;
     width: 1px;
@@ -428,10 +435,26 @@ textarea {
   }
 }
 
-/* ---------- turn dock ---------- */
+/* ---------- turn control (top bar) ---------- */
 
-/* Pinned below the tracker list. Turn control must not move as the list
-   scrolls — that is the whole point of the dock. */
+/* One block in the middle of the bar, the same height whether the battle is
+   running or not, so starting one moves nothing. */
+.turn-controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.turn-step {
+  min-width: var(--target-pencil);
+  min-height: var(--target-pencil);
+}
+
+/* ---------- tool dock ---------- */
+
+/* Pinned below the tracker list: the tools must not move as the list scrolls.
+   Turn control left for the top bar, which cannot scroll either. */
 .turn-dock {
   display: flex;
   flex-wrap: wrap;
@@ -451,15 +474,6 @@ textarea {
   margin-left: auto;
 }
 
-.battle-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-left: auto;
-}
-
 .round-counter {
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
@@ -471,42 +485,184 @@ textarea {
 
 .next-btn {
   min-height: var(--target-primary);
-  min-width: 8rem;
   font-size: 1.05rem;
 }
 
-/* ---------- panes ---------- */
+/* Only the pre-battle button wants a wide hit area; the running one is a single
+   chevron and must not stretch the round block. */
+.turn-controls .next-btn:not(.icon-only) {
+  min-width: 8rem;
+}
 
+/* ==========================================================================
+   Shell: tracker + reference drawer
+   ========================================================================== */
+
+/* The tracker fills the shell; the drawer takes room from it when docked. The
+   tracker's own size is never a ratio — see lib/drawer.ts for why the drawer's
+   limit is derived from what the row needs instead. */
 .panes {
   display: flex;
   flex: 1;
   min-height: 0;
+  position: relative;
 }
 
 .tracker-pane {
-  flex: 3;
+  flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border-right: 1px solid var(--border);
 }
 
-.statblock-pane {
-  flex: 2;
+.drawer-side-bottom {
+  flex-direction: column;
+}
+
+/* ---------- drawer ---------- */
+
+.drawer {
+  display: flex;
+  flex: none;
   min-width: 0;
+  min-height: 0;
+  background: var(--bg-panel);
+  /* The reflow the tracker does on release should read as a movement, not as a
+     stutter. Suppressed while dragging, where the size follows the finger. */
+  transition: width 140ms ease, height 140ms ease;
+}
+
+.drawer.closed {
+  /* Kept in the tree so its scroll position and tab survive being put away. */
+  display: none;
+}
+
+.drawer-right {
+  flex-direction: row;
+  border-left: 1px solid var(--gold);
+}
+
+.drawer-bottom {
+  flex-direction: column;
+  border-top: 1px solid var(--gold);
+}
+
+.drawer.dragging {
+  transition: none;
+}
+
+/* While the handle is held, the size the finger is choosing is shown by this
+   overlay rather than by the drawer itself — the drawer keeps its committed
+   size, so the tracker rows reflow once on release instead of on every frame.
+   The drawer is a static flex item, so this positions against `.panes`, which
+   is what lets it extend over the tracker. */
+.drawer-preview {
+  position: absolute;
+  z-index: 2;
+  background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+  pointer-events: none;
+}
+
+.drawer-right .drawer-preview {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  box-shadow: -6px 0 18px rgb(0 0 0 / 0.18);
+}
+
+.drawer-bottom .drawer-preview {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  box-shadow: 0 -6px 18px rgb(0 0 0 / 0.18);
+}
+
+/* The edge is where the drawer will land: the one line the eye follows during
+   the gesture. */
+.drawer-preview-edge {
+  position: absolute;
+  background: var(--gold);
+}
+
+.drawer-right .drawer-preview-edge {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+}
+
+.drawer-bottom .drawer-preview-edge {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+}
+
+/* The grab area is a full-height strip, not a hairline: this is a touch target
+   first. `touch-action: none` is required — the list's dnd-kit TouchSensor is
+   listening on the same surface, and without it the browser's own scrolling
+   would win the gesture before either got it. */
+.drawer-handle {
+  display: grid;
+  place-items: center;
+  flex: none;
+  touch-action: none;
+  color: var(--text-dim);
+  background: var(--surface-sunken);
+  cursor: grab;
+}
+
+.drawer-handle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.drawer-right .drawer-handle {
+  width: var(--target-pencil);
+  cursor: col-resize;
+}
+
+.drawer-bottom .drawer-handle {
+  height: var(--target-pencil);
+  cursor: row-resize;
+}
+
+.drawer-bottom .drawer-handle .icon {
+  transform: rotate(90deg);
+}
+
+.drawer-body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-4);
-  background: var(--bg-panel);
 }
 
+/* Hard in the corner, where a thumb reaches it. It floats over the drawer's
+   content, so whatever the content puts in its own top-right — the statblock's
+   pin — has to be given room for it. */
+.drawer-close {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 3;
+}
+
+.drawer .sb-header {
+  padding-right: calc(var(--target-icon) + var(--space-2));
+}
+
+/* A phone has no room for two panes side by side at any drawer size. */
 @media (max-width: 700px) {
   .panes {
     flex-direction: column;
   }
-  .tracker-pane {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
+  .drawer-right {
+    border-left: none;
+    border-top: 1px solid var(--gold);
   }
 }
 
@@ -939,12 +1095,17 @@ textarea {
   z-index: 30;
 }
 
-/* ---------- iPad portrait ---------- */
+/* ---------- large touch targets ---------- */
 
-/* Held with a Pencil: every control the DM touches mid-combat grows, and the
-   extra width goes to the name, the meter and the conditions — not to the
-   controls, which keep the same order as in landscape. */
-@media (min-width: 700px) and (orientation: portrait) {
+/* These used to apply only to `(orientation: portrait)`, which meant the same
+   iPad offered two different sets of hit targets depending on how it was being
+   held. The tracker now looks the same either way: the Pencil-sized controls are
+   simply the sizes, above the width where a phone has to economise.
+
+   The cost is honest — at these sizes a laptop shows about three combatants
+   fewer per screen. The target device is an iPad at a table, so the trade goes
+   to the finger. */
+@media (min-width: 700px) {
   .combatant-row {
     padding: 14px 18px;
   }
@@ -1201,6 +1362,113 @@ label.check {
   font-style: italic;
   color: var(--text-dim);
   margin: 0 0 var(--space-2);
+}
+
+/* ---------- history popover ---------- */
+
+/* A glance, not a dialog: it hangs off the top bar with no backdrop, and a tap
+   anywhere else dismisses it. Anchored to the viewport rather than to the
+   button, because the top bar wraps on narrow screens and an absolutely
+   anchored popover would follow the button off the edge. */
+.history-popover {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 56px);
+  left: var(--space-3);
+  z-index: 40;
+  width: min(30rem, calc(100vw - 2 * var(--space-3)));
+  max-height: min(60vh, 32rem);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.28);
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  font-size: 0.9rem;
+}
+
+.history-list > li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border);
+  min-height: var(--target-pencil);
+}
+
+.history-time,
+.history-round {
+  flex: none;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.history-time {
+  flex-basis: 3.4rem;
+}
+
+.history-round {
+  flex-basis: 2.2rem;
+}
+
+/* One dispatch can write several lines (damage plus its concentration note).
+   They are one thing the DM did, so they stack inside one row — and the undo
+   icon belongs to the row, not to the first line of it. */
+.history-messages {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-undo {
+  flex: none;
+  align-self: center;
+}
+
+/* Undone steps stay visible as a record of what was tried. */
+.history-list > li.reverted,
+.combat-log li.reverted {
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+
+/* The log is persisted, the undo stack is not — so nothing above this line can
+   be taken back, and saying so is the difference between a limit and a bug. */
+.history-boundary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  padding: var(--space-3) 0 var(--space-1);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.history-boundary::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.history-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
 }
 
 /* ---------- combat log ---------- */

@@ -36,7 +36,9 @@ export function CombatLog({ onClose }: { onClose: () => void }) {
             return (
               <Fragment key={log.length - i}>
                 {startsRound && <li className="log-round-divider">Round {entry.round}</li>}
-                <li>
+                {/* Undone lines stay as a record of what the DM did, struck
+                    through rather than deleted. */}
+                <li className={entry.reverted ? 'reverted' : undefined}>
                   <span className={`log-dot ${eventKind(entry.message)}`} aria-hidden="true" />
                   <span className="log-time">{formatTime(entry.at)}</span>
                   <span className="log-round">R{entry.round}</span>

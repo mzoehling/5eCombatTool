@@ -1,52 +1,56 @@
-import { mdiChevronLeft, mdiChevronRight, mdiHistory, mdiPlay, mdiUndo } from '@mdi/js'
+import { mdiChevronLeft, mdiChevronRight, mdiHistory, mdiPlay } from '@mdi/js'
 import { useState } from 'react'
 import { rollDie } from '../lib/dice'
-import { battleStore, useBattleState, useUndoDepth } from '../store/battleStore'
-import { CombatLog } from './CombatLog'
+import { battleStore, useBattleState } from '../store/battleStore'
+import { History } from './History'
 import { Icon } from './Icon'
 
 /** Pre-rolled d6 pool for the reducer's recharge checks (it stays pure). */
 const rechargeDice = () => Array.from({ length: 8 }, () => rollDie(6))
 
-/** Undo and the combat log. These live in the top bar, away from turn control. */
-export function HistoryButtons() {
-  const undoDepth = useUndoDepth()
-  const [showLog, setShowLog] = useState(false)
+/**
+ * Undo and the combat log, as one button.
+ *
+ * They were two icons for one idea — what happened, and taking the last of it
+ * back. The popover carries both, so the top bar carries one button.
+ */
+export function HistoryButton() {
+  const [open, setOpen] = useState(false)
   return (
     <>
       <button
         type="button"
         className="ghost icon-only"
-        disabled={undoDepth === 0}
-        aria-label="Undo"
-        title="Undo the last change (Ctrl+Z)"
-        onClick={battleStore.undo}
-      >
-        <Icon path={mdiUndo} />
-      </button>
-      <button
-        type="button"
-        className="ghost icon-only"
-        aria-label="Combat log"
-        title="Combat log"
-        onClick={() => setShowLog(true)}
+        aria-label="History"
+        title="History — recent actions and undo"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
       >
         <Icon path={mdiHistory} />
       </button>
-      {showLog && <CombatLog onClose={() => setShowLog(false)} />}
+      {open && <History onClose={() => setOpen(false)} />}
     </>
   )
 }
 
-/** Turn control. It lives in the dock pinned below the tracker list, so it
- *  never moves as the list scrolls — that is the whole point of the dock. */
-export function BattleControls() {
+/**
+ * Turn control, in the middle of the top bar.
+ *
+ * It used to sit in the dock below the list so it could not scroll out of
+ * reach — the top bar cannot scroll either, and putting the round where the eye
+ * already goes for state leaves the dock to the tools. `Next turn` is the app's
+ * one accent element.
+ *
+ * Before the fight the same slot holds `Start battle` at the same size, so
+ * starting a battle does not move anything.
+ */
+export function TurnControls() {
   const { dispatch } = battleStore
   const { battle, combatants } = useBattleState()
 
   if (!battle.isRunning) {
     return (
-      <div className="battle-controls">
+      <div className="turn-controls">
         <button
           type="button"
           className="primary icon-label next-btn"
@@ -60,21 +64,25 @@ export function BattleControls() {
   }
 
   return (
-    <div className="battle-controls">
-      <button type="button" className="icon-label" onClick={() => dispatch({ type: 'prevTurn' })} aria-label="Previous turn">
-        <Icon path={mdiChevronLeft} /> Back
+    <div className="turn-controls">
+      <button
+        type="button"
+        className="ghost icon-only turn-step"
+        onClick={() => dispatch({ type: 'prevTurn' })}
+        aria-label="Previous turn"
+        title="Previous turn"
+      >
+        <Icon path={mdiChevronLeft} />
       </button>
       <span className="round-counter">Round {battle.round}</span>
       <button
         type="button"
-        className="primary next-btn icon-label"
+        className="primary icon-only turn-step next-btn"
         onClick={() => dispatch({ type: 'nextTurn', dice: rechargeDice() })}
         aria-label="Next turn"
+        title="Next turn (Space)"
       >
-        Next turn <Icon path={mdiChevronRight} />
-      </button>
-      <button type="button" className="ghost" onClick={() => dispatch({ type: 'endBattle' })}>
-        End
+        <Icon path={mdiChevronRight} />
       </button>
     </div>
   )

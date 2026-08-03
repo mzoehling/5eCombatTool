@@ -1,3 +1,4 @@
+import { mdiWeatherNight, mdiWeatherSunny } from '@mdi/js'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useRef, useState } from 'react'
 import { db } from '../db'
@@ -9,8 +10,10 @@ import {
   setBackupReminderOff,
 } from '../data/backup'
 import { clearCacheAndReload } from '../data/clearCache'
+import { useTheme } from '../lib/useTheme'
 import { battleStore } from '../store/battleStore'
 import { Checkbox } from './Checkbox'
+import { Icon } from './Icon'
 import { Modal } from './Modal'
 
 const REPO_URL = 'https://github.com/mzoehling/5eCombatTool'
@@ -20,6 +23,7 @@ export function SettingsInfo({ onClose }: { onClose: () => void }) {
   const reminderOff = useLiveQuery(() => isBackupReminderOff(), [], false)
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [theme, toggleTheme] = useTheme()
 
   const doExport = async () => {
     const json = await exportBackup()
@@ -64,6 +68,19 @@ export function SettingsInfo({ onClose }: { onClose: () => void }) {
             {REPO_URL}
           </a>
         </p>
+      </section>
+      {/* The theme toggle used to be its own top-bar icon. Note the cost: room
+          light changes mid-session, so this is a frequent action now two levels
+          deep. The Player View keeps its own toggle, which is where a shared
+          screen needs it anyway. */}
+      <section>
+        <h3 className="section-heading">Appearance</h3>
+        <div className="settings-actions">
+          <button type="button" className="icon-label" onClick={toggleTheme}>
+            <Icon path={theme === 'dark' ? mdiWeatherSunny : mdiWeatherNight} />
+            {theme === 'dark' ? 'Light mode (vellum)' : 'Dark mode (candlelit)'}
+          </button>
+        </div>
       </section>
       <section>
         <h3 className="section-heading">Backups</h3>

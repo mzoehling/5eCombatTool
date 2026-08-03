@@ -14,6 +14,16 @@ export interface LogEntry {
   at: number
   round: number
   message: string
+  /**
+   * The dispatch that wrote this line. One dispatch can write several lines
+   * (damage plus a concentration note), and undo works on whole dispatches, so
+   * the History view needs to know which lines belong together — see
+   * `lib/history.ts`.
+   */
+  step: number
+  /** Set when this step was undone. The line stays as a record of what the DM
+   *  did, shown struck through, rather than being deleted from the log. */
+  reverted?: boolean
 }
 
 const UNDO_LIMIT = 50
@@ -31,19 +41,36 @@ function isUndoable(action: BattleAction): boolean {
  * persisted to Dexie (debounced) so a reload restores the battle; the
  * combat log persists alongside it. Undo keeps the last states in memory.
  */
+/** One entry of the undo stack: the state to go back to, and the log step that
+ *  produced it, so undoing can strike the right lines through. */
+interface UndoEntry {
+  state: BattleState
+  step: number
+}
+
 class BattleStore {
   private state: BattleState = initialState
-  private past: BattleState[] = []
+  private past: UndoEntry[] = []
   private log: LogEntry[] = []
   private listeners = new Set<() => void>()
   private hydrated = false
   private persistTimer: ReturnType<typeof setTimeout> | undefined
+  /** Monotonic dispatch counter, stamped onto every log line. */
+  private step = 0
+  /** Highest step restored from storage — everything at or below it predates
+   *  the last reload and can no longer be undone. */
+  private preReloadStep = -1
 
   getState = (): BattleState => this.state
 
   getLog = (): LogEntry[] => this.log
 
   undoDepth = (): number => this.past.length
+
+  /** The step undo would reverse, or null when there is nothing to reverse. */
+  undoableStep = (): number | null => this.past.at(-1)?.step ?? null
+
+  reloadBoundary = (): number => this.preReloadStep
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
@@ -55,8 +82,9 @@ class BattleStore {
     this.state = battleReducer(prev, action)
     if (this.state === prev) return
     if (isUndoable(action)) {
-      this.past = [...this.past.slice(-(UNDO_LIMIT - 1)), prev]
-      this.appendLog(describeAction(action, prev, this.state))
+      const step = ++this.step
+      this.past = [...this.past.slice(-(UNDO_LIMIT - 1)), { state: prev, step }]
+      this.appendLog(describeAction(action, prev, this.state), step)
     }
     this.notify()
     this.schedulePersist()
@@ -87,11 +115,12 @@ class BattleStore {
     }
     if (this.state === before) return
     if (messages.length) {
-      this.past = [...this.past.slice(-(UNDO_LIMIT - 1)), before]
+      const step = ++this.step
+      this.past = [...this.past.slice(-(UNDO_LIMIT - 1)), { state: before, step }]
       // One line for one gesture: the log is the DM's record of the fight, and
       // six lines for one tap devalue it. Callers with something better to say
       // than the concatenated per-action text pass it as a single action.
-      this.appendLog([messages.join(' · ')])
+      this.appendLog([messages.join(' · ')], step)
     }
     this.notify()
     this.schedulePersist()
@@ -104,13 +133,20 @@ class BattleStore {
     this.schedulePersist()
   }
 
-  /** Reverts the last undoable action (turn changes, damage, conditions, …). */
+  /**
+   * Reverts the last undoable action (turn changes, damage, conditions, …).
+   *
+   * The undone lines are struck through in place rather than answered with an
+   * "Undid the last change" line of their own. That line used to become the
+   * newest entry in the log — and being un-undoable itself, it left the History
+   * view with a top entry that could not carry the undo icon.
+   */
   undo = (): void => {
-    const prev = this.past.at(-1)
-    if (!prev) return
+    const entry = this.past.at(-1)
+    if (!entry) return
     this.past = this.past.slice(0, -1)
-    this.state = prev
-    this.appendLog(['Undid the last change'])
+    this.state = entry.state
+    this.log = this.log.map((line) => (line.step === entry.step ? { ...line, reverted: true } : line))
     this.notify()
     this.schedulePersist()
   }
@@ -133,16 +169,23 @@ class BattleStore {
         this.log = []
       }
     }
+    // A restored log outlives the undo stack, which is memory-only. Stamping the
+    // restored lines (logs written before steps existed have none) and recording
+    // where they end lets the History view draw the "before reloading" boundary
+    // instead of just showing entries that mysteriously cannot be undone.
+    this.log = this.log.map((line, i) => (typeof line.step === 'number' ? line : { ...line, step: i }))
+    this.step = this.log.reduce((max, line) => Math.max(max, line.step), -1)
+    this.preReloadStep = this.step
     this.past = []
     this.hydrated = true
     this.notify()
   }
 
-  private appendLog(messages: string[]): void {
+  private appendLog(messages: string[], step: number): void {
     if (!messages.length) return
     const at = Date.now()
     const round = this.state.battle.round
-    this.log = [...this.log, ...messages.map((message) => ({ at, round, message }))].slice(-LOG_LIMIT)
+    this.log = [...this.log, ...messages.map((message) => ({ at, round, message, step }))].slice(-LOG_LIMIT)
   }
 
   private notify(): void {
@@ -177,4 +220,13 @@ export function useUndoDepth(): number {
 
 export function useCombatLog(): LogEntry[] {
   return useSyncExternalStore(battleStore.subscribe, battleStore.getLog)
+}
+
+/** The step undo would reverse — what the History view puts the icon on. */
+export function useUndoableStep(): number | null {
+  return useSyncExternalStore(battleStore.subscribe, battleStore.undoableStep)
+}
+
+export function useReloadBoundary(): number {
+  return useSyncExternalStore(battleStore.subscribe, battleStore.reloadBoundary)
 }

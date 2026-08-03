@@ -12,7 +12,6 @@ import { amountAfterSave, readSave, SAVE_ABILITIES, saveBonus, type SaveVerdict 
 import { CONDITIONS, type Ability, type Combatant } from '../types'
 import { ApplyCondition } from './ApplyCondition'
 import { AssignGroup } from './AssignGroup'
-import { BattleControls } from './BattleControls'
 import { CombatantRow } from './CombatantRow'
 import { GroupRow } from './GroupRow'
 import { ConditionEditor } from './ConditionEditor'
@@ -259,9 +258,10 @@ export function TrackerPane({
         </SortableContext>
       </DndContext>
 
-      {/* The dock is pinned below the list: mode switches on the left, turn
-          control hard right, so neither moves while the list scrolls. In AoE
-          mode the same strip becomes the AoE bar. */}
+      {/* The dock is pinned below the list and holds the tools — turn control
+          moved to the top bar, which cannot scroll either. In AoE mode the same
+          strip becomes the AoE bar. Both stay the bottom layer of the pane: the
+          drawer ends above them. */}
       {multiSelect ? (
         <div className="aoe-bar">
           <span className="aoe-count">{checked.size} selected</span>
@@ -365,7 +365,6 @@ export function TrackerPane({
             </button>
           )}
           <span className="spacer" />
-          <BattleControls />
         </div>
       )}
 
