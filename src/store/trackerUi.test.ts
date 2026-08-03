@@ -38,18 +38,31 @@ describe('trackerUiReducer — selection and pin', () => {
 })
 
 describe('trackerUiReducer — AoE', () => {
-  it('drops the selection when AoE is switched off', () => {
-    // Coming back to checkboxes picked for a spell three turns ago is never
-    // what was meant.
-    const armed = state({ multiSelect: true, checked: new Set(['a', 'b']) })
-    const off = trackerUiReducer(armed, { type: 'setMultiSelect', on: false })
-    expect(off.multiSelect).toBe(false)
-    expect(off.checked.size).toBe(0)
+  it('resets the bar completely on the way out', () => {
+    // "Done" is the only way out now that the bar has no Clear button, so it has
+    // to leave nothing behind: targets picked for a spell three turns ago and a
+    // damage number from that spell are both wrong on the way back in.
+    const armed = state({ multiSelect: true, checked: new Set(['a', 'b']), aoeAmount: '8d6' })
+    expect(trackerUiReducer(armed, { type: 'exitAoe' })).toMatchObject({
+      multiSelect: false,
+      aoeAmount: '',
+    })
+    expect(trackerUiReducer(armed, { type: 'exitAoe' }).checked.size).toBe(0)
   })
 
   it('keeps the selection when AoE is re-armed with one already in progress', () => {
     const armed = state({ multiSelect: true, checked: new Set(['a']) })
-    expect(trackerUiReducer(armed, { type: 'setMultiSelect', on: true }).checked.size).toBe(1)
+    expect(trackerUiReducer(armed, { type: 'armAoe' }).checked.size).toBe(1)
+  })
+
+  it('returns the same object when arming an already-armed bar', () => {
+    const armed = state({ multiSelect: true })
+    expect(trackerUiReducer(armed, { type: 'armAoe' })).toBe(armed)
+  })
+
+  it('leaves selection and pin alone on the way out of AoE', () => {
+    const armed = state({ multiSelect: true, selectedId: 'a', pinnedId: 'b' })
+    expect(trackerUiReducer(armed, { type: 'exitAoe' })).toMatchObject({ selectedId: 'a', pinnedId: 'b' })
   })
 
   it('arms the bar and fills the amount from a roll in one step', () => {

@@ -210,20 +210,24 @@ function App() {
             drawer.open()
           }}
           multiSelect={ui.multiSelect}
-          onMultiSelectChange={(on) => uiDispatch({ type: 'setMultiSelect', on })}
+          onArmAoe={() => uiDispatch({ type: 'armAoe' })}
+          onExitAoe={() => uiDispatch({ type: 'exitAoe' })}
           checked={ui.checked}
           onCheckedChange={(checked) => uiDispatch({ type: 'setChecked', checked })}
           aoeAmount={ui.aoeAmount}
           onAoeAmountChange={(amount) => uiDispatch({ type: 'setAoeAmount', amount })}
           onSendRollToAoe={sendRollToAoe}
         />
-        <Drawer state={drawer} title="Statblock">
+        {/* The statblock groups Close with its own Edit and Pin, so the drawer
+            supplies a close button only when there is no statblock to carry it. */}
+        <Drawer state={drawer} title="Statblock" ownClose={!shown}>
           {shown ? (
             <StatblockPanel
               combatant={shown}
               pinned={ui.pinnedId === shown.id}
               onTogglePin={() => uiDispatch({ type: 'togglePin', id: shown.id })}
               onSendRollToAoe={sendRollToAoe}
+              onCloseDrawer={drawer.close}
             />
           ) : (
             <p className="dim empty-hint">Select a combatant to see its statblock.</p>

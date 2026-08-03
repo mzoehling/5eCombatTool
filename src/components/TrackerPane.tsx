@@ -22,7 +22,9 @@ interface TrackerPaneProps {
   onSelect: (id: string) => void
   /** AoE multi-select state is owned by App (shared with the statblock panel). */
   multiSelect: boolean
-  onMultiSelectChange: (on: boolean) => void
+  onArmAoe: () => void
+  /** Leaves AoE mode and resets the bar — see store/trackerUi.ts. */
+  onExitAoe: () => void
   checked: ReadonlySet<string>
   onCheckedChange: (checked: ReadonlySet<string>) => void
   /** The AoE amount field. Owned by App because the dice roller writes into it,
@@ -38,7 +40,8 @@ export function TrackerPane({
   selectedId,
   onSelect,
   multiSelect,
-  onMultiSelectChange,
+  onArmAoe,
+  onExitAoe,
   checked,
   onCheckedChange,
   aoeAmount,
@@ -150,6 +153,18 @@ export function TrackerPane({
   const rollNpcs = () => {
     const { ids, rolls } = groupedInitiativeRolls(unrolledNpcs, d20)
     dispatch({ type: 'rollInitiative', ids, rolls })
+  }
+
+  /**
+   * Leaving the AoE bar resets it: targets and amount in the store, the save
+   * helper here. It is the only way out now that the bar has no Clear button, so
+   * anything left behind would be waiting the next time it is armed.
+   */
+  const exitAoe = () => {
+    onExitAoe()
+    setSaveAbility(null)
+    setSaveDc('')
+    setSaves(new Map())
   }
 
   const toggleCheck = (id: string) => {
@@ -275,12 +290,6 @@ export function TrackerPane({
       {multiSelect ? (
         <div className="aoe-bar">
           <span className="aoe-count">{checked.size} selected</span>
-          <button type="button" className="ghost" onClick={() => onCheckedChange(new Set(ordered.map((c) => c.id)))}>
-            All visible
-          </button>
-          <button type="button" className="ghost" disabled={checked.size === 0} onClick={() => onCheckedChange(new Set())}>
-            Clear
-          </button>
           <input
             className="aoe-amount"
             inputMode="numeric"
@@ -348,13 +357,14 @@ export function TrackerPane({
             )}
           </span>
           <span className="spacer" />
-          <button type="button" className="ghost" onClick={() => onMultiSelectChange(false)}>
+          {/* The way out, and the reset: there is no separate Clear. */}
+          <button type="button" className="ghost" onClick={exitAoe}>
             Done
           </button>
         </div>
       ) : (
         <div className="turn-dock">
-          <button type="button" className="icon-label" onClick={() => onMultiSelectChange(true)}>
+          <button type="button" className="icon-label" onClick={onArmAoe}>
             <Icon path={mdiVectorCircle} /> AoE
           </button>
           <button type="button" className="icon-label" onClick={() => setShowDice(true)}>

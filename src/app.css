@@ -617,18 +617,14 @@ textarea {
   padding: var(--space-4);
 }
 
-/* Hard in the corner, where a thumb reaches it. It floats over the drawer's
-   content, so whatever the content puts in its own top-right — the statblock's
-   pin — has to be given room for it. */
+/* Only for content that carries no close button of its own — the empty hint. A
+   statblock groups Close with its Edit and Pin instead, so nothing floats over
+   the header and no room has to be reserved for it. */
 .drawer-close {
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
   z-index: 3;
-}
-
-.drawer .sb-header {
-  padding-right: calc(var(--target-icon) + var(--space-2));
 }
 
 /* A phone has no room for two panes side by side at any drawer size. */
@@ -937,8 +933,9 @@ textarea {
   color: var(--text-dim);
 }
 
-.cond-btn,
-.edit-btn {
+/* The row's one button. Edit moved to the statblock header and took `.edit-btn`
+   with it — the statblock's controls are plain `.icon-only` buttons. */
+.cond-btn {
   min-width: var(--target-icon);
   min-height: var(--target-icon);
   padding: 0;
@@ -1166,8 +1163,7 @@ textarea {
     height: 60px;
   }
 
-  .cond-btn,
-  .edit-btn {
+  .cond-btn {
     min-width: var(--target-pencil);
     min-height: var(--target-pencil);
   }
@@ -1680,6 +1676,16 @@ label.check {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+}
+
+/* Edit, Pin and Close as one set, hard right of the name. All three are plain
+   44px icon buttons; the only difference between them is that Pin goes `primary`
+   while it is on, which is state rather than a second style. */
+.sb-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
 }
 
 .sb-header h2 {

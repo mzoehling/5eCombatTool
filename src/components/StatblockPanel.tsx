@@ -1,4 +1,4 @@
-import { mdiDotsHorizontal, mdiPin, mdiPinOutline, mdiRestore } from '@mdi/js'
+import { mdiClose, mdiDotsHorizontal, mdiPin, mdiPinOutline, mdiRestore } from '@mdi/js'
 import { Fragment, useState } from 'react'
 import { originLabel, type Origin } from '../data/compendium'
 import { describeCondition } from '../data/conditionInfo'
@@ -36,6 +36,13 @@ interface StatblockPanelProps {
   onTogglePin: () => void
   /** Hands a rolled total to the AoE bar; absent where there is no tracker. */
   onSendRollToAoe?: (amount: number) => void
+  /**
+   * Closes the drawer this panel sits in. Rendered here rather than by the
+   * drawer so that Edit, Pin and Close read as the one group of controls they
+   * are; absent for an embedded panel (a compendium preview or a referenced
+   * creature), which has no drawer to close.
+   */
+  onCloseDrawer?: () => void
   /** Where the statblock was looked up. Set by the compendium/reference views;
    *  omitted for tracker combatants, which have no compendium provenance. */
   origin?: Origin
@@ -359,7 +366,14 @@ function UsesTab({ combatant }: { combatant: Combatant }) {
   )
 }
 
-export function StatblockPanel({ combatant, pinned, onTogglePin, onSendRollToAoe, origin }: StatblockPanelProps) {
+export function StatblockPanel({
+  combatant,
+  pinned,
+  onTogglePin,
+  onSendRollToAoe,
+  onCloseDrawer,
+  origin,
+}: StatblockPanelProps) {
   const [tab, setTab] = useState<Tab>('general')
   const [editing, setEditing] = useState(false)
   const [rollExpr, setRollExpr] = useState<string | null>(null)
@@ -400,27 +414,44 @@ export function StatblockPanel({ combatant, pinned, onTogglePin, onSendRollToAoe
       <div className="sb-sticky">
         <header className="sb-header">
           <h2>{sb?.name ?? combatant.name}</h2>
-          {/* Editing a combatant lives here rather than in its row: name, max HP
-              and AC are prep, not something reached for mid-turn, and the row's
-              right side is for the numbers that do change during a fight. */}
-          <button
-            type="button"
-            className="icon-only edit-btn"
-            onClick={() => setEditing(true)}
-            aria-label={`Edit ${combatant.name}`}
-            title="Edit this combatant"
-          >
-            <Icon path={mdiDotsHorizontal} />
-          </button>
-          <button
-            type="button"
-            className={pinned ? 'primary icon-only' : 'icon-only'}
-            onClick={onTogglePin}
-            aria-label={pinned ? 'Unpin statblock' : 'Pin statblock'}
-            title="Pinned statblocks do not switch with the turn"
-          >
-            <Icon path={pinned ? mdiPin : mdiPinOutline} />
-          </button>
+          {/* One group, one style: edit the combatant, pin the panel, close the
+              drawer. They were three styles in two places — two in the header and
+              a ghost X floating in the drawer's corner. `primary` on Pin is
+              state, not a different kind of button. */}
+          <div className="sb-actions">
+            {/* Editing a combatant lives here rather than in its row: name, max
+                HP and AC are prep, not something reached for mid-turn, and the
+                row's right side is for the numbers that do change in a fight. */}
+            <button
+              type="button"
+              className="icon-only"
+              onClick={() => setEditing(true)}
+              aria-label={`Edit ${combatant.name}`}
+              title="Edit this combatant"
+            >
+              <Icon path={mdiDotsHorizontal} />
+            </button>
+            <button
+              type="button"
+              className={pinned ? 'primary icon-only' : 'icon-only'}
+              onClick={onTogglePin}
+              aria-label={pinned ? 'Unpin statblock' : 'Pin statblock'}
+              title="Pinned statblocks do not switch with the turn"
+            >
+              <Icon path={pinned ? mdiPin : mdiPinOutline} />
+            </button>
+            {onCloseDrawer && (
+              <button
+                type="button"
+                className="icon-only"
+                onClick={onCloseDrawer}
+                aria-label="Close statblock"
+                title="Close statblock"
+              >
+                <Icon path={mdiClose} />
+              </button>
+            )}
+          </div>
         </header>
         {sb && <p className="sb-meta">{metaLine(sb, origin)}</p>}
         {sb && <SbStatLine sb={sb} actions={actions} />}

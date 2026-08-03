@@ -33,7 +33,9 @@ export const initialTrackerUi: TrackerUiState = {
 export type TrackerUiAction =
   | { type: 'select'; id: string }
   | { type: 'togglePin'; id: string }
-  | { type: 'setMultiSelect'; on: boolean }
+  | { type: 'armAoe' }
+  /** Leaving the AoE bar resets it completely — see the reducer. */
+  | { type: 'exitAoe' }
   | { type: 'setChecked'; checked: ReadonlySet<string> }
   | { type: 'setAoeAmount'; amount: string }
   /** A rolled total lands in the AoE bar and arms it, in one step. */
@@ -49,10 +51,15 @@ export function trackerUiReducer(state: TrackerUiState, action: TrackerUiAction)
     case 'togglePin':
       return { ...state, pinnedId: state.pinnedId === action.id ? null : action.id }
 
-    case 'setMultiSelect':
-      // Leaving AoE mode drops the selection: coming back to a set of checkboxes
-      // chosen for a spell three turns ago is never what was meant.
-      return { ...state, multiSelect: action.on, checked: action.on ? state.checked : new Set() }
+    case 'armAoe':
+      return state.multiSelect ? state : { ...state, multiSelect: true }
+
+    case 'exitAoe':
+      // Leaving resets the bar entirely — targets *and* the amount. Coming back
+      // to a set of checkboxes and a damage number chosen for a spell three
+      // turns ago is never what was meant, and "Done" is the only way out now
+      // that the bar has no Clear button of its own.
+      return { ...state, multiSelect: false, checked: new Set(), aoeAmount: '' }
 
     case 'setChecked':
       return { ...state, checked: action.checked }

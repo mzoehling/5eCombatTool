@@ -182,6 +182,12 @@ export function useDrawer(host: HTMLElement | null): DrawerState {
 interface DrawerProps {
   state: DrawerState
   title: string
+  /**
+   * Whether the drawer supplies its own close button. Off when the content puts
+   * one in its own controls — the statblock groups Close with Edit and Pin, where
+   * the three read as one set rather than as two styles in two corners.
+   */
+  ownClose?: boolean
   children: ReactNode
 }
 
@@ -195,7 +201,7 @@ interface DrawerProps {
  * dragged it floats over the tracker instead, so the rows reflow once on
  * release rather than on every frame of the gesture.
  */
-export function Drawer({ state, title, children }: DrawerProps) {
+export function Drawer({ state, title, ownClose = true, children }: DrawerProps) {
   const { side, mode, size, dragSize } = state
   const dragging = dragSize !== null
   const axis = side === 'right' ? 'width' : 'height'
@@ -235,15 +241,17 @@ export function Drawer({ state, title, children }: DrawerProps) {
         <Icon path={mdiUnfoldMoreVertical} />
       </div>
       <div className="drawer-body">
-        <button
-          type="button"
-          className="ghost icon-only drawer-close"
-          aria-label={`Close ${title}`}
-          title={`Close ${title}`}
-          onClick={state.close}
-        >
-          <Icon path={mdiClose} />
-        </button>
+        {ownClose && (
+          <button
+            type="button"
+            className="icon-only drawer-close"
+            aria-label={`Close ${title}`}
+            title={`Close ${title}`}
+            onClick={state.close}
+          >
+            <Icon path={mdiClose} />
+          </button>
+        )}
         {children}
       </div>
     </aside>
