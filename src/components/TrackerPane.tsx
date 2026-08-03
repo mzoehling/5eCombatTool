@@ -388,17 +388,8 @@ export function TrackerPane({
       )}
 
       {/* The roller hands its total to the AoE bar rather than applying anything
-          itself — see App.sendRollToAoe. Closing it is this pane's business,
-          since this pane opened it. */}
-      {showDice && (
-        <DiceRoller
-          onSendToAoe={(amount) => {
-            onSendRollToAoe(amount)
-            setShowDice(false)
-          }}
-          onClose={() => setShowDice(false)}
-        />
-      )}
+          itself, and closes itself afterwards — see App.sendRollToAoe. */}
+      {showDice && <DiceRoller onSendToAoe={onSendRollToAoe} onClose={() => setShowDice(false)} />}
       {groupFor && <AssignGroup ids={groupFor} onClose={() => setGroupFor(null)} />}
       {conditionsFor !== null && (
         <ConditionsDialog targets={conditionTargets} onClose={() => setConditionsFor(null)} />

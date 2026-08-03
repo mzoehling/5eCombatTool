@@ -12,7 +12,8 @@ interface DiceRollerProps {
   /**
    * Hands a rolled total to the AoE bar (DM view only; absent in the Player
    * View). The roller never applies anything itself — see the note on the
-   * button.
+   * button — and closes itself once the number has been handed over, since the
+   * next thing the DM does is pick targets in the bar behind it.
    */
   onSendToAoe?: (amount: number) => void
 }
@@ -227,7 +228,17 @@ export const DiceRoller = memo(function DiceRoller({
                   two implementations of one thing, and this one dispatched
                   twice — so one gesture cost two undos. */}
               {onSendToAoe && (
-                <button type="button" className="apply-roll-btn" onClick={() => onSendToAoe(latest.kept.total)}>
+                <button
+                  type="button"
+                  className="apply-roll-btn"
+                  onClick={() => {
+                    onSendToAoe(latest.kept.total)
+                    // Closing here rather than at each call site: the roller is
+                    // opened from the dock and from the statblock's dice links,
+                    // and leaving it up hides the bar the number just went to.
+                    onClose()
+                  }}
+                >
                   Send to AoE bar →
                 </button>
               )}

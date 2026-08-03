@@ -32,13 +32,15 @@ function stops(gradient: string): number[] {
 }
 
 describe('hpFillGradient', () => {
-  it('never reaches the number column, even at full health', () => {
-    // The whole point of the cap: no tint sits behind a digit.
+  it('never runs past the row, even with temp HP on top', () => {
     expect(Math.max(...stops(hpFillGradient(100, 100)))).toBeLessThanOrEqual(HP_FILL_EXTENT)
     expect(Math.max(...stops(hpFillGradient(100, 100, 50)))).toBeLessThanOrEqual(HP_FILL_EXTENT)
   })
 
-  it('ends exactly at the extent at full health', () => {
+  it('fills the whole row at full health', () => {
+    // A full bar has to read as a full row — that is the point of making it the
+    // row's background rather than a strip inside it.
+    expect(HP_FILL_EXTENT).toBe(100)
     expect(hpFillGradient(100, 100)).toContain(`transparent ${HP_FILL_EXTENT}%`)
   })
 

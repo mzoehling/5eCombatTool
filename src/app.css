@@ -661,7 +661,13 @@ textarea {
    Two separate layers, and they must stay separate: `background-image` carries
    the health fill, `background-color` the row's state (active turn, AoE
    selection). Collapsing them into the `background` shorthand means whichever
-   rule is written last wins and the other silently vanishes. */
+   rule is written last wins and the other silently vanishes.
+
+   The fill spans the whole row, so full health reads as a full row. Everything
+   on the right sits over it, and each of those has its own surface — the HP
+   fields are inputs, the AC is a shield, the chips and the AoE preview are
+   pills — which is what keeps the numbers legible without the fill having to
+   stop short of them. */
 .combatant-row {
   display: flex;
   align-items: center;

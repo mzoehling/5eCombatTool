@@ -21,12 +21,16 @@ export function hpMeterWidths(hp: number, maxHp: number, tempHp = 0): { hp: numb
 /**
  * How far across the row a full bar reaches, in percent.
  *
- * The health bar is the row's own background now rather than an 11px strip, so
- * it has to stop before the number column: no tint ever sits behind a digit.
- * The consequence is deliberate — a full bar reads as "up to the numbers", not
- * as a full row.
+ * The whole row: full health reads as a full row, which is the point of making
+ * the bar the row's own background rather than an 11px strip inside it.
+ *
+ * It stopped short of the number column for a while, so that no tint would ever
+ * sit behind a digit. But every number on the right already has its own surface —
+ * the HP fields are inputs, the AC is a shield glyph, the chips and the AoE
+ * preview are pills — so there was nothing there to protect, and the shortfall
+ * only made a healthy creature's bar look partial.
  */
-export const HP_FILL_EXTENT = 62
+export const HP_FILL_EXTENT = 100
 
 /** Width of the soft edge at the outer end of the fill, in percent of the row. */
 const FADE = 5
