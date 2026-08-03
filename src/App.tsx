@@ -22,6 +22,7 @@ import { UpdateBanner } from './components/UpdateBanner'
 import { rollDie } from './lib/dice'
 import { useTheme } from './lib/useTheme'
 import { battleStore, useBattleState } from './store/battleStore'
+import { useTrackerUi } from './store/trackerUi'
 
 /** Pre-rolled d6 pool for the reducer's recharge checks (it stays pure). */
 const rechargeDice = () => Array.from({ length: 8 }, () => rollDie(6))
@@ -51,20 +52,27 @@ function spaceIsClaimed(): boolean {
 
 function App() {
   const [hydrated, setHydrated] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [pinnedId, setPinnedId] = useState<string | null>(null)
   const [showPlayerView, setShowPlayerView] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   // The library dialogs are opened from the top bar, so their state lives here
   // rather than in the tracker pane. Content is a tab of Encounters now, not a
   // dialog of its own.
   const [libraryModal, setLibraryModal] = useState<'compendium' | 'encounters' | null>(null)
-  // The AoE bar's state lives here, not in the tracker pane, because the dice
-  // roller writes into it — and the roller is opened from the statblock (dice
-  // links in attack text) as well as from the dock.
-  const [multiSelect, setMultiSelect] = useState(false)
-  const [checked, setChecked] = useState<ReadonlySet<string>>(new Set())
-  const [aoeAmount, setAoeAmount] = useState('')
+  /**
+   * Selection, pin and the AoE bar. One reducer rather than five `useState`
+   * calls: two gestures move more than one of them at once — a roll arms the bar
+   * *and* fills the amount, a turn change releases the selection — and as
+   * separate setState calls those had to be kept in step by hand.
+   *
+   * The AoE bar's state belongs at this level rather than in the tracker pane
+   * because the dice roller writes into it, and the roller opens from the
+   * statblock's dice links as well as from the dock.
+   *
+   * View state only: see store/trackerUi.ts. It never touches the battle
+   * reducer, which stays the single write path for anything persisted or
+   * broadcast.
+   */
+  const [ui, uiDispatch] = useTrackerUi()
   const [theme, toggleTheme] = useTheme()
   const state = useBattleState()
   const activeId = state.battle.activeCombatantId
@@ -105,19 +113,13 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  // unpinned panel follows the turn: a turn change resets manual selection
-  useEffect(() => setSelectedId(null), [activeId])
+  // unpinned panel follows the turn: a turn change releases manual selection
+  useEffect(() => uiDispatch({ type: 'turnChanged' }), [activeId, uiDispatch])
 
   /** A rolled total goes into the AoE bar, which is the one place that applies
-   *  damage to a selection. Arming AoE is part of it — otherwise the number
-   *  would land in a bar the DM cannot see. */
-  const sendRollToAoe = (amount: number) => {
-    setAoeAmount(String(amount))
-    setMultiSelect((on) => {
-      if (!on) setChecked(new Set())
-      return true
-    })
-  }
+   *  damage to a selection. Arming the bar is part of it — otherwise the number
+   *  would land somewhere the DM cannot see. */
+  const sendRollToAoe = (amount: number) => uiDispatch({ type: 'sendRollToAoe', amount })
 
   if (!hydrated) {
     return (
@@ -127,7 +129,7 @@ function App() {
     )
   }
 
-  const shownId = pinnedId ?? selectedId ?? (state.battle.isRunning ? activeId : null)
+  const shownId = ui.pinnedId ?? ui.selectedId ?? (state.battle.isRunning ? activeId : null)
   const shown = state.combatants.find((c) => c.id === shownId)
 
   return (
@@ -201,29 +203,26 @@ function App() {
         <TrackerPane
           selectedId={shown?.id ?? null}
           onSelect={(id) => {
-            setSelectedId(id)
+            uiDispatch({ type: 'select', id })
             // Looking something up is what the drawer is for, so selecting a
             // combatant opens it. It starts closed, and this is the gesture that
             // opens it without a second tap.
             drawer.open()
           }}
-          multiSelect={multiSelect}
-          onMultiSelectChange={(on) => {
-            setMultiSelect(on)
-            setChecked(new Set())
-          }}
-          checked={checked}
-          onCheckedChange={setChecked}
-          aoeAmount={aoeAmount}
-          onAoeAmountChange={setAoeAmount}
+          multiSelect={ui.multiSelect}
+          onMultiSelectChange={(on) => uiDispatch({ type: 'setMultiSelect', on })}
+          checked={ui.checked}
+          onCheckedChange={(checked) => uiDispatch({ type: 'setChecked', checked })}
+          aoeAmount={ui.aoeAmount}
+          onAoeAmountChange={(amount) => uiDispatch({ type: 'setAoeAmount', amount })}
           onSendRollToAoe={sendRollToAoe}
         />
         <Drawer state={drawer} title="Statblock">
           {shown ? (
             <StatblockPanel
               combatant={shown}
-              pinned={pinnedId === shown.id}
-              onTogglePin={() => setPinnedId(pinnedId === shown.id ? null : shown.id)}
+              pinned={ui.pinnedId === shown.id}
+              onTogglePin={() => uiDispatch({ type: 'togglePin', id: shown.id })}
               onSendRollToAoe={sendRollToAoe}
             />
           ) : (
