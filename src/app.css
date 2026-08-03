@@ -1588,6 +1588,23 @@ label.check {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
+/* The fold that keeps the condition reader a reader. Full-width and left-aligned
+   so it reads as a section heading you can open, not as a stray button. */
+.condition-apply-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  justify-content: flex-start;
+  min-height: var(--target-pencil);
+  padding-left: 0;
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
 .apply-list {
   list-style: none;
   margin: 0;

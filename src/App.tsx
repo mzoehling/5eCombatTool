@@ -228,6 +228,7 @@ function App() {
               onTogglePin={() => uiDispatch({ type: 'togglePin', id: shown.id })}
               onSendRollToAoe={sendRollToAoe}
               onCloseDrawer={drawer.close}
+              preselectIds={ui.multiSelect ? ui.checked : undefined}
             />
           ) : (
             <p className="dim empty-hint">Select a combatant to see its statblock.</p>

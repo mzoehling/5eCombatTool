@@ -43,6 +43,11 @@ interface StatblockPanelProps {
    * creature), which has no drawer to close.
    */
   onCloseDrawer?: () => void
+  /**
+   * The AoE selection, pre-checked when a condition read out of this statblock's
+   * text is applied. Absent when the bar is not armed.
+   */
+  preselectIds?: ReadonlySet<string>
   /** Where the statblock was looked up. Set by the compendium/reference views;
    *  omitted for tracker combatants, which have no compendium provenance. */
   origin?: Origin
@@ -372,6 +377,7 @@ export function StatblockPanel({
   onTogglePin,
   onSendRollToAoe,
   onCloseDrawer,
+  preselectIds,
   origin,
 }: StatblockPanelProps) {
   const [tab, setTab] = useState<Tab>('general')
@@ -556,7 +562,9 @@ export function StatblockPanel({
       )}
       {/* A reader, not a form: tapping "Prone" in an attack's text is a question
           about the rules. Setting the condition is the row's job. */}
-      {conditionFor !== null && <ConditionInfo name={conditionFor} onClose={() => setConditionFor(null)} />}
+      {conditionFor !== null && (
+        <ConditionInfo name={conditionFor} preselect={preselectIds} onClose={() => setConditionFor(null)} />
+      )}
       {editing && <EditCombatant combatant={combatant} onClose={() => setEditing(false)} />}
     </div>
   )
