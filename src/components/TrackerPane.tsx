@@ -80,7 +80,16 @@ export function TrackerPane({
   for (const c of ordered) {
     if (c.initiative !== null) initiativeCounts.set(c.initiative, (initiativeCounts.get(c.initiative) ?? 0) + 1)
   }
-  const isTied = (init: number | null) => init !== null && (initiativeCounts.get(init) ?? 0) > 1
+  /**
+   * Rows that share an initiative value with a neighbour, which is the only case
+   * where manual ordering means anything.
+   *
+   * Unrolled combatants sit at 0 (or null), so before initiative is rolled every
+   * row "tied" with every other and the whole list grew reorder handles that
+   * reordered nothing. An unset value is not a tie.
+   */
+  const isTied = (init: number | null) =>
+    init !== null && init !== 0 && (initiativeCounts.get(init) ?? 0) > 1
 
   // auto-clear condition-expiry and turn-event notices
   useEffect(() => {
@@ -185,13 +194,19 @@ export function TrackerPane({
   // produces one, so an empty or half-typed field shows nothing. Dice cannot be
   // previewed as a number — the roll happens on apply — so the row shows the
   // notation instead, halved or not exactly as the total will be.
+  //
+  // The sign is `±`, the same as the row's own ±HP field, because the direction
+  // genuinely is not known yet: the bar carries both Damage and Heal, and which
+  // one is tapped is the DM's next decision. It used to render a hard `−` and a
+  // danger-red pill, which told the DM they were about to hurt everyone selected
+  // when they had typed a healing amount.
   const aoeValue = evalArithmetic(aoeAmount)
   const aoeDice = aoeValue === null && parseDiceExpression(aoeAmount) !== null
   const aoePreview = multiSelect && aoeValue !== null && aoeValue > 0 ? aoeValue : null
   const previewLabel = (id: string): string | undefined => {
     const halved = saves.get(id)?.verdict === 'saved'
-    if (aoePreview !== null) return `−${amountAfterSave(aoePreview, saves.get(id)?.verdict)} hp`
-    if (multiSelect && aoeDice) return `−${halved ? '½ ' : ''}${aoeAmount.trim()}`
+    if (aoePreview !== null) return `±${amountAfterSave(aoePreview, saves.get(id)?.verdict)} hp`
+    if (multiSelect && aoeDice) return `±${halved ? '½ ' : ''}${aoeAmount.trim()}`
     return undefined
   }
   const savedCount = [...checked].filter((id) => saves.get(id)?.verdict === 'saved').length

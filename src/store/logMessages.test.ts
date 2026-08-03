@@ -46,6 +46,30 @@ describe('describeAction', () => {
     expect(messagesFor(state, { type: 'applyHealing', ids: ['g1'], amount: 4 })).toEqual(['4 healing → Goblin'])
   })
 
+  it('logs death saves, and names the outcome at three of either', () => {
+    const thora = makeCombatant('p1', 'Thora', { isPC: true, hp: 0 })
+    const state = stateWith(thora)
+    expect(messagesFor(state, { type: 'setDeathSaves', id: 'p1', successes: 1, failures: 2 })).toEqual([
+      'Thora: death saves 1 success / 2 failure',
+    ])
+    // Three of either ends it, so the line says so rather than leaving the DM to
+    // read it off two counts.
+    expect(messagesFor(state, { type: 'setDeathSaves', id: 'p1', successes: 3, failures: 0 })).toEqual([
+      'Thora: death saves 3 success / 0 failure — stabilises',
+    ])
+    expect(messagesFor(state, { type: 'setDeathSaves', id: 'p1', successes: 0, failures: 3 })).toEqual([
+      'Thora: death saves 0 success / 3 failure — dies',
+    ])
+  })
+
+  it('logs clearing the death-save tally', () => {
+    const thora = makeCombatant('p1', 'Thora', { isPC: true, hp: 0, deathSaves: { successes: 2, failures: 1 } })
+    const state = stateWith(thora)
+    expect(messagesFor(state, { type: 'setDeathSaves', id: 'p1', successes: 0, failures: 0 })).toEqual([
+      'Thora: death saves cleared',
+    ])
+  })
+
   it('describes turn changes with round transitions and expiring conditions', () => {
     let state = stateWith(goblin, wolf)
     state = battleReducer(state, {

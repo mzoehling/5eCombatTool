@@ -330,10 +330,71 @@ function ConditionsTab({ combatant, actions }: { combatant: Combatant; actions: 
   )
 }
 
+/**
+ * Death saving throws, as a marker.
+ *
+ * PCs only — monsters do not make them. Three boxes each way; tapping a box sets
+ * the count to it, and tapping the last ticked one clears back down, so a
+ * mis-tap costs one tap to undo. The app does not roll them, does not decide
+ * what three failures means, and does not show them anywhere else: not on the
+ * row, not in the Player View. It is the DM's tally, in the same place as the
+ * other per-combatant counters.
+ *
+ * Healing above 0 clears it, in the reducer — otherwise the ticks outlive the
+ * crisis and are still there the next time the same PC drops.
+ */
+function DeathSaves({ combatant }: { combatant: Combatant }) {
+  const { dispatch } = battleStore
+  const { successes = 0, failures = 0 } = combatant.deathSaves ?? {}
+
+  const set = (successes: number, failures: number) =>
+    dispatch({ type: 'setDeathSaves', id: combatant.id, successes, failures })
+
+  const row = (label: string, count: number, onSet: (n: number) => void) => (
+    <li>
+      <span className="use-name">{label}</span>
+      <span className="death-boxes">
+        {[1, 2, 3].map((n) => (
+          <button
+            key={n}
+            type="button"
+            className={n <= count ? 'icon-only death-box on' : 'icon-only death-box'}
+            aria-pressed={n <= count}
+            aria-label={`${label} ${n}`}
+            // Tapping the highest ticked box unticks it; anything else sets the
+            // count outright. One tap forward, one tap back.
+            onClick={() => onSet(n === count ? n - 1 : n)}
+          />
+        ))}
+      </span>
+      <span className="use-count">{count}/3</span>
+    </li>
+  )
+
+  return (
+    <section className="sb-section">
+      <h3>Death Saves</h3>
+      <ul className="uses-list death-saves">
+        {row('Successes', successes, (n) => set(n, failures))}
+        {row('Failures', failures, (n) => set(successes, n))}
+      </ul>
+    </section>
+  )
+}
+
 function UsesTab({ combatant }: { combatant: Combatant }) {
   const { dispatch } = battleStore
-  if (!combatant.limits.length) return <p className="dim">No limited-use abilities detected.</p>
+  // A PC with no limited-use abilities still has death saves, so the tab is not
+  // empty for them.
+  if (!combatant.limits.length) {
+    return combatant.isPC ? (
+      <DeathSaves combatant={combatant} />
+    ) : (
+      <p className="dim">No limited-use abilities detected.</p>
+    )
+  }
   return (
+    <>
     <ul className="uses-list">
       {combatant.limits.map((limit) => {
         const remaining = limit.max - limit.used
@@ -368,6 +429,8 @@ function UsesTab({ combatant }: { combatant: Combatant }) {
         )
       })}
     </ul>
+    {combatant.isPC && <DeathSaves combatant={combatant} />}
+    </>
   )
 }
 

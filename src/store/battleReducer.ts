@@ -53,6 +53,8 @@ export type BattleAction =
   | { type: 'setCondition'; id: string; condition: ConditionInstance }
   | { type: 'removeCondition'; id: string; condition: string }
   | { type: 'consumeLimit'; id: string; limitId: string; delta: number }
+  /** Ticks a downed PC's death saves. Both counts are clamped to 0–3. */
+  | { type: 'setDeathSaves'; id: string; successes: number; failures: number }
   | { type: 'clearExpiredNotice' }
 
 /** Initiative desc; ties by sortIndex asc; unrolled (null) last. */
@@ -88,7 +90,16 @@ function damageOne(c: Combatant, amount: number): Combatant {
 }
 
 function healOne(c: Combatant, amount: number): Combatant {
-  return { ...c, hp: Math.min(c.maxHp, c.hp + amount) }
+  const hp = Math.min(c.maxHp, c.hp + amount)
+  // Coming back above 0 ends the dying condition, so the ticks go with it.
+  // Without this the marks outlive the crisis and are still sitting there the
+  // next time the same PC drops — which reads as progress towards a death that
+  // already did not happen.
+  if (hp > 0 && c.deathSaves) {
+    const { deathSaves: _cleared, ...rest } = c
+    return { ...rest, hp }
+  }
+  return { ...c, hp }
 }
 
 /** Decrements round-based condition durations at the creature's turn start. */
@@ -378,6 +389,24 @@ export function battleReducer(state: BattleState, action: BattleAction): BattleS
             l.id === action.limitId ? { ...l, used: Math.min(l.max, Math.max(0, l.used + action.delta)) } : l,
           ),
         })),
+      }
+
+    case 'setDeathSaves':
+      return {
+        ...state,
+        combatants: updateOne(state.combatants, action.id, (c) => {
+          const clamp = (n: number) => Math.min(3, Math.max(0, n))
+          const successes = clamp(action.successes)
+          const failures = clamp(action.failures)
+          // Dropped back to nothing ticked: carry no field at all rather than a
+          // pair of zeroes, so "never dying" and "dying, no saves yet" look the
+          // same in storage and in a backup.
+          if (successes === 0 && failures === 0) {
+            const { deathSaves: _cleared, ...rest } = c
+            return rest
+          }
+          return { ...c, deathSaves: { successes, failures } }
+        }),
       }
 
     case 'clearExpiredNotice':

@@ -86,6 +86,29 @@ describe('projectSnapshot', () => {
     expect(snapshot.participants.map((p) => p.name)).toEqual(['Fighter'])
   })
 
+  it('never transmits a PC death-save tally', () => {
+    // Death saves are the DM's own marker: no row indicator, no chip, and nothing
+    // on the shared screen either. This is here so that adding the field to
+    // Combatant cannot quietly start broadcasting it.
+    const state = stateWith(
+      [
+        makeCombatant({
+          id: 'p1',
+          name: 'Thora',
+          isPC: true,
+          hp: 0,
+          maxHp: 24,
+          deathSaves: { successes: 1, failures: 2 },
+        }),
+      ],
+      { isRunning: true, activeCombatantId: 'p1' },
+    )
+    const json = JSON.stringify(projectSnapshot(state))
+    expect(json).not.toContain('deathSaves')
+    expect(json).not.toContain('successes')
+    expect(json).not.toContain('failures')
+  })
+
   it('transmits initiative order but never initiative values, AC, statblocks, limits, or notes', () => {
     const state = stateWith(
       [

@@ -205,8 +205,20 @@ export interface Combatant {
   hiddenFromPlayers: boolean
   conditions: ConditionInstance[]
   limits: LimitedUse[]
+  /**
+   * Death saving throws for a downed PC: three of either ends it. A marker the
+   * DM ticks, nothing more — the app does not roll them, show them on the row,
+   * or send them to the Player View. Absent until the first tick.
+   */
+  deathSaves?: DeathSaves
   /** Embedded copy — battle entries stay stable if compendium data changes. */
   statblock?: Statblock
+}
+
+/** Ticked successes and failures, each 0–3. */
+export interface DeathSaves {
+  successes: number
+  failures: number
 }
 
 export interface Group {

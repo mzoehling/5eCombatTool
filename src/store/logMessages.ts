@@ -85,6 +85,16 @@ export function describeAction(action: BattleAction, prev: BattleState, next: Ba
       const left = limit.max - limit.used
       return [`${c.name}: ${limit.name} ${action.delta > 0 ? 'used' : 'restored'} (${left}/${limit.max} left)`]
     }
+    case 'setDeathSaves': {
+      const c = next.combatants.find((x) => x.id === action.id)
+      if (!c) return []
+      const { successes = 0, failures = 0 } = c.deathSaves ?? {}
+      if (successes === 0 && failures === 0) return [`${c.name}: death saves cleared`]
+      // Three of either ends it, so the log says so outright rather than leaving
+      // the DM to read it off two counts.
+      const outcome = successes >= 3 ? ' — stabilises' : failures >= 3 ? ' — dies' : ''
+      return [`${c.name}: death saves ${successes} success / ${failures} failure${outcome}`]
+    }
     case 'updateCombatant': {
       const target = nameOf(prev, action.id)
       const messages: string[] = []

@@ -305,3 +305,72 @@ describe('loadEncounter', () => {
     expect(state.battle.groups[0].inBattle).toBe(false)
   })
 })
+
+describe('death saves', () => {
+  const pc = () => makeCombatant({ id: 'p1', name: 'Thora', isPC: true, hp: 0, maxHp: 24 })
+  const withPc = (c: Combatant = pc()): BattleState => ({ ...initialState, combatants: [c] })
+  const saves = (state: BattleState) => state.combatants[0].deathSaves
+
+  it('records ticked successes and failures', () => {
+    const state = battleReducer(withPc(), { type: 'setDeathSaves', id: 'p1', successes: 2, failures: 1 })
+    expect(saves(state)).toEqual({ successes: 2, failures: 1 })
+  })
+
+  it('clamps both counts to 0–3', () => {
+    expect(saves(battleReducer(withPc(), { type: 'setDeathSaves', id: 'p1', successes: 9, failures: -4 }))).toEqual({
+      successes: 3,
+      failures: 0,
+    })
+  })
+
+  it('carries no field at all once nothing is ticked', () => {
+    // "Never dying" and "dying, no saves yet" should look the same in storage and
+    // in a backup, rather than differing by a pair of zeroes.
+    const ticked = battleReducer(withPc(), { type: 'setDeathSaves', id: 'p1', successes: 1, failures: 0 })
+    const cleared = battleReducer(ticked, { type: 'setDeathSaves', id: 'p1', successes: 0, failures: 0 })
+    expect(saves(cleared)).toBeUndefined()
+    expect('deathSaves' in cleared.combatants[0]).toBe(false)
+  })
+
+  it('clears the ticks when healing brings the PC back above 0', () => {
+    // Otherwise the marks outlive the crisis and are still sitting there the next
+    // time the same PC drops, reading as progress towards a death that did not
+    // happen.
+    const ticked = battleReducer(withPc(), { type: 'setDeathSaves', id: 'p1', successes: 1, failures: 2 })
+    const healed = battleReducer(ticked, { type: 'applyHealing', ids: ['p1'], amount: 5 })
+    expect(healed.combatants[0].hp).toBe(5)
+    expect(saves(healed)).toBeUndefined()
+  })
+
+  it('keeps the ticks when healing for zero leaves the PC at 0 hp', () => {
+    const ticked = battleReducer(withPc(), { type: 'setDeathSaves', id: 'p1', successes: 1, failures: 2 })
+    const healed = battleReducer(ticked, { type: 'applyHealing', ids: ['p1'], amount: 0 })
+    expect(healed.combatants[0].hp).toBe(0)
+    expect(saves(healed)).toEqual({ successes: 1, failures: 2 })
+  })
+
+  it('leaves a healed combatant that never had ticks untouched', () => {
+    const state = battleReducer(withPc(), { type: 'applyHealing', ids: ['p1'], amount: 4 })
+    expect('deathSaves' in state.combatants[0]).toBe(false)
+  })
+
+  it('does not resurrect ticks when damage puts the PC back to 0', () => {
+    // Dropping again starts a fresh tally; the reducer simply has none to carry.
+    const healed = battleReducer(
+      battleReducer(withPc(), { type: 'setDeathSaves', id: 'p1', successes: 2, failures: 0 }),
+      { type: 'applyHealing', ids: ['p1'], amount: 6 },
+    )
+    const downAgain = battleReducer(healed, { type: 'applyDamage', ids: ['p1'], amount: 99 })
+    expect(downAgain.combatants[0].hp).toBe(0)
+    expect(saves(downAgain)).toBeUndefined()
+  })
+
+  it('leaves other combatants alone', () => {
+    const state: BattleState = {
+      ...initialState,
+      combatants: [pc(), makeCombatant({ id: 'g1', name: 'Goblin' })],
+    }
+    const next = battleReducer(state, { type: 'setDeathSaves', id: 'p1', successes: 3, failures: 0 })
+    expect(next.combatants[1].deathSaves).toBeUndefined()
+  })
+})

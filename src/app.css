@@ -1025,7 +1025,12 @@ textarea {
   opacity: 0.45;
 }
 
-/* Live preview of what the AoE bar will apply to this row. */
+/* Live preview of the amount the AoE bar will apply to this row.
+   Deliberately neutral: the bar carries both Damage and Heal, so the direction
+   is not decided yet. It was danger-red with a hard `−`, which announced damage
+   while the DM was typing a healing amount, and the `.heal` variant that was
+   meant to cover that could never be applied — nothing knows which button is
+   coming. `±` is what the row's own ±HP field already means. */
 .aoe-preview {
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
@@ -1034,15 +1039,9 @@ textarea {
   white-space: nowrap;
   padding: 0.1rem 0.5rem;
   border-radius: var(--radius-pill);
-  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
-  background: color-mix(in srgb, var(--danger) 16%, transparent);
-  color: var(--danger);
-}
-
-.aoe-preview.heal {
-  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
-  background: color-mix(in srgb, var(--ok) 16%, transparent);
-  color: var(--ok);
+  border: 1px solid var(--gold);
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  color: var(--text);
 }
 
 .aoe-bar {
@@ -1852,6 +1851,35 @@ label.check {
 
 .pip.full {
   background: var(--accent);
+}
+
+/* Death saves. The pips above are read-only decoration drawn inside a button;
+   these boxes *are* the control, so they carry `.icon-only` — the app's existing
+   square 44px hit target — and add only the look. Sizing them by hand does not
+   work: the global `button` floor in index.css sets min-width 44 and app.css
+   sets min-height 48, and a bare `width`/`height` loses to both. */
+.death-boxes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.death-box {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.death-box.on {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+/* No row on the tracker, no chip, no Player View entry: this is a tally the DM
+   keeps, so it does not colour successes green and failures red either. Three of
+   either ends it, and the combat log says which. */
+.death-saves .use-name {
+  flex: 1;
 }
 
 .use-count {
