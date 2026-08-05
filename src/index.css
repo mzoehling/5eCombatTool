@@ -18,10 +18,13 @@
 @layer base, components;
 
 /* ============================================================================
-   Parchment & Ink — design tokens.
-   Light mode is warm vellum, dark mode candlelit parchment. There is one theme;
-   `data-theme` on <html> is always set explicitly by App.tsx, so the bare :root
-   block below is the light palette rather than a "no preference" fallback.
+   Vellum Daylight (light) & Ink & Ash (dark) — design tokens.
+   Light mode is warm vellum with an antique-gold accent. Dark mode is a
+   deliberately NEUTRAL charcoal: the surfaces carry no brown tint, and all the
+   warmth comes from --accent and the semantic colours. Do not re-tint --bg*.
+   There is one theme; `data-theme` on <html> is always set explicitly by
+   App.tsx, so the bare :root block below is the light palette rather than a
+   "no preference" fallback.
    ========================================================================= */
 
 @font-face {
@@ -79,10 +82,10 @@
   color-scheme: light;
 
   /* surfaces ------------------------------------------------------------- */
-  --bg: #e8dfc9; /* app background (page / behind panes)        */
-  --bg-panel: #f6f0e0; /* lists, tracker rows, statblock pane, modals */
+  --bg: #ece3cd; /* app background (page / behind panes)        */
+  --bg-panel: #f8f3e4; /* lists, tracker rows, statblock pane, modals */
   --bg-raised: #ded3b6; /* fields, secondary buttons, table headers    */
-  --surface-sunken: #e0d6bd; /* scroll wells, dice history, results         */
+  --surface-sunken: #e2d8bf; /* scroll wells, dice history, results         */
   --border: #c3b18b;
 
   /* text ----------------------------------------------------------------- */
@@ -90,14 +93,17 @@
   --text-dim: #75664e;
 
   /* accents & semantics -------------------------------------------------- */
-  --accent: #8a2b26; /* oxblood ink — primary actions, dice links   */
-  --gold: #9a7524; /* rules, headings, modal hairlines            */
+  /* Antique gold. The handoff specifies #9a7524; darkened one step because
+     --on-accent on that value is only 3.9:1, short of the 4.5:1 the handoff
+     itself asks for. #886722 keeps the hue and clears AA (4.67:1). */
+  --accent: #886722; /* antique gold — primary actions, dice links  */
+  --gold: #886722; /* rules, headings, modal hairlines            */
   --danger: #a3241f; /* damage, destructive, critical HP            */
   --warn: #9a6a12; /* conditions, bloodied HP, backup reminder    */
   --ok: #4d6a2a; /* healing, save, unharmed HP                  */
   --magic: #5d3a86; /* magic items, concentration                  */
   --on-accent: #fbf6ea; /* text on any filled accent/semantic button   */
-  --focus: #8a2b26; /* 2px focus ring, 2px offset                  */
+  --focus: #886722; /* 2px focus ring, 2px offset                  */
 
   /* type ----------------------------------------------------------------- */
   --font-display: 'Cinzel', Georgia, serif;
@@ -132,23 +138,23 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --bg: #16130e;
-  --bg-panel: #201b14;
-  --bg-raised: #2c2519;
-  --surface-sunken: #12100b;
-  --border: #463a28;
+  --bg: #121314; /* neutral charcoal — NOT brown */
+  --bg-panel: #1b1d1e;
+  --bg-raised: #252829;
+  --surface-sunken: #0d0e0f;
+  --border: #3b3f42;
 
-  --text: #efe4cc;
-  --text-dim: #9c8c71;
+  --text: #ecebe7;
+  --text-dim: #989c9f;
 
-  --accent: #c9a227; /* antique gold reads as the ink at night */
-  --gold: #c9a227;
-  --danger: #d9534a;
-  --warn: #dfa838;
-  --ok: #93b45c;
-  --magic: #b18ce0;
-  --on-accent: #1a1509;
-  --focus: #c9a227;
+  --accent: #c8ac76; /* brass — the only warm hue on the surfaces */
+  --gold: #c8ac76;
+  --danger: #e0605a;
+  --warn: #e0ae52;
+  --ok: #8fbd7a;
+  --magic: #a99ae6;
+  --on-accent: #15171a;
+  --focus: #c8ac76;
 }
 
 * {
