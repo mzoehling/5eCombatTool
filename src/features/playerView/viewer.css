@@ -459,17 +459,23 @@
 
 }
 
-/* The viewer does not load app.css, so the primitives it borrows from the DM
-   app — the HP meter and the badge — are repeated here. The AC shield is not:
-   armour class is deliberately kept out of the player snapshot.
+/* The viewer does not load app.css, so what it needs of the same vocabulary —
+   the HP meter and the badge — is defined here. The AC shield is not: armour
+   class is deliberately kept out of the player snapshot.
 
-   Two things keep these copies from reaching the DM app, and both are needed.
-   They live in `base`, below every component rule whatever the file order.
-   And each is scoped to .pv-app, so in the DM app they do not match at all —
-   this file is bundled there too, because main.tsx imports ViewerApp on both
-   routes. Unscoped and unlayered, `.hp-meter-fill`'s flat --ok beat app.css's
-   health-tinted var(--hp-fill) and left every tracker bar green at every
-   health level, and `.hp-meter`'s 11px beat the taller iPad-portrait bar. */
+   These are the viewer's own rules now rather than copies. The DM's rows stopped
+   using `.hp-meter` in 2b7a7af, when the tracker went to a stage tint and a
+   baseline meter drawn from custom properties; app.css carries no `.hp-meter*`
+   rule and no `--hp-fill` any more, so there is nothing left here that could
+   contradict it.
+
+   The two guards stay anyway, because the names are the kind that collide. They
+   live in `base`, below every component rule whatever the file order, and each
+   is scoped to .pv-app so it cannot match in the DM app — this file is bundled
+   there too, because main.tsx imports ViewerApp on both routes. `.hp-meter` and
+   `.badge` are generic enough that app.css could grow either tomorrow, and the
+   failure that taught this lesson was silent: an unscoped flat --ok once beat
+   the tracker's health tint and left every bar green at every health level. */
 @layer base {
 
 .pv-app .hp-meter {
@@ -488,15 +494,24 @@
   background: var(--ok);
 }
 
-/* Temp HP hangs past the fill, hatched, as it does on the tracker. */
+/* Temp HP hangs past the fill, in the same violet the tracker gives it.
+   `--magic`, never `--accent`: gold beside the danger colour of a critical
+   creature reads as another health level, which is the one place the boundary
+   between "nearly dead" and "has a cushion" must not blur. This was gold, and
+   nothing caught it until the list below grew a meter of its own — the same
+   creature's temp HP was then gold in the spotlight and violet one line down.
+
+   The hatch stays. This bar is an 11px pill with real edges, where a texture
+   reads; on the list's 4px baseline meter it would only be mud, which is why
+   that one is flat. The two agree on the colour, not on the shape. */
 .pv-app .hp-meter-temp {
   position: absolute;
   top: 0;
   bottom: 0;
   background: repeating-linear-gradient(
     135deg,
-    var(--accent) 0 3px,
-    color-mix(in srgb, var(--accent) 35%, transparent) 3px 6px
+    var(--magic) 0 3px,
+    color-mix(in srgb, var(--magic) 35%, transparent) 3px 6px
   );
 }
 
