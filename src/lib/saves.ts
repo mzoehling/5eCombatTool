@@ -21,7 +21,18 @@ export function readSave(roll: number, bonus: number, dc: number): SaveVerdict {
   return roll + bonus >= dc ? 'saved' : 'failed'
 }
 
-/** Damage after a save: a success halves it, rounding down, to a minimum of 0. */
-export function amountAfterSave(amount: number, verdict: SaveVerdict | undefined): number {
-  return verdict === 'saved' ? Math.floor(amount / 2) : amount
+/**
+ * What one target actually takes: the area's amount times that target's factor,
+ * rounded down.
+ *
+ * This replaced a `amountAfterSave` that knew about exactly one adjustment —
+ * halving on a made save. Every other one a DM applies at the same moment
+ * (resistance, vulnerability, immunity) is the same arithmetic on a different
+ * multiplier, so the multiplier is the thing worth naming. A made save simply
+ * seeds the factor at ½.
+ *
+ * Rounding down throughout, as the rules do, and never below zero.
+ */
+export function amountWithFactor(amount: number, factor: number): number {
+  return Math.max(0, Math.floor(amount * factor))
 }

@@ -1,14 +1,15 @@
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { mdiChevronDown, mdiDiceD20, mdiDiceMultiple, mdiVectorCircle } from '@mdi/js'
+import { mdiCheckAll, mdiChevronDown, mdiChevronLeft, mdiDiceD20, mdiDiceMultiple, mdiVectorCircle } from '@mdi/js'
 import { Fragment, useEffect, useState } from 'react'
 import { evalArithmetic } from '../lib/arithmetic'
 import { d20 } from '../lib/dice'
-import { parseDiceExpression, rollDiceExpression } from '../lib/diceExpr'
+import { rollDiceExpression } from '../lib/diceExpr'
 import { battleStore, useBattleState } from '../store/battleStore'
 import { sortedCombatants } from '../store/battleReducer'
 import { groupedInitiativeRolls, groupRuns } from '../lib/groups'
-import { amountAfterSave, readSave, SAVE_ABILITIES, saveBonus, type SaveVerdict } from '../lib/saves'
+import { amountWithFactor, readSave, SAVE_ABILITIES, saveBonus } from '../lib/saves'
+import type { AoeFactor, AoeResult, AoeStep } from '../store/trackerUi'
 import type { Ability, Combatant } from '../types'
 import { AssignGroup } from './AssignGroup'
 import { CombatantRow } from './CombatantRow'
@@ -34,7 +35,27 @@ interface TrackerPaneProps {
   /** Puts a rolled total into the AoE bar and arms it. Owned by App because the
    *  statblock's dice links open the same roller. */
   onSendRollToAoe: (amount: number) => void
+  /** The stepper's position and everything the three steps hold. All of it lives
+   *  in the tracker UI store rather than here, so leaving AoE clears it in one
+   *  action and nothing survives into the next area effect. */
+  aoeStep: AoeStep
+  onAoeStep: (step: AoeStep) => void
+  aoeSaveAbility: Ability | null
+  aoeSaveDc: string
+  onAoeSave: (save: { ability?: Ability | null; dc?: string }) => void
+  aoeResults: Readonly<Record<string, AoeResult>>
+  onAoeResults: (results: Readonly<Record<string, AoeResult>>) => void
+  onFlipAoeResult: (id: string) => void
+  aoeFactors: Readonly<Record<string, AoeFactor>>
+  onAoeFactor: (id: string, factor: AoeFactor) => void
 }
+
+/** The three steps, in order, with what the advance button reads on each. */
+const AOE_STEPS: { id: AoeStep; name: string; advance: string | null }[] = [
+  { id: 'select', name: 'Select', advance: 'Save ›' },
+  { id: 'save', name: 'Save', advance: 'Apply ›' },
+  { id: 'apply', name: 'Apply', advance: null },
+]
 
 export function TrackerPane({
   selectedId,
@@ -47,6 +68,16 @@ export function TrackerPane({
   aoeAmount,
   onAoeAmountChange,
   onSendRollToAoe,
+  aoeStep,
+  onAoeStep,
+  aoeSaveAbility,
+  aoeSaveDc,
+  onAoeSave,
+  aoeResults,
+  onAoeResults,
+  onFlipAoeResult,
+  aoeFactors,
+  onAoeFactor,
 }: TrackerPaneProps) {
   const { dispatch } = battleStore
   const state = useBattleState()
@@ -59,13 +90,6 @@ export function TrackerPane({
   // Collapsed by default: a group the DM never opens is a group they read as
   // one thing. Expansion is per run and lives in the UI, not in battle state.
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(new Set())
-  // Save helper: the one bit of arithmetic the AoE bar otherwise leaves to the
-  // DM. Rolling for the table is optional — a verdict can be flipped by hand.
-  const [saveAbility, setSaveAbility] = useState<Ability | null>(null)
-  const [saveDc, setSaveDc] = useState('')
-  const [saves, setSaves] = useState<ReadonlyMap<string, { roll: number; total: number; verdict: SaveVerdict }>>(
-    new Map(),
-  )
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -112,48 +136,49 @@ export function TrackerPane({
     dispatch({ type: 'reorder', id: active.id.toString(), beforeId })
   }
 
+  /** What one target takes, given the area's amount and that target's factor. */
+  const factorOf = (id: string): AoeFactor => aoeFactors[id] ?? 1
+
   const applyAoe = (heal: boolean) => {
     // Dice notation is rolled once for the whole area, which is what the rules
     // say: a fireball deals one damage roll to everyone it catches.
     const amount = evalArithmetic(aoeAmount) ?? rollDiceExpression(aoeAmount)?.total ?? null
     if (amount === null || amount <= 0 || checked.size === 0) return
     const type = heal ? ('applyHealing' as const) : ('applyDamage' as const)
-    // A made save halves damage, so the two groups are two actions — the
-    // reducer applies one amount per action, with its own temp-HP handling per
-    // target either way — batched into one undoable step. Healing is never
-    // halved by a save.
-    const halfIds = heal ? [] : [...checked].filter((id) => saves.get(id)?.verdict === 'saved')
-    const fullIds = [...checked].filter((id) => !halfIds.includes(id))
-    const halfAmount = Math.floor(amount / 2)
-    // One area effect, one undo: the two amounts go out as one batch.
-    battleStore.dispatchAll([
-      ...(fullIds.length ? [{ type, ids: fullIds, amount }] : []),
-      ...(halfIds.length && halfAmount > 0 ? [{ type, ids: halfIds, amount: halfAmount }] : []),
-    ])
-    onAoeAmountChange('')
-    setSaves(new Map())
+    // Targets sharing a factor share an action — the reducer applies one amount
+    // per action, with its own temp-HP handling per target either way. A factor
+    // of ×0 produces nothing to apply, so those targets are simply left out
+    // rather than dispatched a zero.
+    //
+    // Heal takes the factors too. A halved heal is not something the rules ask
+    // for, but the factors are the DM's own answer about each row by the time
+    // this button is reachable, and quietly ignoring them on one of the two
+    // buttons would mean the chips said one thing and the log another.
+    const byFactor = new Map<AoeFactor, string[]>()
+    for (const id of checked) {
+      const f = factorOf(id)
+      if (amountWithFactor(amount, f) <= 0) continue
+      byFactor.set(f, [...(byFactor.get(f) ?? []), id])
+    }
+    // One area effect, one undo: every group goes out as one batch.
+    battleStore.dispatchAll(
+      [...byFactor].map(([factor, ids]) => ({ type, ids, amount: amountWithFactor(amount, factor) })),
+    )
+    exitAoe()
   }
 
   /** Rolls a save for every checked combatant and reads it against the DC. */
   const rollSaves = () => {
-    const dc = Number.parseInt(saveDc, 10)
-    if (!saveAbility || !Number.isFinite(dc)) return
-    const next = new Map<string, { roll: number; total: number; verdict: SaveVerdict }>()
+    const dc = Number.parseInt(aoeSaveDc, 10)
+    if (!aoeSaveAbility || !Number.isFinite(dc)) return
+    const next: Record<string, AoeResult> = {}
     for (const c of ordered) {
       if (!checked.has(c.id)) continue
+      const bonus = saveBonus(c, aoeSaveAbility)
       const roll = d20()
-      const total = roll + saveBonus(c, saveAbility)
-      next.set(c.id, { roll, total, verdict: readSave(roll, saveBonus(c, saveAbility), dc) })
+      next[c.id] = { total: roll + bonus, verdict: readSave(roll, bonus, dc) }
     }
-    setSaves(next)
-  }
-
-  const flipVerdict = (id: string) => {
-    const current = saves.get(id)
-    if (!current) return
-    const next = new Map(saves)
-    next.set(id, { ...current, verdict: current.verdict === 'saved' ? 'failed' : 'saved' })
-    setSaves(next)
+    onAoeResults(next)
   }
 
   // NPCs whose initiative is still unset — PCs roll at the table
@@ -165,16 +190,11 @@ export function TrackerPane({
   }
 
   /**
-   * Leaving the AoE bar resets it: targets and amount in the store, the save
-   * helper here. It is the only way out now that the bar has no Clear button, so
-   * anything left behind would be waiting the next time it is armed.
+   * Leaving the AoE bar resets it entirely — targets, amount, step, rolls and
+   * factors, all in one store action. Applying goes out this way too, so a
+   * factor set for one fireball can never be waiting for the next.
    */
-  const exitAoe = () => {
-    onExitAoe()
-    setSaveAbility(null)
-    setSaveDc('')
-    setSaves(new Map())
-  }
+  const exitAoe = onExitAoe
 
   const toggleCheck = (id: string) => {
     const next = new Set(checked)
@@ -190,10 +210,10 @@ export function TrackerPane({
         ? ordered.filter((c) => checked.has(c.id))
         : state.combatants.filter((c) => c.id === conditionsFor)
 
-  // Live per-row preview of what the AoE bar would apply. Only a usable amount
-  // produces one, so an empty or half-typed field shows nothing. Dice cannot be
-  // previewed as a number — the roll happens on apply — so the row shows the
-  // notation instead, halved or not exactly as the total will be.
+  // What each row would receive, given the amount typed and that row's factor.
+  // Only a usable number produces one — an empty, half-typed or dice-notation
+  // field has no total until Apply is pressed, and the row shows an em dash
+  // rather than a guess.
   //
   // The sign is `±`, the same as the row's own ±HP field, because the direction
   // genuinely is not known yet: the bar carries both Damage and Heal, and which
@@ -201,15 +221,15 @@ export function TrackerPane({
   // danger-red pill, which told the DM they were about to hurt everyone selected
   // when they had typed a healing amount.
   const aoeValue = evalArithmetic(aoeAmount)
-  const aoeDice = aoeValue === null && parseDiceExpression(aoeAmount) !== null
-  const aoePreview = multiSelect && aoeValue !== null && aoeValue > 0 ? aoeValue : null
-  const previewLabel = (id: string): string | undefined => {
-    const halved = saves.get(id)?.verdict === 'saved'
-    if (aoePreview !== null) return `±${amountAfterSave(aoePreview, saves.get(id)?.verdict)} hp`
-    if (multiSelect && aoeDice) return `±${halved ? '½ ' : ''}${aoeAmount.trim()}`
-    return undefined
-  }
-  const savedCount = [...checked].filter((id) => saves.get(id)?.verdict === 'saved').length
+  const aoeTotal = aoeValue !== null && aoeValue > 0 ? aoeValue : null
+  const resultFor = (id: string): number | null =>
+    aoeTotal === null ? null : amountWithFactor(aoeTotal, factorOf(id))
+
+  const stepIndex = AOE_STEPS.findIndex((s) => s.id === aoeStep)
+  const step = AOE_STEPS[stepIndex]
+  const allChecked = ordered.length > 0 && ordered.every((c) => checked.has(c.id))
+  /** Back from step 1 is the way out of AoE mode entirely. */
+  const stepBack = () => (stepIndex === 0 ? exitAoe() : onAoeStep(AOE_STEPS[stepIndex - 1].id))
 
   // A run is collapsed when its group is, it has more than one member, and AoE
   // is off — picking targets needs every row reachable.
@@ -228,9 +248,12 @@ export function TrackerPane({
                   groupName={group?.name}
                   groupColor={group?.color}
                   groupOut={group ? !group.inBattle : false}
-                  aoePreview={checked.has(c.id) ? previewLabel(c.id) : undefined}
-                  aoeSave={multiSelect && checked.has(c.id) ? saves.get(c.id) : undefined}
-                  onToggleSave={() => flipVerdict(c.id)}
+                  aoeStep={aoeStep}
+                  aoeResult={checked.has(c.id) ? resultFor(c.id) : undefined}
+                  aoeFactor={factorOf(c.id)}
+                  onFactorChange={(f) => onAoeFactor(c.id, f)}
+                  aoeSave={multiSelect && checked.has(c.id) ? aoeResults[c.id] : undefined}
+                  onToggleSave={() => onFlipAoeResult(c.id)}
                   onSelect={() => onSelect(c.id)}
                   onToggleCheck={() => toggleCheck(c.id)}
                   onEditConditions={() => setConditionsFor(c.id)}
@@ -303,79 +326,125 @@ export function TrackerPane({
           strip becomes the AoE bar. Both stay the bottom layer of the pane: the
           drawer ends above them. */}
       {multiSelect ? (
-        <div className="aoe-bar">
-          <span className="aoe-count">{checked.size} selected</span>
-          <input
-            className="aoe-amount"
-            inputMode="numeric"
-            aria-label="AoE amount"
-            placeholder="8+3"
-            value={aoeAmount}
-            onChange={(e) => onAoeAmountChange(e.target.value)}
-          />
-          <button type="button" className="danger" disabled={checked.size === 0} onClick={() => applyAoe(false)}>
-            {savedCount > 0 ? `Damage · ${checked.size - savedCount} full, ${savedCount} half` : 'Damage'}
+        /* One skeleton for all three steps — Back, the counter, that step's
+           controls, then the advance hard right — so the bar never moves under
+           the DM's hand and never carries more than one decision's worth of
+           controls. It carries no recap either: how many are selected and how
+           each one rolled is written on the rows themselves. */
+        <div className={`aoe-bar aoe-bar-${aoeStep}`}>
+          <button type="button" className="ghost aoe-back icon-label" onClick={stepBack}>
+            <Icon path={mdiChevronLeft} /> Back
           </button>
-          <button type="button" className="ok" disabled={checked.size === 0} onClick={() => applyAoe(true)}>
-            Heal
-          </button>
-          <button type="button" disabled={checked.size === 0} onClick={() => setConditionsFor('selection')}>
-            Condition…
-          </button>
-          {/* Opens the picker rather than acting: which group the selection
-              belongs in is the DM's answer to give, and pressing this twice
-              used to mean two new groups. */}
-          <button
-            type="button"
-            disabled={checked.size === 0}
-            title="Put this selection into a group"
-            onClick={() => setGroupFor(new Set(checked))}
-          >
-            Group…
-          </button>
-          {/* Save helper. Choosing an ability and a DC turns the bar's flat
-              amount into a per-target read: failures take full, passes half. */}
-          <span className="aoe-save">
-            <select
-              aria-label="Save ability"
-              value={saveAbility ?? ''}
-              onChange={(e) => {
-                setSaveAbility((e.target.value || null) as Ability | null)
-                setSaves(new Map())
-              }}
-            >
-              <option value="">No save</option>
-              {SAVE_ABILITIES.map((a) => (
-                <option key={a} value={a}>
-                  {a.toUpperCase()}
-                </option>
-              ))}
-            </select>
-            {saveAbility && (
-              <>
+          <span className="aoe-step-count num">
+            Step {stepIndex + 1} of {AOE_STEPS.length} · {step.name}
+          </span>
+
+          {aoeStep === 'select' && (
+            <>
+              {/* One toggle, not an All button beside a None button: the second
+                  is only ever wanted right after the first. */}
+              <button
+                type="button"
+                className="icon-label"
+                onClick={() => onCheckedChange(allChecked ? new Set() : new Set(ordered.map((c) => c.id)))}
+              >
+                <Icon path={mdiCheckAll} /> {allChecked ? 'None' : 'All'}
+              </button>
+              <button type="button" disabled={checked.size === 0} onClick={() => setConditionsFor('selection')}>
+                Condition…
+              </button>
+              {/* Opens the picker rather than acting: which group the selection
+                  belongs in is the DM's answer to give, and pressing this twice
+                  used to mean two new groups. */}
+              <button
+                type="button"
+                disabled={checked.size === 0}
+                title="Put this selection into a group"
+                onClick={() => setGroupFor(new Set(checked))}
+              >
+                Group…
+              </button>
+            </>
+          )}
+
+          {aoeStep === 'save' && (
+            <>
+              {/* No visible label on the ability: the step counter beside it
+                  already reads "SAVE", and the two together looked like a
+                  stutter. The select carries the name for a screen reader. */}
+              <label className="aoe-field">
+                <select
+                  aria-label="Save ability"
+                  value={aoeSaveAbility ?? ''}
+                  onChange={(e) => onAoeSave({ ability: (e.target.value || null) as Ability | null })}
+                >
+                  <option value="">—</option>
+                  {SAVE_ABILITIES.map((a) => (
+                    <option key={a} value={a}>
+                      {a.toUpperCase()}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="aoe-field">
+                DC
                 <input
-                  className="aoe-dc"
+                  className="aoe-dc num"
                   inputMode="numeric"
                   aria-label="Save DC"
-                  placeholder="DC"
-                  value={saveDc}
-                  onChange={(e) => setSaveDc(e.target.value)}
+                  value={aoeSaveDc}
+                  onChange={(e) => onAoeSave({ dc: e.target.value })}
                 />
-                <button
-                  type="button"
-                  disabled={checked.size === 0 || !Number.isFinite(Number.parseInt(saveDc, 10))}
-                  onClick={rollSaves}
-                >
-                  Roll saves
-                </button>
-              </>
-            )}
-          </span>
+              </label>
+              {/* Rolling for the table is optional — a result can be flipped by
+                  hand for a player who rolled their own. */}
+              <button
+                type="button"
+                className="icon-label"
+                disabled={
+                  checked.size === 0 || !aoeSaveAbility || !Number.isFinite(Number.parseInt(aoeSaveDc, 10))
+                }
+                onClick={rollSaves}
+              >
+                <Icon path={mdiDiceD20} /> Roll saves
+              </button>
+              {/* Not everything that catches a group offers a save. */}
+              <button type="button" className="ghost" onClick={() => onAoeStep('apply')}>
+                No save
+              </button>
+            </>
+          )}
+
+          {aoeStep === 'apply' && (
+            <>
+              <input
+                className="aoe-amount num"
+                inputMode="numeric"
+                aria-label="AoE amount"
+                placeholder="8+3"
+                value={aoeAmount}
+                onChange={(e) => onAoeAmountChange(e.target.value)}
+              />
+              <button type="button" className="ok" disabled={checked.size === 0} onClick={() => applyAoe(true)}>
+                Heal
+              </button>
+              <button type="button" className="danger" disabled={checked.size === 0} onClick={() => applyAoe(false)}>
+                Damage
+              </button>
+            </>
+          )}
+
           <span className="spacer" />
-          {/* The way out, and the reset: there is no separate Clear. */}
-          <button type="button" className="ghost" onClick={exitAoe}>
-            Done
-          </button>
+          {step.advance && (
+            <button
+              type="button"
+              className="primary aoe-advance"
+              disabled={checked.size === 0}
+              onClick={() => onAoeStep(AOE_STEPS[stepIndex + 1].id)}
+            >
+              {step.advance}
+            </button>
+          )}
         </div>
       ) : (
         <div className="turn-dock">

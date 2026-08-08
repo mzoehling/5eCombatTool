@@ -217,6 +217,16 @@ function App() {
           aoeAmount={ui.aoeAmount}
           onAoeAmountChange={(amount) => uiDispatch({ type: 'setAoeAmount', amount })}
           onSendRollToAoe={sendRollToAoe}
+          aoeStep={ui.aoeStep}
+          onAoeStep={(step) => uiDispatch({ type: 'setAoeStep', step })}
+          aoeSaveAbility={ui.aoeSaveAbility}
+          aoeSaveDc={ui.aoeSaveDc}
+          onAoeSave={(save) => uiDispatch({ type: 'setAoeSave', ...save })}
+          aoeResults={ui.aoeResults}
+          onAoeResults={(results) => uiDispatch({ type: 'setAoeResults', results })}
+          onFlipAoeResult={(id) => uiDispatch({ type: 'flipAoeResult', id })}
+          aoeFactors={ui.aoeFactors}
+          onAoeFactor={(id, factor) => uiDispatch({ type: 'setAoeFactor', id, factor })}
         />
         {/* The statblock groups Close with its own Edit and Pin, so the drawer
             supplies a close button only when there is no statblock to carry it. */}

@@ -39,15 +39,30 @@ describe('trackerUiReducer — selection and pin', () => {
 
 describe('trackerUiReducer — AoE', () => {
   it('resets the bar completely on the way out', () => {
-    // "Done" is the only way out now that the bar has no Clear button, so it has
-    // to leave nothing behind: targets picked for a spell three turns ago and a
-    // damage number from that spell are both wrong on the way back in.
-    const armed = state({ multiSelect: true, checked: new Set(['a', 'b']), aoeAmount: '8d6' })
-    expect(trackerUiReducer(armed, { type: 'exitAoe' })).toMatchObject({
+    // Applying leaves this way too, so nothing may survive: targets picked for a
+    // spell three turns ago, that spell's damage number, and above all a factor
+    // — a ×½ left behind would silently halve the next fireball.
+    const armed = state({
+      multiSelect: true,
+      checked: new Set(['a', 'b']),
+      aoeAmount: '8d6',
+      aoeStep: 'apply',
+      aoeSaveAbility: 'dex',
+      aoeSaveDc: '15',
+      aoeResults: { a: { total: 19, verdict: 'saved' } },
+      aoeFactors: { a: 0.5 },
+    })
+    const out = trackerUiReducer(armed, { type: 'exitAoe' })
+    expect(out).toMatchObject({
       multiSelect: false,
       aoeAmount: '',
+      aoeStep: 'select',
+      aoeSaveAbility: null,
+      aoeSaveDc: '',
+      aoeResults: {},
+      aoeFactors: {},
     })
-    expect(trackerUiReducer(armed, { type: 'exitAoe' }).checked.size).toBe(0)
+    expect(out.checked.size).toBe(0)
   })
 
   it('keeps the selection when AoE is re-armed with one already in progress', () => {
@@ -85,5 +100,106 @@ describe('trackerUiReducer — AoE', () => {
     const s = state({ selectedId: 'a', pinnedId: 'b' })
     const next = trackerUiReducer(s, { type: 'sendRollToAoe', amount: 4 })
     expect(next).toMatchObject({ selectedId: 'a', pinnedId: 'b' })
+  })
+})
+
+describe('trackerUiReducer — the AoE stepper', () => {
+  const armed = (patch: Partial<TrackerUiState> = {}) =>
+    state({ multiSelect: true, checked: new Set(['a', 'b']), ...patch })
+
+  it('arms at step one with nothing carried over', () => {
+    expect(trackerUiReducer(state(), { type: 'armAoe' })).toMatchObject({
+      multiSelect: true,
+      aoeStep: 'select',
+      aoeFactors: {},
+      aoeResults: {},
+    })
+  })
+
+  it('walks forward and back a step at a time', () => {
+    const onSave = trackerUiReducer(armed(), { type: 'setAoeStep', step: 'save' })
+    expect(onSave.aoeStep).toBe('save')
+    expect(trackerUiReducer(onSave, { type: 'setAoeStep', step: 'select' }).aoeStep).toBe('select')
+  })
+
+  it('seeds ½ on a made save and ×1 on a failed one, on reaching Apply', () => {
+    const s = armed({
+      aoeResults: { a: { total: 19, verdict: 'saved' }, b: { total: 6, verdict: 'failed' } },
+    })
+    expect(trackerUiReducer(s, { type: 'setAoeStep', step: 'apply' }).aoeFactors).toEqual({ a: 0.5, b: 1 })
+  })
+
+  it('seeds ×1 for a target with no result at all — the No save path', () => {
+    expect(trackerUiReducer(armed(), { type: 'setAoeStep', step: 'apply' }).aoeFactors).toEqual({ a: 1, b: 1 })
+  })
+
+  it('seeds only the checked targets', () => {
+    const s = state({ multiSelect: true, checked: new Set(['a']) })
+    expect(trackerUiReducer(s, { type: 'setAoeStep', step: 'apply' }).aoeFactors).toEqual({ a: 1 })
+  })
+
+  it('does not seed on the way to Select or Save', () => {
+    expect(trackerUiReducer(armed(), { type: 'setAoeStep', step: 'save' }).aoeFactors).toEqual({})
+  })
+
+  it('leaves a hand-set factor alone when Apply is reached again', () => {
+    // Stepping back to check a roll and forward again must not quietly undo the
+    // DM's own answer about a row.
+    const s = armed({ aoeFactors: { a: 2 }, aoeResults: { a: { total: 19, verdict: 'saved' } } })
+    expect(trackerUiReducer(s, { type: 'setAoeStep', step: 'apply' }).aoeFactors).toMatchObject({ a: 2 })
+  })
+
+  it('sets a factor for one row without touching the others', () => {
+    const s = armed({ aoeFactors: { a: 1, b: 1 } })
+    expect(trackerUiReducer(s, { type: 'setAoeFactor', id: 'b', factor: 0 }).aoeFactors).toEqual({ a: 1, b: 0 })
+  })
+
+  it('takes ability and DC independently, so setting one keeps the other', () => {
+    const withAbility = trackerUiReducer(armed(), { type: 'setAoeSave', ability: 'dex' })
+    const withDc = trackerUiReducer(withAbility, { type: 'setAoeSave', dc: '15' })
+    expect(withDc).toMatchObject({ aoeSaveAbility: 'dex', aoeSaveDc: '15' })
+  })
+
+  it('drops results and factors when the ability or DC changes', () => {
+    // Every roll was read against the old DC, and a factor seeded from a stale
+    // verdict is a wrong number wearing the DM's handwriting.
+    const s = armed({
+      aoeSaveDc: '15',
+      aoeResults: { a: { total: 19, verdict: 'saved' } },
+      aoeFactors: { a: 0.5 },
+    })
+    expect(trackerUiReducer(s, { type: 'setAoeSave', dc: '18' })).toMatchObject({
+      aoeSaveDc: '18',
+      aoeResults: {},
+      aoeFactors: {},
+    })
+  })
+
+  it('clears the factors on a fresh roll, so Apply seeds from what was just rolled', () => {
+    const s = armed({ aoeFactors: { a: 2 } })
+    const rolled = trackerUiReducer(s, {
+      type: 'setAoeResults',
+      results: { a: { total: 6, verdict: 'failed' } },
+    })
+    expect(rolled.aoeFactors).toEqual({})
+    expect(rolled.aoeResults.a.verdict).toBe('failed')
+  })
+
+  it('flips one result and drops the factor seeded from it', () => {
+    const s = armed({
+      aoeResults: { a: { total: 19, verdict: 'saved' }, b: { total: 6, verdict: 'failed' } },
+      aoeFactors: { a: 0.5, b: 1 },
+    })
+    const flipped = trackerUiReducer(s, { type: 'flipAoeResult', id: 'a' })
+    expect(flipped.aoeResults.a).toEqual({ total: 19, verdict: 'failed' })
+    expect(flipped.aoeResults.b.verdict).toBe('failed')
+    expect(flipped.aoeFactors).toEqual({ b: 1 })
+    // Re-seeded from the flipped verdict on the way into Apply.
+    expect(trackerUiReducer(flipped, { type: 'setAoeStep', step: 'apply' }).aoeFactors).toEqual({ a: 1, b: 1 })
+  })
+
+  it('ignores a flip for a target that never rolled', () => {
+    const s = armed()
+    expect(trackerUiReducer(s, { type: 'flipAoeResult', id: 'a' })).toBe(s)
   })
 })

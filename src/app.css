@@ -446,7 +446,8 @@ textarea {
   background: var(--bg-panel);
 }
 
-.turn-dock .spacer {
+.turn-dock .spacer,
+.aoe-bar .spacer {
   margin-left: auto;
 }
 
@@ -1013,9 +1014,16 @@ textarea {
   flex: none;
 }
 
-/* Both blocks are the same box — see .hp-block. */
+/* Both blocks are the same box — see .hp-block. Select and Save keep the HP
+   fields' footprint exactly, so arming AoE and stepping to Save shift nothing.
+   Apply is the one step allowed to be wider: it dropped the AC shield to pay
+   for the three chips, so the row's total width is unchanged. */
 .aoe-block {
   gap: var(--space-2);
+}
+
+.aoe-block.aoe-apply {
+  min-width: 22rem;
 }
 
 /* Only rendered when the row shares its initiative with a neighbour — the only
@@ -1102,28 +1110,14 @@ textarea {
   opacity: 0.45;
 }
 
-/* Live preview of the amount the AoE bar will apply to this row.
-   Deliberately neutral: the bar carries both Damage and Heal, so the direction
-   is not decided yet. It was danger-red with a hard `−`, which announced damage
-   while the DM was typing a healing amount, and the `.heal` variant that was
-   meant to cover that could never be applied — nothing knows which button is
-   coming. `±` is what the row's own ±HP field already means. */
-.aoe-preview {
-  font-family: var(--font-num);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.8rem;
-  font-weight: 600;
-  white-space: nowrap;
-  padding: 0.1rem 0.5rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--gold);
-  background: color-mix(in srgb, var(--gold) 14%, transparent);
-  color: var(--text);
-}
 
+/* One skeleton for all three steps — Back, the counter, that step's controls,
+   then the advance hard right — so the bar never moves under the DM's hand.
+   `nowrap`: the point of splitting the steps is that each one fits on a line,
+   and a bar allowed to wrap would quietly undo that by growing instead. */
 .aoe-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--space-2);
   flex: none;
@@ -1133,43 +1127,74 @@ textarea {
   border-top: 1px solid var(--gold);
 }
 
-.aoe-count {
-  font-family: var(--font-num);
-  font-variant-numeric: tabular-nums;
+.aoe-back {
+  flex: none;
+  min-height: var(--target-base);
+}
+
+/* Where the DM is, and nothing else. The bar carries no recap of how many are
+   selected or how each one rolled — that is written on the rows themselves,
+   and repeating it here is a second place to keep in sync. */
+.aoe-step-count {
+  flex: none;
+  font-size: 0.75rem;
   font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* A label above its control, so "Save" and "DC" name the fields without
+   spending a whole line on a legend. */
+.aoe-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  font-size: 0.8rem;
+  color: var(--text-dim);
   white-space: nowrap;
 }
 
 .aoe-amount {
-  width: 7rem;
+  flex: none;
+  width: 118px;
+  min-height: var(--target-base);
   text-align: center;
-}
-
-/* Save helper: ability, DC and the roll button read as one control group. */
-.aoe-save {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  background: var(--surface-sunken);
 }
 
 .aoe-dc {
-  width: 4.5rem;
+  flex: none;
+  width: 72px;
+  min-height: var(--target-base);
   text-align: center;
 }
 
-/* Per-row verdict. Tapping it flips the reading, for a player who rolled at
-   the table rather than letting the app roll for them. */
+/* The one thing that moves the DM forward, and it is always in the same place:
+   hard right, whatever the step put in the middle. */
+.aoe-advance {
+  flex: none;
+  min-height: 52px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* Per-row result: what it rolled, and how that read against the DC. Tapping it
+   flips the reading, for a player who rolled at the table rather than letting
+   the app roll for them. */
 .aoe-verdict {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   flex: none;
   min-height: var(--target-icon);
-  padding: 0 var(--space-2);
-  font-size: 0.78rem;
+  padding: 0 var(--space-3);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   border-radius: var(--radius-pill);
 }
 
@@ -1187,6 +1212,71 @@ textarea {
 
 .aoe-verdict-roll {
   font-weight: 700;
+}
+
+/* The Apply step's three chips: what it rolled, what that is multiplied by, and
+   the number the two produce. They read left to right as one sentence, which is
+   why the factor sits between its cause and its consequence. */
+
+/* Gold, and the only outlined chip in the row: it is the one thing here the DM
+   is invited to press, and it has to look different from the result beside it,
+   which only reports. */
+.aoe-factor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--target-icon);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  background: transparent;
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-pill);
+  color: var(--gold);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Fixed and portalled to `document.body`, positioned from the chip's rect by
+   AoeFactorPicker — the rows scroll, and a list that scrolls clips whatever
+   reaches past its edges. `translateX(-100%)` right-aligns it to the chip
+   without the component needing to know its own width. */
+.aoe-factor-popover {
+  position: fixed;
+  z-index: 25;
+  transform: translateX(-100%);
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.22);
+}
+
+.aoe-factor-option {
+  min-width: var(--target-icon);
+  min-height: var(--target-icon);
+  padding: 0 var(--space-2);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+}
+
+/* The largest number in the row, because it is the one being decided. */
+.aoe-hp-result {
+  flex: none;
+  min-width: 92px;
+  text-align: right;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Temp HP is worth seeing while picking targets — it changes who is worth
+   catching. By Apply the three chips have the room instead. */
+.aoe-temp {
+  color: var(--magic);
 }
 
 .toast {

@@ -5,9 +5,10 @@ import { battleStore } from '../store/battleStore'
 import { d20 } from '../lib/dice'
 import { healthStatus } from '../lib/healthStage'
 import { hpMeterStyle } from '../lib/hpMeter'
-import type { SaveVerdict } from '../lib/saves'
+import type { AoeFactor, AoeStep } from '../store/trackerUi'
 import type { Combatant } from '../types'
 import { AcShield } from './AcShield'
+import { AoeFactorPicker } from './AoeFactorPicker'
 import { Checkbox } from './Checkbox'
 import { DamageHealInput } from './DamageHealInput'
 import { HpInput } from './HpInput'
@@ -23,11 +24,16 @@ interface CombatantRowProps {
   groupName?: string
   groupColor?: string
   groupOut: boolean
-  /** While AoE is armed: what this row would receive if it were applied now.
-   *  A string because dice notation has no number until it is rolled. */
-  aoePreview?: string
-  /** Set once the AoE bar has a save DC: this row's roll and how it read. */
-  aoeSave?: { roll: number; total: number; verdict: SaveVerdict }
+  /** Which of the three AoE steps the bar is on; only read while `multiSelect`. */
+  aoeStep?: AoeStep
+  /** On the Apply step: what this row would receive, `null` until it is known.
+   *  Dice notation has no number until it is rolled, so it stays null there. */
+  aoeResult?: number | null
+  /** This row's factor, and the arithmetic behind the number above. */
+  aoeFactor?: AoeFactor
+  onFactorChange?: (factor: AoeFactor) => void
+  /** Set once the AoE bar has rolled: this row's total and how it read. */
+  aoeSave?: { total: number; verdict: 'saved' | 'failed' }
   onToggleSave?: () => void
   onSelect: () => void
   onToggleCheck: () => void
@@ -44,7 +50,10 @@ export function CombatantRow({
   groupName,
   groupColor,
   groupOut,
-  aoePreview,
+  aoeStep = 'select',
+  aoeResult,
+  aoeFactor = 1,
+  onFactorChange,
   aoeSave,
   onToggleSave,
   onSelect,
@@ -182,32 +191,51 @@ export function CombatantRow({
         <Icon path={mdiFormatListChecks} />
       </button>
 
-      <AcShield value={c.armorClass} />
+      {/* AC drops on the Apply step and only there. It is what the DM reads
+          while deciding who is caught and how they rolled; by the time the
+          question is "what does this do to them" it is three chips' worth of
+          width spent on a number nobody is looking at any more. */}
+      {!(multiSelect && aoeStep === 'apply') && <AcShield value={c.armorClass} />}
 
-      {/* While AoE is armed the HP fields give way to the verdict and the
-          preview: nothing is typed per row when you are picking targets, and the
-          two need the room. Current health is still readable — it is the row's
-          own fill. The footprint is shared so toggling AoE shifts nothing. */}
+      {/* While AoE is armed the HP fields give way to what that step needs:
+          nothing is typed per row when you are picking targets. Current health
+          stays on every step — on Apply it is what the result is estimated
+          against. The footprint is shared so arming AoE shifts nothing. */}
       {multiSelect ? (
-        <div className="hp-block aoe-block">
-          {/* Tapping the verdict flips it, for a player who rolled their own. */}
-          {aoeSave ? (
+        <div className={`hp-block aoe-block aoe-${aoeStep}`}>
+          <span className="hp-values dim num">
+            {c.hp}/{c.maxHp}
+            {c.tempHp > 0 && aoeStep === 'select' && <span className="aoe-temp"> +{c.tempHp}</span>}
+          </span>
+
+          {/* Tapping the result flips it, for a player who rolled their own. */}
+          {aoeStep !== 'select' && aoeSave && (
             <button
               type="button"
               className={`aoe-verdict ${aoeSave.verdict}`}
-              title={`d20 ${aoeSave.roll} → ${aoeSave.total} — tap to flip`}
+              title={`${aoeSave.total} against the DC — tap to flip`}
               aria-label={`${c.name} ${aoeSave.verdict} — tap to flip`}
               onClick={onToggleSave}
             >
-              <span className="aoe-verdict-roll num">{aoeSave.total}</span>
-              {aoeSave.verdict}
+              <span className="aoe-verdict-roll num">{aoeSave.total}</span> ·{' '}
+              {aoeSave.verdict === 'saved' ? 'save' : 'fail'}
             </button>
-          ) : (
-            <span className="hp-values dim num">
-              {c.hp}/{c.maxHp}
-            </span>
           )}
-          {aoePreview && <span className="aoe-preview">{aoePreview}</span>}
+
+          {/* Factor and the hp result it produces, side by side: the second is
+              the first's consequence, and the DM changes one to read the other. */}
+          {aoeStep === 'apply' && (
+            <>
+              <AoeFactorPicker
+                value={aoeFactor}
+                combatantName={c.name}
+                onPick={(f) => onFactorChange?.(f)}
+              />
+              <span className="aoe-hp-result num">
+                {aoeResult === null || aoeResult === undefined ? '—' : `±${aoeResult} hp`}
+              </span>
+            </>
+          )}
         </div>
       ) : (
         <div className="hp-block">
