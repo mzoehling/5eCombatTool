@@ -3,7 +3,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { mdiDiceD20, mdiDrag, mdiEyeOff, mdiFormatListChecks } from '@mdi/js'
 import { battleStore } from '../store/battleStore'
 import { d20 } from '../lib/dice'
-import { hpFillGradient } from '../lib/hpMeter'
+import { healthStatus } from '../lib/healthStage'
+import { hpMeterStyle } from '../lib/hpMeter'
 import type { SaveVerdict } from '../lib/saves'
 import type { Combatant } from '../types'
 import { AcShield } from './AcShield'
@@ -33,14 +34,6 @@ interface CombatantRowProps {
   onEditConditions: () => void
 }
 
-function hpClass(c: Combatant): string {
-  if (c.hp <= 0) return 'hp-down'
-  const ratio = c.hp / Math.max(1, c.maxHp)
-  if (ratio <= 0.25) return 'hp-critical'
-  if (ratio <= 0.5) return 'hp-bloodied'
-  return 'hp-ok'
-}
-
 export function CombatantRow({
   combatant: c,
   isActiveTurn,
@@ -64,9 +57,10 @@ export function CombatantRow({
     disabled: !isTied,
   })
 
+  const stage = healthStatus(c.hp, c.maxHp)
   const classes = [
     'combatant-row',
-    hpClass(c),
+    `hp-${stage.toLowerCase()}`,
     isActiveTurn ? 'active-turn' : '',
     isSelected ? 'selected' : '',
     groupOut || !c.isActive ? 'out-of-battle' : '',
@@ -80,12 +74,12 @@ export function CombatantRow({
   // entered or rolled value hides it
   const showRoll = (c.initiative ?? 0) === 0
 
-  // The health bar is the row's background now, not a strip inside it. It is
-  // `background-image`; the row's state colour is `background-color` on the
-  // layer beneath, because one property for both means whichever is written last
-  // silently wins. Temp HP extends the scale rather than being drawn inside the
-  // max: 20 temp on 90/100 is 20 points, and the bar has to say so.
-  const hpFill = hpFillGradient(c.hp, c.maxHp, c.tempHp)
+  // Health reads as two layers: a low tint of the stage colour over the whole
+  // row (`background-color`) and an exact 4px meter along its bottom edge
+  // (`background-image`), so nothing is ever painted behind the text. Temp HP
+  // extends the meter's scale rather than being drawn inside the max: 20 temp
+  // on 90/100 is 20 points, and the bar has to say so.
+  const hpStyle = hpMeterStyle(c.hp, c.maxHp, c.tempHp)
 
   return (
     <li
@@ -94,7 +88,7 @@ export function CombatantRow({
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        ['--hp-gradient' as string]: hpFill,
+        ...hpStyle,
       }}
     >
       {/* The checkbox takes over the initiative block's footprint so nothing

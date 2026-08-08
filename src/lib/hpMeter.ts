@@ -1,3 +1,5 @@
+import { healthStatus, STAGE_COLOR, STAGE_TINT, type HealthStatus } from './healthStage'
+
 /**
  * Widths for the HP meter, as percentages of the bar.
  *
@@ -18,58 +20,86 @@ export function hpMeterWidths(hp: number, maxHp: number, tempHp = 0): { hp: numb
   return { hp: hpPercent, temp: tempPercent }
 }
 
-/**
- * How far across the row a full bar reaches, in percent.
- *
- * The whole row: full health reads as a full row, which is the point of making
- * the bar the row's own background rather than an 11px strip inside it.
- *
- * It stopped short of the number column for a while, so that no tint would ever
- * sit behind a digit. But every number on the right already has its own surface —
- * the HP fields are inputs, the AC is a shield glyph, the chips and the AoE
- * preview are pills — so there was nothing there to protect, and the shortfall
- * only made a healthy creature's bar look partial.
- */
-export const HP_FILL_EXTENT = 100
-
-/** Width of the soft edge at the outer end of the fill, in percent of the row. */
-const FADE = 5
+/** Two decimals: enough to place a stop exactly, few enough to avoid seams. */
+function stop(n: number): string {
+  return `${Math.round(n * 100) / 100}%`
+}
 
 /**
- * The row-background gradient for a health bar, as a CSS `linear-gradient`.
+ * The tint a stage paints the row's surface with, as a `background-color`.
  *
- * Built here rather than in CSS because the shape genuinely differs with and
- * without temp HP — temp is the outermost section and needs its own colour stop
- * — and because a string is something a test can pin down exactly. Colours stay
- * in CSS: the stops reference `--hp-fill` and `--hp-temp-fill`, which
- * `CombatantRow` and the theme set.
- *
- * This is `background-image`. The row's state (active turn, AoE selection, out
- * of battle) is `background-color`, a separate layer underneath — collapsing the
- * two into one property means whichever is written last wins and the other
- * silently disappears.
+ * Separate from the meter because it is a different layer: the tint is
+ * `background-color`, the meter is `background-image`, and collapsing the two
+ * into one property means whichever is written last wins and the other silently
+ * disappears. Never a gradient and never a hard edge — a hard edge behind text
+ * is exactly what this replaced.
  */
-export function hpFillGradient(hp: number, maxHp: number, tempHp = 0): string {
+export function hpStageTint(stage: HealthStatus): string {
+  return `color-mix(in srgb, ${STAGE_COLOR[stage]} ${STAGE_TINT[stage]}%, var(--bg-panel))`
+}
+
+/**
+ * The baseline meter, as a `background-image`.
+ *
+ * Three hard sections and no fade: unlike the full-height fill this replaces,
+ * the meter is a 4px bar along the row's bottom edge with nothing written over
+ * it, so it can be exact. Softening it would only make the reading fuzzy.
+ *
+ * Temp HP takes the outermost slice in `--magic` violet, never gold: gold next
+ * to the danger colour of a critical creature reads as another health level,
+ * and the boundary between "nearly dead" and "has a cushion" is precisely where
+ * that must not happen. The tail is `--surface-sunken`, so the damage taken is
+ * a visible gap rather than nothing.
+ *
+ * The bar's geometry (`no-repeat`, `100% 4px`, `bottom left`) is constant and
+ * lives in CSS; only the stops change per row.
+ */
+export function hpMeterGradient(hp: number, maxHp: number, tempHp = 0, stage = healthStatus(hp, maxHp)): string {
   const { hp: hpPercent, temp: tempPercent } = hpMeterWidths(hp, maxHp, tempHp)
-  const scale = HP_FILL_EXTENT / 100
-  const hpEnd = hpPercent * scale
-  const end = (hpPercent + tempPercent) * scale
-  if (end <= 0) return 'none'
+  const end = hpPercent + tempPercent
+  return (
+    `linear-gradient(90deg, ${STAGE_COLOR[stage]} 0 ${stop(hpPercent)}, ` +
+    `var(--magic) ${stop(hpPercent)} ${stop(end)}, ` +
+    `var(--surface-sunken) ${stop(end)} 100%)`
+  )
+}
 
-  const round = (n: number) => `${Math.round(n * 100) / 100}%`
-
-  if (tempPercent > 0) {
-    // Temp HP is part of the fill: it extends the scale and takes the outermost
-    // slice, tinted differently. Never an overhang, never clipped — see
-    // `hpMeterWidths`. The fade is held at the hp/temp boundary at the earliest,
-    // so a temp slice narrower than the fade simply *is* the fade instead of
-    // bleeding the softness back into the current-HP colour.
-    const fadeStart = Math.max(hpEnd, end - FADE)
-    return `linear-gradient(90deg, var(--hp-fill) 0 ${round(hpEnd)}, var(--hp-temp-fill) ${round(hpEnd)} ${round(fadeStart)}, transparent ${round(end)})`
+/**
+ * Everything a row needs to draw its health, keyed by the custom property that
+ * carries it.
+ *
+ * Custom properties rather than direct style values: that is how the rest of
+ * this app hands dynamic geometry to CSS, and it keeps the row free to decide
+ * *where* the tint and the meter apply without the component knowing.
+ *
+ * `--hp-figure` is the HP number's own colour. At full health it stays
+ * `--text`, because a creature that has taken no damage should not have a green
+ * number shouting about it; below full it takes the stage colour, so the figure
+ * and the row agree at a glance.
+ */
+export function hpMeterStyle(hp: number, maxHp: number, tempHp = 0): Record<string, string> {
+  const stage = healthStatus(hp, maxHp)
+  return {
+    '--hp-tint': hpStageTint(stage),
+    '--hp-meter': hpMeterGradient(hp, maxHp, tempHp, stage),
+    '--hp-figure': stage === 'Unharmed' ? 'var(--text)' : STAGE_COLOR[stage],
   }
+}
 
-  // The fade eats into the fill rather than extending past it, so the bar never
-  // reads as longer than the hit points it stands for.
-  const fadeStart = Math.max(0, end - FADE)
-  return `linear-gradient(90deg, var(--hp-fill) 0 ${round(fadeStart)}, transparent ${round(end)})`
+/**
+ * The same treatment for a creature whose exact hit points are not known.
+ *
+ * The players' snapshot carries a status word for monsters and no numbers at
+ * all (`projection.ts`), deliberately. The viewer still wants a tint and a
+ * meter, so it draws them at the stage's nominal percentage instead — which is
+ * the whole point: the bar can never leak a hit point total the DM withheld.
+ */
+export function hpStageStyle(stage: HealthStatus, percent: number): Record<string, string> {
+  return {
+    '--hp-tint': hpStageTint(stage),
+    '--hp-meter':
+      `linear-gradient(90deg, ${STAGE_COLOR[stage]} 0 ${stop(percent)}, ` +
+      `var(--surface-sunken) ${stop(percent)} 100%)`,
+    '--hp-figure': stage === 'Unharmed' ? 'var(--text)' : STAGE_COLOR[stage],
+  }
 }

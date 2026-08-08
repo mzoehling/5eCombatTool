@@ -7,7 +7,7 @@ import { Modal } from '../../components/Modal'
 import { describeCondition } from '../../data/conditionInfo'
 import { nameRuns } from '../../lib/groups'
 import { STAGE_PERCENT, statusOf } from './healthStage'
-import { hpMeterWidths } from '../../lib/hpMeter'
+import { hpMeterStyle, hpMeterWidths, hpStageStyle } from '../../lib/hpMeter'
 import { upNext } from '../../lib/turnOrder'
 import { useServiceWorkerUpdate } from '../../lib/useServiceWorkerUpdate'
 import { useTheme } from '../../lib/useTheme'
@@ -45,6 +45,23 @@ function Health({ participant }: { participant: PlayerParticipant }) {
     )
   }
   return <span className={`pv-health status-${h.status.toLowerCase()}`}>{h.status}</span>
+}
+
+/**
+ * The stage tint and baseline meter for one line of the order list.
+ *
+ * A PC is broadcast with exact hit points, so their line draws the exact meter
+ * the DM's tracker draws. A monster is broadcast as a status word and nothing
+ * else — so its meter is drawn at the stage's nominal percentage, and there is
+ * no width on this screen from which a hit point total could be recovered. The
+ * two paths are what keeps the precision of the bar equal to the precision of
+ * the text beside it.
+ */
+function rowHealthStyle(participant: PlayerParticipant): Record<string, string> {
+  const h = participant.health
+  return h.kind === 'pc'
+    ? hpMeterStyle(h.hp, h.maxHp, h.tempHp)
+    : hpStageStyle(h.status, STAGE_PERCENT[h.status])
 }
 
 function Conditions({
@@ -364,7 +381,7 @@ export function ViewerApp({ code }: { code: string }) {
               </li>
             ) : (
               run.members.map((p) => (
-                <li key={p.id}>
+                <li key={p.id} className="pv-row" style={rowHealthStyle(p)}>
                   <span className="pv-name">
                     <span className="pv-name-row">
                       <span className="pv-name-text">{p.name}</span>

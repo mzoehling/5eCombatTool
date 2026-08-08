@@ -651,70 +651,63 @@ textarea {
 /* One line, identical in landscape and portrait:
      initiative │ name + badges + condition chips
                 │ [cond] [AC shield] [hp/max] [temp] [±HP]
-   The health bar is the row's own background rather than a strip inside it,
-   which is what let the row lose a third of its height.
+   Health reads as two layers, and they must stay separate: `background-color`
+   is a low tint of the health stage over the whole row, `background-image` is a
+   4px meter along the row's bottom edge. Collapsing them into the `background`
+   shorthand means whichever rule is written last wins and the other silently
+   vanishes.
 
-   Two separate layers, and they must stay separate: `background-image` carries
-   the health fill, `background-color` the row's state (active turn, AoE
-   selection). Collapsing them into the `background` shorthand means whichever
-   rule is written last wins and the other silently vanishes.
-
-   The fill spans the whole row, so full health reads as a full row. Everything
-   on the right sits over it, and each of those has its own surface — the HP
-   fields are inputs, the AC is a shield, the chips and the AoE preview are
-   pills — which is what keeps the numbers legible without the fill having to
-   stop short of them. */
+   This replaced a full-height gradient behind the row's text. The fill was
+   exact, but it was exact underneath everything that had to be read, and it was
+   only legible because the text was fighting it. Splitting the two gives the
+   tint the job of saying *roughly how bad it is* — which is all a background can
+   honestly do — and hands the exact reading to a bar with nothing written over
+   it. Both values come from `lib/hpMeter.ts`. */
 .combatant-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: 9px var(--space-3);
   margin-bottom: var(--space-2);
-  background-color: var(--bg-panel);
-  background-image: var(--hp-gradient, none);
+  background-color: var(--hp-tint, var(--bg-panel));
+  background-image: var(--hp-meter, none);
   background-repeat: no-repeat;
+  background-size: 100% 4px;
+  background-position: bottom left;
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: 14px;
+  /* Short, and on the image only: the meter's stops move when HP changes, and a
+     jump reads as a glitch. Nothing else here animates. */
+  transition: background-image 160ms ease;
 }
 
-/* The fill hue comes from the health ratio; the temp slice keeps one hue at every
-   ratio, because temp HP is not a health level — it is a different kind of
-   quantity that happens to sit on the same scale.
-
-   That hue is `--magic` rather than `--accent`: the accent is oxblood, and next
-   to the danger fill of a critical creature the two read as one muddy band, so
-   the boundary between "nearly dead" and "has a cushion" disappeared exactly
-   where it matters most. Violet cannot collide with green, amber or red.
-
-   Both are tinted well down: this is a row background with text over it, not an
-   11px bar. */
-.combatant-row {
-  --hp-temp-fill: color-mix(in srgb, var(--magic) 30%, transparent);
-}
-
-.combatant-row.hp-ok {
+/* The 4px left border repeats the stage as a party cue — redundant on purpose,
+   because it survives at the edge of vision where a 5% tint does not. */
+.combatant-row.hp-unharmed {
   border-left-color: var(--ok);
-  --hp-fill: color-mix(in srgb, var(--ok) 22%, transparent);
 }
-.combatant-row.hp-bloodied {
+.combatant-row.hp-injured {
   border-left-color: var(--warn);
-  --hp-fill: color-mix(in srgb, var(--warn) 26%, transparent);
 }
+.combatant-row.hp-bloodied,
 .combatant-row.hp-critical {
   border-left-color: var(--danger);
-  --hp-fill: color-mix(in srgb, var(--danger) 26%, transparent);
 }
 .combatant-row.hp-down {
   border-left-color: var(--text-dim);
-  --hp-fill: color-mix(in srgb, var(--text-dim) 22%, transparent);
   opacity: 0.75;
 }
 
-/* background-*color* only — see the note on .combatant-row. */
+/* A gold outline and a gold name, and nothing else. The acting row used to take
+   an accent background too; against the stage tint that is two backgrounds
+   arguing, and the one that loses is the one carrying the health. */
 .combatant-row.active-turn {
-  background-color: color-mix(in srgb, var(--accent) 12%, var(--bg-panel));
   border-color: var(--gold);
+}
+
+.combatant-row.active-turn .row-name {
+  color: var(--gold);
 }
 
 .combatant-row.selected {
@@ -881,7 +874,11 @@ textarea {
 }
 
 /* The HP controls and, in AoE mode, the verdict and preview that replace them.
-   Both share this footprint so arming AoE shifts nothing. */
+   Both share this footprint so arming AoE shifts nothing.
+
+   The hairline is what separates health from armour. Both are numbers on the
+   right of the row and both are the creature's defences, and with the health
+   fill gone from behind them there was nothing left saying where one ended. */
 .hp-block {
   display: flex;
   align-items: center;
@@ -889,6 +886,8 @@ textarea {
   gap: var(--space-2);
   flex: none;
   min-width: 15rem;
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
 }
 
 .hp-values {
@@ -899,13 +898,18 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
-/* Centred, not right-aligned: hard against the "/max" it read as "12/ 40". */
+/* Centred, not right-aligned: hard against the "/max" it read as "12/ 40".
+
+   The figure carries the stage colour (`--hp-figure`, set per row) so the number
+   and the row agree without the DM having to compare it against the max. At full
+   health it stays `--text` — an undamaged creature has nothing to announce. */
 .hp-current {
   width: 3.4rem;
   text-align: center;
   font-weight: 700;
   font-size: 1.05rem;
   padding: 0 var(--space-1);
+  color: var(--hp-figure, var(--text));
 }
 
 .hp-max {
@@ -990,10 +994,16 @@ textarea {
   white-space: nowrap;
 }
 
+/* The pooled figure takes the stage colour and the same hairline as a single
+   combatant's HP block — a run must not read differently from the rows it
+   collapses. */
 .group-hp {
   flex: none;
   font-weight: 700;
   white-space: nowrap;
+  color: var(--hp-figure, var(--text));
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
 }
 
 /* The way back out of an expanded run. */
@@ -1012,13 +1022,13 @@ textarea {
 
 /* ---------- AoE mode ---------- */
 
-/* Selected rows gain the gold treatment; unselected ones drop back so the
-   selection reads at a glance across a full screen of combatants. */
-/* background-*color* only — see the note on .combatant-row. */
+/* A gold ring, and the unselected rows dropping back, so the selection reads at
+   a glance across a full screen of combatants. No background: the row's
+   background is the health tint, and a gold wash over it would take away the
+   one thing the DM is about to make a decision against. */
 .combatant-row.aoe-selected {
   border-color: var(--gold);
   outline: 2px solid var(--gold);
-  background-color: color-mix(in srgb, var(--gold) 12%, var(--bg-panel));
 }
 
 .combatant-row.aoe-unselected {
@@ -1136,8 +1146,16 @@ textarea {
    fewer per screen. The target device is an iPad at a table, so the trade goes
    to the finger. */
 @media (min-width: 700px) {
+  /* One more pixel of meter, and one more of separation: at arm's length on a
+     tablet the 4px bar reads thinner than it does on a desk. */
   .combatant-row {
     padding: 10px 18px;
+    background-size: 100% 5px;
+  }
+
+  .hp-block,
+  .group-hp {
+    padding-left: 14px;
   }
 
   .init-value,
