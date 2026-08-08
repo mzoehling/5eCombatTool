@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { amountAfterSave, readSave, saveBonus } from './saves'
+import { amountWithFactor, readSave, saveBonus } from './saves'
 import type { Combatant, Statblock } from '../types'
 
 function combatant(statblock?: Partial<Statblock>): Combatant {
@@ -38,16 +38,28 @@ describe('readSave', () => {
   })
 })
 
-describe('amountAfterSave', () => {
-  it('halves a made save, rounding down', () => {
-    expect(amountAfterSave(17, 'saved')).toBe(8)
+describe('amountWithFactor', () => {
+  it('rounds down at every factor, as the rules do', () => {
+    expect(amountWithFactor(17, 0.5)).toBe(8)
+    expect(amountWithFactor(17, 0.25)).toBe(4)
+    expect(amountWithFactor(17, 1)).toBe(17)
+    expect(amountWithFactor(17, 2)).toBe(34)
   })
 
-  it('leaves a failed save at full', () => {
-    expect(amountAfterSave(17, 'failed')).toBe(17)
+  it('gives an immune target nothing', () => {
+    // ×0 is the whole point of offering the factor as a multiplier: immunity is
+    // the same arithmetic as resistance, not a separate case.
+    expect(amountWithFactor(17, 0)).toBe(0)
   })
 
-  it('leaves an unjudged target at full', () => {
-    expect(amountAfterSave(17, undefined)).toBe(17)
+  it('never goes below zero', () => {
+    expect(amountWithFactor(0, 2)).toBe(0)
+    expect(amountWithFactor(-4, 1)).toBe(0)
+  })
+
+  it('rounds a small amount away rather than down to a fraction', () => {
+    // 1 damage against resistance is 0, not 0.5 — the reducer takes integers.
+    expect(amountWithFactor(1, 0.5)).toBe(0)
+    expect(Number.isInteger(amountWithFactor(7, 0.25))).toBe(true)
   })
 })

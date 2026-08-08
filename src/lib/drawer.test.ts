@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   CLOSE_THRESHOLD,
+  DOCK_HEIGHT,
   DRAWER_MIN,
+  LIST_PADDING,
+  ROW_HEIGHT,
   clampDrawerSize,
   defaultDrawerSize,
   drawerBounds,
@@ -32,13 +35,23 @@ describe('drawerBounds', () => {
     expect(max).toBeLessThan(IPAD_LONG * 0.7)
   })
 
-  it('keeps five rows visible in portrait', () => {
-    const rowHeight = 118
-    const dock = 64
+  it('keeps exactly five rows visible in portrait — no fewer, and not a row more', () => {
+    // Both halves matter. Too few and the DM loses the turn order around them;
+    // too many and the drawer is held back from room nothing is using, which is
+    // what happened when the row went to 88px and this bound stayed at 118.
+    //
+    // Reads the same constants the component does. Repeating the numbers here
+    // is why the old value stayed green: the test agreed with the stale one.
     const extent = IPAD_LONG - 120 // top bar and footer
-    const trackerMin = trackerMinHeight(rowHeight, dock)
-    const { max } = drawerBounds(extent, trackerMin)
-    expect(Math.floor((extent - max - dock) / rowHeight)).toBeGreaterThanOrEqual(5)
+    const { max } = drawerBounds(extent, trackerMinHeight())
+    const forRows = extent - max - DOCK_HEIGHT - LIST_PADDING
+    expect(Math.floor(forRows / ROW_HEIGHT)).toBe(5)
+  })
+
+  it('counts the gap under a row, not just the row', () => {
+    // Five rows have five 8px gaps between and under them. A bound built from
+    // the row's height alone is 40px short and shows four rows and a sliver.
+    expect(ROW_HEIGHT).toBe(88 + 8)
   })
 
   it('never goes below a readable width, even when the tracker cannot keep its minimum', () => {
@@ -71,7 +84,7 @@ describe('clampDrawerSize', () => {
 describe('defaultDrawerSize', () => {
   it('opens at a usable fraction on both orientations', () => {
     const landscape = defaultDrawerSize(IPAD_LONG, TRACKER_MIN_WIDTH)
-    const portrait = defaultDrawerSize(IPAD_LONG - 120, trackerMinHeight(118, 64))
+    const portrait = defaultDrawerSize(IPAD_LONG - 120, trackerMinHeight())
     for (const size of [landscape, portrait]) {
       expect(size).toBeGreaterThanOrEqual(DRAWER_MIN)
     }

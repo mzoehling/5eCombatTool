@@ -3,9 +3,14 @@
 // initiative values, statblocks, limits, groups, and hidden or inactive
 // combatants are never part of a snapshot.
 
+import { healthStatus, type HealthStatus } from '../../lib/healthStage'
 import { turnOrder, type BattleState } from '../../store/battleReducer'
 
-export type HealthStatus = 'Unharmed' | 'Injured' | 'Bloodied' | 'Critical' | 'Down'
+// Both live in `lib/healthStage.ts` now that the DM's rows stage health the
+// same way, and are re-exported here because they are part of the wire format:
+// a reader of the protocol looks for the status words beside the snapshot.
+export type { HealthStatus }
+export { healthStatus }
 
 export interface PlayerCondition {
   condition: string
@@ -67,15 +72,6 @@ export type IncomingMessage =
   | { kind: 'snapshot'; snapshot: PlayerSnapshot }
   | { kind: 'mismatch'; theirs: number; ours: number }
   | { kind: 'ignore' }
-
-export function healthStatus(hp: number, maxHp: number): HealthStatus {
-  if (hp <= 0) return 'Down'
-  const ratio = hp / Math.max(1, maxHp)
-  if (ratio <= 0.25) return 'Critical'
-  if (ratio <= 0.5) return 'Bloodied'
-  if (ratio < 1) return 'Injured'
-  return 'Unharmed'
-}
 
 export function projectSnapshot(state: BattleState): PlayerSnapshot {
   const participants = turnOrder(state)

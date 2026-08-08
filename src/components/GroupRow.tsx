@@ -1,5 +1,6 @@
 import { mdiChevronDown, mdiChevronRight } from '@mdi/js'
-import { hpFillGradient } from '../lib/hpMeter'
+import { healthStatus } from '../lib/healthStage'
+import { hpMeterStyle } from '../lib/hpMeter'
 import type { Combatant, Group } from '../types'
 import { Icon } from './Icon'
 
@@ -27,16 +28,16 @@ export function GroupRow({ group, members, hasActiveTurn, onExpand }: GroupRowPr
   const hp = members.reduce((sum, c) => sum + Math.max(0, c.hp), 0)
   const maxHp = members.reduce((sum, c) => sum + c.maxHp, 0)
   const tempHp = members.reduce((sum, c) => sum + Math.max(0, c.tempHp), 0)
-  // Pooled HP reads the same way as a single combatant's: the row's own fill.
-  const hpFill = hpFillGradient(hp, maxHp, tempHp)
-  const ratio = hp / Math.max(1, maxHp)
-  const fill = ratio > 0.5 ? 'hp-ok' : ratio > 0.25 ? 'hp-bloodied' : hp > 0 ? 'hp-critical' : 'hp-down'
+  // Pooled HP reads exactly the way a single combatant's does — same helper, so
+  // there is one meter code path and a run can never disagree with the rows it
+  // collapses.
+  const stage = healthStatus(hp, maxHp)
   const initiative = members[0].initiative ?? 0
 
   return (
     <li
-      className={`combatant-row group-row ${fill}${hasActiveTurn ? ' active-turn' : ''}`}
-      style={{ ['--hp-gradient' as string]: hpFill }}
+      className={`combatant-row group-row hp-${stage.toLowerCase()}${hasActiveTurn ? ' active-turn' : ''}`}
+      style={hpMeterStyle(hp, maxHp, tempHp)}
     >
       <div className="init-block">
         <span className="init-value num group-init">{initiative}</span>

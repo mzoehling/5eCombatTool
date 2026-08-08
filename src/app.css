@@ -81,12 +81,6 @@ button.icon-only {
   padding: 0;
 }
 
-button.size-primary {
-  min-height: var(--target-primary);
-  padding: 0 var(--space-5);
-  font-size: 1.05rem;
-}
-
 button:disabled {
   opacity: 0.4;
   cursor: default;
@@ -446,7 +440,8 @@ textarea {
   background: var(--bg-panel);
 }
 
-.turn-dock .spacer {
+.turn-dock .spacer,
+.aoe-bar .spacer {
   margin-left: auto;
 }
 
@@ -514,14 +509,16 @@ textarea {
   display: none;
 }
 
+/* 2px, not 1: this rule is now the drag target's only visible sign, so it has
+   to read as an edge you can take hold of rather than as a divider. */
 .drawer-right {
   flex-direction: row;
-  border-left: 1px solid var(--gold);
+  border-left: 2px solid var(--gold);
 }
 
 .drawer-bottom {
   flex-direction: column;
-  border-top: 1px solid var(--gold);
+  border-top: 2px solid var(--gold);
 }
 
 .drawer.dragging {
@@ -575,46 +572,111 @@ textarea {
   height: 2px;
 }
 
-/* The grab area is a full-height strip, not a hairline: this is a touch target
-   first. `touch-action: none` is required — the list's dnd-kit TouchSensor is
-   listening on the same surface, and without it the browser's own scrolling
-   would win the gesture before either got it. */
-.drawer-handle {
-  display: grid;
-  place-items: center;
-  flex: none;
-  touch-action: none;
-  color: var(--text-dim);
-  background: var(--surface-sunken);
-  cursor: grab;
-}
+/* The whole edge is the grab, not a strip beside it.
 
-.drawer-handle:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
+   This was a 56px surface, which is an honest touch target and cost the tracker
+   56px of width for a control used a handful of times a session. The edge is
+   already there — the 2px gold rule on `.drawer-right` / `.drawer-bottom` — so
+   the target is an invisible 24px zone straddling it, running the full length,
+   with a pill marking where it is. Nothing is spent on chrome and there is more
+   of it to hit than before.
+
+   The wrapper is a zero-size flex item: it must take no room, and the zone
+   inside positions against it. It cannot position against `.drawer` itself,
+   which is deliberately not a containing block — `.drawer-preview` has to
+   escape over the tracker, and it can only do that by resolving against
+   `.panes`. */
+.drawer-handle {
+  position: relative;
+  flex: none;
 }
 
 .drawer-right .drawer-handle {
-  width: var(--target-pencil);
-  cursor: col-resize;
+  width: 0;
 }
 
 .drawer-bottom .drawer-handle {
-  height: var(--target-pencil);
+  height: 0;
+}
+
+/* `touch-action: none` is required — the list's dnd-kit TouchSensor is
+   listening on the same surface, and without it the browser's own scrolling
+   would win the gesture before either got it. */
+.drawer-grab {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  z-index: 1;
+}
+
+.drawer-right .drawer-grab {
+  top: 0;
+  bottom: 0;
+  left: -12px;
+  width: 24px;
+  cursor: col-resize;
+}
+
+.drawer-bottom .drawer-grab {
+  left: 0;
+  right: 0;
+  top: -12px;
+  height: 24px;
   cursor: row-resize;
 }
 
-.drawer-bottom .drawer-handle .icon {
+.drawer-pill {
+  display: grid;
+  place-items: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+}
+
+/* Straddling the edge rather than sitting beside it: the pill is a marker for a
+   target centred on the rule, and one that sat to either side would point at
+   the wrong place to press. */
+.drawer-right .drawer-pill {
+  width: 30px;
+  height: 56px;
+  margin: 0 -16px 0 -15px;
+}
+
+.drawer-bottom .drawer-pill {
+  width: 56px;
+  height: 30px;
+  margin: -15px auto 0;
+}
+
+.drawer-bottom .drawer-pill .icon {
   transform: rotate(90deg);
 }
 
+/* On the pill, not the zone: the zone is invisible, so a ring on it would be a
+   rectangle floating in the gap between two panes. */
+.drawer-grab:focus-visible {
+  outline: none;
+}
+
+.drawer-grab:focus-visible .drawer-pill {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* A frame, not a scroller. What it holds owns its own scroll region — the
+   statblock's is `.sb-content`, below its fixed header band — because a scroller
+   here as well would mean two of them nested, and the header would either
+   scroll away or need `position: sticky` to fake standing still. */
 .drawer-body {
   position: relative;
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  padding: var(--space-4);
+  overflow: hidden;
 }
 
 /* Only for content that carries no close button of its own — the empty hint. A
@@ -651,70 +713,63 @@ textarea {
 /* One line, identical in landscape and portrait:
      initiative │ name + badges + condition chips
                 │ [cond] [AC shield] [hp/max] [temp] [±HP]
-   The health bar is the row's own background rather than a strip inside it,
-   which is what let the row lose a third of its height.
+   Health reads as two layers, and they must stay separate: `background-color`
+   is a low tint of the health stage over the whole row, `background-image` is a
+   4px meter along the row's bottom edge. Collapsing them into the `background`
+   shorthand means whichever rule is written last wins and the other silently
+   vanishes.
 
-   Two separate layers, and they must stay separate: `background-image` carries
-   the health fill, `background-color` the row's state (active turn, AoE
-   selection). Collapsing them into the `background` shorthand means whichever
-   rule is written last wins and the other silently vanishes.
-
-   The fill spans the whole row, so full health reads as a full row. Everything
-   on the right sits over it, and each of those has its own surface — the HP
-   fields are inputs, the AC is a shield, the chips and the AoE preview are
-   pills — which is what keeps the numbers legible without the fill having to
-   stop short of them. */
+   This replaced a full-height gradient behind the row's text. The fill was
+   exact, but it was exact underneath everything that had to be read, and it was
+   only legible because the text was fighting it. Splitting the two gives the
+   tint the job of saying *roughly how bad it is* — which is all a background can
+   honestly do — and hands the exact reading to a bar with nothing written over
+   it. Both values come from `lib/hpMeter.ts`. */
 .combatant-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   padding: 9px var(--space-3);
   margin-bottom: var(--space-2);
-  background-color: var(--bg-panel);
-  background-image: var(--hp-gradient, none);
+  background-color: var(--hp-tint, var(--bg-panel));
+  background-image: var(--hp-meter, none);
   background-repeat: no-repeat;
+  background-size: 100% 4px;
+  background-position: bottom left;
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: 14px;
+  /* Short, and on the image only: the meter's stops move when HP changes, and a
+     jump reads as a glitch. Nothing else here animates. */
+  transition: background-image 160ms ease;
 }
 
-/* The fill hue comes from the health ratio; the temp slice keeps one hue at every
-   ratio, because temp HP is not a health level — it is a different kind of
-   quantity that happens to sit on the same scale.
-
-   That hue is `--magic` rather than `--accent`: the accent is oxblood, and next
-   to the danger fill of a critical creature the two read as one muddy band, so
-   the boundary between "nearly dead" and "has a cushion" disappeared exactly
-   where it matters most. Violet cannot collide with green, amber or red.
-
-   Both are tinted well down: this is a row background with text over it, not an
-   11px bar. */
-.combatant-row {
-  --hp-temp-fill: color-mix(in srgb, var(--magic) 30%, transparent);
-}
-
-.combatant-row.hp-ok {
+/* The 4px left border repeats the stage as a party cue — redundant on purpose,
+   because it survives at the edge of vision where a 5% tint does not. */
+.combatant-row.hp-unharmed {
   border-left-color: var(--ok);
-  --hp-fill: color-mix(in srgb, var(--ok) 22%, transparent);
 }
-.combatant-row.hp-bloodied {
+.combatant-row.hp-injured {
   border-left-color: var(--warn);
-  --hp-fill: color-mix(in srgb, var(--warn) 26%, transparent);
 }
+.combatant-row.hp-bloodied,
 .combatant-row.hp-critical {
   border-left-color: var(--danger);
-  --hp-fill: color-mix(in srgb, var(--danger) 26%, transparent);
 }
 .combatant-row.hp-down {
   border-left-color: var(--text-dim);
-  --hp-fill: color-mix(in srgb, var(--text-dim) 22%, transparent);
   opacity: 0.75;
 }
 
-/* background-*color* only — see the note on .combatant-row. */
+/* A gold outline and a gold name, and nothing else. The acting row used to take
+   an accent background too; against the stage tint that is two backgrounds
+   arguing, and the one that loses is the one carrying the health. */
 .combatant-row.active-turn {
-  background-color: color-mix(in srgb, var(--accent) 12%, var(--bg-panel));
   border-color: var(--gold);
+}
+
+.combatant-row.active-turn .row-name {
+  color: var(--gold);
 }
 
 .combatant-row.selected {
@@ -881,7 +936,11 @@ textarea {
 }
 
 /* The HP controls and, in AoE mode, the verdict and preview that replace them.
-   Both share this footprint so arming AoE shifts nothing. */
+   Both share this footprint so arming AoE shifts nothing.
+
+   The hairline is what separates health from armour. Both are numbers on the
+   right of the row and both are the creature's defences, and with the health
+   fill gone from behind them there was nothing left saying where one ended. */
 .hp-block {
   display: flex;
   align-items: center;
@@ -889,6 +948,8 @@ textarea {
   gap: var(--space-2);
   flex: none;
   min-width: 15rem;
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
 }
 
 .hp-values {
@@ -899,13 +960,18 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
-/* Centred, not right-aligned: hard against the "/max" it read as "12/ 40". */
+/* Centred, not right-aligned: hard against the "/max" it read as "12/ 40".
+
+   The figure carries the stage colour (`--hp-figure`, set per row) so the number
+   and the row agree without the DM having to compare it against the max. At full
+   health it stays `--text` — an undamaged creature has nothing to announce. */
 .hp-current {
   width: 3.4rem;
   text-align: center;
   font-weight: 700;
   font-size: 1.05rem;
   padding: 0 var(--space-1);
+  color: var(--hp-figure, var(--text));
 }
 
 .hp-max {
@@ -933,8 +999,9 @@ textarea {
   color: var(--text-dim);
 }
 
-/* The row's one button. Edit moved to the statblock header and took `.edit-btn`
-   with it — the statblock's controls are plain `.icon-only` buttons. */
+/* The row's one button. Editing a combatant is not a mid-combat action, so it
+   moved to the statblock header, where it is a plain `.icon-only` button beside
+   Pin and Close. */
 .cond-btn {
   min-width: var(--target-icon);
   min-height: var(--target-icon);
@@ -942,9 +1009,16 @@ textarea {
   flex: none;
 }
 
-/* Both blocks are the same box — see .hp-block. */
+/* Both blocks are the same box — see .hp-block. Select and Save keep the HP
+   fields' footprint exactly, so arming AoE and stepping to Save shift nothing.
+   Apply is the one step allowed to be wider: it dropped the AC shield to pay
+   for the three chips, so the row's total width is unchanged. */
 .aoe-block {
   gap: var(--space-2);
+}
+
+.aoe-block.aoe-apply {
+  min-width: 22rem;
 }
 
 /* Only rendered when the row shares its initiative with a neighbour — the only
@@ -990,10 +1064,16 @@ textarea {
   white-space: nowrap;
 }
 
+/* The pooled figure takes the stage colour and the same hairline as a single
+   combatant's HP block — a run must not read differently from the rows it
+   collapses. */
 .group-hp {
   flex: none;
   font-weight: 700;
   white-space: nowrap;
+  color: var(--hp-figure, var(--text));
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
 }
 
 /* The way back out of an expanded run. */
@@ -1012,41 +1092,27 @@ textarea {
 
 /* ---------- AoE mode ---------- */
 
-/* Selected rows gain the gold treatment; unselected ones drop back so the
-   selection reads at a glance across a full screen of combatants. */
-/* background-*color* only — see the note on .combatant-row. */
+/* A gold ring, and the unselected rows dropping back, so the selection reads at
+   a glance across a full screen of combatants. No background: the row's
+   background is the health tint, and a gold wash over it would take away the
+   one thing the DM is about to make a decision against. */
 .combatant-row.aoe-selected {
   border-color: var(--gold);
   outline: 2px solid var(--gold);
-  background-color: color-mix(in srgb, var(--gold) 12%, var(--bg-panel));
 }
 
 .combatant-row.aoe-unselected {
   opacity: 0.45;
 }
 
-/* Live preview of the amount the AoE bar will apply to this row.
-   Deliberately neutral: the bar carries both Damage and Heal, so the direction
-   is not decided yet. It was danger-red with a hard `−`, which announced damage
-   while the DM was typing a healing amount, and the `.heal` variant that was
-   meant to cover that could never be applied — nothing knows which button is
-   coming. `±` is what the row's own ±HP field already means. */
-.aoe-preview {
-  font-family: var(--font-num);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.8rem;
-  font-weight: 600;
-  white-space: nowrap;
-  padding: 0.1rem 0.5rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--gold);
-  background: color-mix(in srgb, var(--gold) 14%, transparent);
-  color: var(--text);
-}
 
+/* One skeleton for all three steps — Back, the counter, that step's controls,
+   then the advance hard right — so the bar never moves under the DM's hand.
+   `nowrap`: the point of splitting the steps is that each one fits on a line,
+   and a bar allowed to wrap would quietly undo that by growing instead. */
 .aoe-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--space-2);
   flex: none;
@@ -1056,43 +1122,74 @@ textarea {
   border-top: 1px solid var(--gold);
 }
 
-.aoe-count {
-  font-family: var(--font-num);
-  font-variant-numeric: tabular-nums;
+.aoe-back {
+  flex: none;
+  min-height: var(--target-base);
+}
+
+/* Where the DM is, and nothing else. The bar carries no recap of how many are
+   selected or how each one rolled — that is written on the rows themselves,
+   and repeating it here is a second place to keep in sync. */
+.aoe-step-count {
+  flex: none;
+  font-size: 0.75rem;
   font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* A label above its control, so "Save" and "DC" name the fields without
+   spending a whole line on a legend. */
+.aoe-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  font-size: 0.8rem;
+  color: var(--text-dim);
   white-space: nowrap;
 }
 
 .aoe-amount {
-  width: 7rem;
+  flex: none;
+  width: 118px;
+  min-height: var(--target-base);
   text-align: center;
-}
-
-/* Save helper: ability, DC and the roll button read as one control group. */
-.aoe-save {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
+  background: var(--surface-sunken);
 }
 
 .aoe-dc {
-  width: 4.5rem;
+  flex: none;
+  width: 72px;
+  min-height: var(--target-base);
   text-align: center;
 }
 
-/* Per-row verdict. Tapping it flips the reading, for a player who rolled at
-   the table rather than letting the app roll for them. */
+/* The one thing that moves the DM forward, and it is always in the same place:
+   hard right, whatever the step put in the middle. */
+.aoe-advance {
+  flex: none;
+  min-height: 52px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* Per-row result: what it rolled, and how that read against the DC. Tapping it
+   flips the reading, for a player who rolled at the table rather than letting
+   the app roll for them. */
 .aoe-verdict {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   flex: none;
   min-height: var(--target-icon);
-  padding: 0 var(--space-2);
-  font-size: 0.78rem;
+  padding: 0 var(--space-3);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   border-radius: var(--radius-pill);
 }
 
@@ -1110,6 +1207,71 @@ textarea {
 
 .aoe-verdict-roll {
   font-weight: 700;
+}
+
+/* The Apply step's three chips: what it rolled, what that is multiplied by, and
+   the number the two produce. They read left to right as one sentence, which is
+   why the factor sits between its cause and its consequence. */
+
+/* Gold, and the only outlined chip in the row: it is the one thing here the DM
+   is invited to press, and it has to look different from the result beside it,
+   which only reports. */
+.aoe-factor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: var(--target-icon);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  background: transparent;
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-pill);
+  color: var(--gold);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Fixed and portalled to `document.body`, positioned from the chip's rect by
+   AoeFactorPicker — the rows scroll, and a list that scrolls clips whatever
+   reaches past its edges. `translateX(-100%)` right-aligns it to the chip
+   without the component needing to know its own width. */
+.aoe-factor-popover {
+  position: fixed;
+  z-index: 25;
+  transform: translateX(-100%);
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.22);
+}
+
+.aoe-factor-option {
+  min-width: var(--target-icon);
+  min-height: var(--target-icon);
+  padding: 0 var(--space-2);
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+}
+
+/* The largest number in the row, because it is the one being decided. */
+.aoe-hp-result {
+  flex: none;
+  min-width: 92px;
+  text-align: right;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Temp HP is worth seeing while picking targets — it changes who is worth
+   catching. By Apply the three chips have the room instead. */
+.aoe-temp {
+  color: var(--magic);
 }
 
 .toast {
@@ -1136,8 +1298,22 @@ textarea {
    fewer per screen. The target device is an iPad at a table, so the trade goes
    to the finger. */
 @media (min-width: 700px) {
+  /* 88px is the whole row: one line, Pencil-sized controls, and nothing above
+     or below them. Stated as a floor rather than left to fall out of the
+     padding, because the tallest thing in the row is whichever block sits on
+     the left — and that swaps when AoE arms. The height must not.
+
+     One more pixel of meter and one more of separation, too: at arm's length on
+     a tablet the 4px bar reads thinner than it does on a desk. */
   .combatant-row {
+    min-height: 88px;
     padding: 10px 18px;
+    background-size: 100% 5px;
+  }
+
+  .hp-block,
+  .group-hp {
+    padding-left: 14px;
   }
 
   .init-value,
@@ -1676,15 +1852,38 @@ label.check {
 
 /* ---------- statblock panel ---------- */
 
-/* Name, meta and the compact stat line stay put; only the tab content below
-   scrolls with the pane. */
+/* Header band, then one scroll region — the same shape as a dialog, and the
+   same in the landscape drawer and the portrait bottom sheet.
+
+   The identity, the stat line and the tabs used to stand still by way of
+   `position: sticky` inside a scrolling drawer body, with a negative top and a
+   matching negative margin cancelling that body's padding. It worked, but the
+   band could never own its own edge: the gold rule and the padding around it
+   belong to the header, not to the surface it happens to be floating over. As a
+   flex column the band is simply a fixed row, and `.sb-content` below it is the
+   one thing that scrolls.
+
+   `.sb-sticky` is therefore a misnomer, kept on purpose: renaming it would move
+   markup and CSS across three files and change nothing. */
+.statblock {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .sb-sticky {
-  position: sticky;
-  top: calc(-1 * var(--space-4));
-  z-index: 2;
+  flex: none;
   background: var(--bg-panel);
-  padding-top: var(--space-4);
-  margin-top: calc(-1 * var(--space-4));
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--gold);
+}
+
+.sb-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 20px 24px;
 }
 
 .sb-header {
@@ -1704,18 +1903,26 @@ label.check {
   flex: none;
 }
 
+/* The creature's name is the largest thing in the drawer: it is what tells the
+   DM whose numbers these are, and at 1.25rem it was competing with the tab
+   labels. */
 .sb-header h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.15;
   color: var(--gold);
 }
 
+/* No bottom margin: the band's own padding sets the distance to the rule. */
 .sb-tabs {
-  margin: 0 0 var(--space-3);
+  margin: 0;
 }
 
 .sb-meta {
   font-style: italic;
+  font-size: 0.875rem;
   color: var(--text-dim);
   margin: var(--space-1) 0 0;
 }

@@ -10,19 +10,11 @@ import {
   sizeFromPointer,
   trackerMinHeight,
   TRACKER_MIN_WIDTH,
+  type DrawerBounds,
   type DrawerMode,
   type DrawerSide,
 } from '../lib/drawer'
 import { Icon } from './Icon'
-
-/**
- * Rough row and dock heights, used only to derive the portrait drawer's upper
- * bound ("five rows stay visible"). Measuring the real row would tie the bound
- * to whether the tracker happens to be empty, and being a few pixels out here
- * costs nothing — the bound is a floor on readability, not a layout value.
- */
-const ROW_HEIGHT = 118
-const DOCK_HEIGHT = 72
 
 /** Landscape → from the right, portrait → from the bottom. Derived from the
  *  media query rather than stored, so rotating the iPad is not a state change. */
@@ -49,6 +41,10 @@ export interface DrawerState {
   /** Live size during a drag; the drawer floats at this size without reflowing
    *  the tracker until the gesture ends. */
   dragSize: number | null
+  /** The range the size may take, so the grab can report it — a focusable
+   *  separator is a widget, and a widget that changes a value has to say what
+   *  the value is and what it may be. */
+  bounds: DrawerBounds
   open: () => void
   close: () => void
   toggle: () => void
@@ -96,7 +92,10 @@ export function useDrawer(host: HTMLElement | null): DrawerState {
     }
   }, [side])
 
-  const trackerMin = side === 'right' ? TRACKER_MIN_WIDTH : trackerMinHeight(ROW_HEIGHT, DOCK_HEIGHT)
+  // The portrait bound's row and dock heights live in `lib/drawer.ts` beside the
+  // function that consumes them — kept here, they drifted a row and a half out
+  // of step with the CSS without anything noticing.
+  const trackerMin = side === 'right' ? TRACKER_MIN_WIDTH : trackerMinHeight()
   const bounds = drawerBounds(extent, trackerMin)
   const dockedSize = docked ?? defaultDrawerSize(extent, trackerMin)
   const size = sizeForMode(mode, dockedSize, bounds)
@@ -171,6 +170,7 @@ export function useDrawer(host: HTMLElement | null): DrawerState {
     mode,
     size,
     dragSize,
+    bounds,
     open: useCallback(() => setMode((m) => (m === 'closed' ? 'docked' : m)), []),
     close: useCallback(() => setMode('closed'), []),
     toggle: useCallback(() => setMode((m) => (m === 'closed' ? 'docked' : 'closed')), []),
@@ -202,7 +202,7 @@ interface DrawerProps {
  * release rather than on every frame of the gesture.
  */
 export function Drawer({ state, title, ownClose = true, children }: DrawerProps) {
-  const { side, mode, size, dragSize } = state
+  const { side, mode, size, dragSize, bounds } = state
   const dragging = dragSize !== null
   const axis = side === 'right' ? 'width' : 'height'
   const closed = mode === 'closed' && !dragging
@@ -214,6 +214,14 @@ export function Drawer({ state, title, ownClose = true, children }: DrawerProps)
       // is shown by the preview below, which floats over the tracker. That is
       // what makes the rows reflow once, on release, instead of every frame.
       style={{ [axis]: `${size}px` }}
+      // `inert` alongside `aria-hidden`, not instead of it. The pane stays in the
+      // tree when closed so its scroll position and open tab survive being put
+      // away, and it holds two focusable things — the grab and, sometimes, a
+      // close button. `aria-hidden` over a focusable subtree is a contradiction:
+      // a keyboard can reach what a screen reader is told is not there.
+      // `.drawer.closed { display: none }` already prevents it, but that leaves
+      // the guarantee resting on a stylesheet; this states it.
+      inert={closed}
       aria-hidden={closed}
       aria-label={title}
     >
@@ -222,23 +230,42 @@ export function Drawer({ state, title, ownClose = true, children }: DrawerProps)
           <span className="drawer-preview-edge" />
         </div>
       )}
-      <div
-        className="drawer-handle"
-        role="separator"
-        tabIndex={0}
-        aria-label={`Resize ${title}`}
-        aria-orientation={side === 'right' ? 'vertical' : 'horizontal'}
-        onPointerDown={state.startDrag}
-        onKeyDown={(e) => {
-          const grow = side === 'right' ? 'ArrowLeft' : 'ArrowUp'
-          const shrink = side === 'right' ? 'ArrowRight' : 'ArrowDown'
-          if (e.key === grow) state.nudge(48)
-          else if (e.key === shrink) state.nudge(-48)
-          else return
-          e.preventDefault()
-        }}
-      >
-        <Icon path={mdiUnfoldMoreVertical} />
+      {/* The whole edge is the drag target. The wrapper takes no room in the
+          flex row — that is the width the old 56px strip was costing the
+          tracker — and the hit zone straddles the edge from an absolute
+          position inside it. */}
+      <div className="drawer-handle">
+        {/* A focusable `separator` is a widget, not a decoration, so it owes the
+            value it changes: without these three a screen reader announces the
+            grab and then says nothing at all as the arrow keys move it. The
+            live drag size wins over the committed one, so the readout follows
+            the gesture rather than jumping at the end. */}
+        <div
+          className="drawer-grab"
+          role="separator"
+          tabIndex={0}
+          aria-label={`Resize ${title}`}
+          aria-orientation={side === 'right' ? 'vertical' : 'horizontal'}
+          aria-valuenow={Math.round(dragSize ?? size)}
+          aria-valuemin={bounds.min}
+          aria-valuemax={bounds.max}
+          aria-valuetext={`${Math.round(dragSize ?? size)} pixels`}
+          onPointerDown={state.startDrag}
+          onKeyDown={(e) => {
+            const grow = side === 'right' ? 'ArrowLeft' : 'ArrowUp'
+            const shrink = side === 'right' ? 'ArrowRight' : 'ArrowDown'
+            if (e.key === grow) state.nudge(48)
+            else if (e.key === shrink) state.nudge(-48)
+            else return
+            e.preventDefault()
+          }}
+        >
+          {/* Marks where the edge is; it is not itself the target, so it can be
+              small without costing anyone a grab. */}
+          <span className="drawer-pill" aria-hidden="true">
+            <Icon path={mdiUnfoldMoreVertical} />
+          </span>
+        </div>
       </div>
       <div className="drawer-body">
         {ownClose && (

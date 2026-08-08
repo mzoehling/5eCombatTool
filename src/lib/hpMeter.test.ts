@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HP_FILL_EXTENT, hpFillGradient, hpMeterWidths } from './hpMeter'
+import { hpMeterGradient, hpMeterStyle, hpMeterWidths, hpStageStyle, hpStageTint } from './hpMeter'
 
 describe('hpMeterWidths', () => {
   it('extends the scale by temp HP instead of eating into the max', () => {
@@ -31,68 +31,99 @@ function stops(gradient: string): number[] {
   return [...gradient.matchAll(/([\d.]+)%/g)].map((m) => Number(m[1]))
 }
 
-describe('hpFillGradient', () => {
-  it('never runs past the row, even with temp HP on top', () => {
-    expect(Math.max(...stops(hpFillGradient(100, 100)))).toBeLessThanOrEqual(HP_FILL_EXTENT)
-    expect(Math.max(...stops(hpFillGradient(100, 100, 50)))).toBeLessThanOrEqual(HP_FILL_EXTENT)
+describe('hpStageTint', () => {
+  it('deepens as health falls, and goes quiet again at zero', () => {
+    // The ramp is what separates Bloodied from Critical — both are --danger.
+    expect(hpStageTint('Unharmed')).toBe('color-mix(in srgb, var(--ok) 5%, var(--bg-panel))')
+    expect(hpStageTint('Injured')).toBe('color-mix(in srgb, var(--warn) 10%, var(--bg-panel))')
+    expect(hpStageTint('Bloodied')).toBe('color-mix(in srgb, var(--danger) 14%, var(--bg-panel))')
+    expect(hpStageTint('Critical')).toBe('color-mix(in srgb, var(--danger) 18%, var(--bg-panel))')
+    expect(hpStageTint('Down')).toBe('color-mix(in srgb, var(--text-dim) 6%, var(--bg-panel))')
   })
 
-  it('fills the whole row at full health', () => {
-    // A full bar has to read as a full row — that is the point of making it the
-    // row's background rather than a strip inside it.
-    expect(HP_FILL_EXTENT).toBe(100)
-    expect(hpFillGradient(100, 100)).toContain(`transparent ${HP_FILL_EXTENT}%`)
+  it('mixes into the panel surface, never into transparency', () => {
+    // A tint over nothing would let whatever is behind the row through, and the
+    // row would read differently on the tracker than in a dialog.
+    expect(hpStageTint('Bloodied')).toContain('var(--bg-panel)')
+  })
+})
+
+describe('hpMeterGradient', () => {
+  it('runs the full row width, with the tail as the damage taken', () => {
+    // Unlike the fill it replaces, the meter always spans 100%: it is a bar
+    // along the bottom edge, so the empty part has to be drawn, not omitted.
+    expect(hpMeterGradient(50, 100)).toContain('var(--surface-sunken) 50% 100%)')
+    expect(Math.max(...stops(hpMeterGradient(100, 100)))).toBe(100)
   })
 
-  it('scales with the health ratio', () => {
-    const half = Math.max(...stops(hpFillGradient(50, 100)))
-    const full = Math.max(...stops(hpFillGradient(100, 100)))
-    expect(half).toBeCloseTo(full / 2, 1)
+  it('takes the stage colour, not one colour for every ratio', () => {
+    expect(hpMeterGradient(100, 100)).toContain('var(--ok) 0 100%')
+    expect(hpMeterGradient(80, 100)).toContain('var(--warn) 0 80%')
+    expect(hpMeterGradient(40, 100)).toContain('var(--danger) 0 40%')
+    expect(hpMeterGradient(10, 100)).toContain('var(--danger) 0 10%')
+    expect(hpMeterGradient(0, 100)).toContain('var(--text-dim) 0 0%')
   })
 
-  it('draws nothing for a combatant at zero', () => {
-    expect(hpFillGradient(0, 100)).toBe('none')
-    expect(hpFillGradient(0, 0)).toBe('none')
-  })
-
-  it('gives temp HP its own colour as the outermost slice', () => {
-    const g = hpFillGradient(90, 100, 20)
-    expect(g).toContain('var(--hp-fill) 0')
-    expect(g).toContain('var(--hp-temp-fill)')
-    // hp ends at 75% of the pool, temp carries on to 110/120 — both scaled into
-    // the extent, and the temp section starts where the hp section stops.
+  it('gives temp HP the outermost slice in violet', () => {
+    // Never gold: beside the danger colour of a critical creature, gold reads
+    // as another health level.
+    const g = hpMeterGradient(90, 100, 20)
     const s = stops(g)
-    expect(s[0]).toBeCloseTo(75 * (HP_FILL_EXTENT / 100), 1)
-    expect(s[1]).toBeCloseTo(s[0], 1)
-    expect(Math.max(...s)).toBeCloseTo((110 / 120) * HP_FILL_EXTENT, 1)
+    expect(g).toContain('var(--magic)')
+    expect(s[0]).toBeCloseTo(75, 1)
+    expect(s[1]).toBeCloseTo(75, 1)
+    expect(s[2]).toBeCloseTo((110 / 120) * 100, 1)
+    expect(g.indexOf('var(--magic)')).toBeGreaterThan(g.indexOf('var(--warn)'))
   })
 
-  it('keeps the fade inside the fill so the bar never overstates the hit points', () => {
-    // A fade that extended past the end would read as more HP than there is.
-    const g = hpFillGradient(50, 100)
-    const s = stops(g)
-    expect(s[0]).toBeLessThan(s[1])
-    expect(Math.max(...s)).toBeCloseTo(50 * (HP_FILL_EXTENT / 100), 1)
+  it('draws a downed combatant holding temp HP as temp alone', () => {
+    const g = hpMeterGradient(0, 20, 5)
+    expect(g).toContain('var(--text-dim) 0 0%')
+    expect(g).toContain('var(--magic) 0% 20%')
   })
 
-  it('holds the fade at the hp/temp boundary when the temp slice is thin', () => {
-    // Otherwise a 1-point temp slice would soften the current-HP colour instead
-    // of tinting its own section.
-    const g = hpFillGradient(100, 100, 1)
-    const s = stops(g)
-    expect(s[0]).toBeCloseTo(s[1], 2)
-    expect(s[1]).toBeLessThanOrEqual(s[2])
-  })
-
-  it('shows only the temp slice for a downed combatant holding temp HP', () => {
-    const g = hpFillGradient(0, 20, 5)
-    expect(g).toContain('var(--hp-fill) 0 0%')
-    expect(Math.max(...stops(g))).toBeCloseTo(20 * (HP_FILL_EXTENT / 100), 1)
+  it('rounds stops to two decimals so neighbouring sections never seam', () => {
+    // 1/3 of 100 is 33.333…; an unrounded stop and its neighbour can disagree
+    // in the last place and leave a hairline of the layer beneath showing.
+    const s = stops(hpMeterGradient(1, 3))
+    expect(s[0]).toBe(33.33)
+    expect(s[1]).toBe(33.33)
   })
 
   it('is a background-image value, never a colour', () => {
-    // The row's state colour is `background-color` underneath; one property for
+    // The tint is `background-color` on the layer beneath; one property for
     // both would mean whichever is written last silently wins.
-    expect(hpFillGradient(60, 100)).toMatch(/^linear-gradient\(90deg, /)
+    expect(hpMeterGradient(60, 100)).toMatch(/^linear-gradient\(90deg, /)
+  })
+})
+
+describe('hpMeterStyle', () => {
+  it('hands the row both layers plus the HP figure colour', () => {
+    const s = hpMeterStyle(40, 100)
+    expect(s['--hp-tint']).toBe(hpStageTint('Bloodied'))
+    expect(s['--hp-meter']).toBe(hpMeterGradient(40, 100))
+    expect(s['--hp-figure']).toBe('var(--danger)')
+  })
+
+  it('leaves the HP figure alone at full health', () => {
+    // An undamaged creature should not have a green number shouting about it.
+    expect(hpMeterStyle(100, 100)['--hp-figure']).toBe('var(--text)')
+    expect(hpMeterStyle(99, 100)['--hp-figure']).toBe('var(--warn)')
+  })
+})
+
+describe('hpStageStyle', () => {
+  it('draws from the stage alone, with no hit points anywhere in the output', () => {
+    // The players' snapshot carries a status word for monsters and no numbers;
+    // the meter must not be the thing that leaks them back.
+    const s = hpStageStyle('Bloodied', 50)
+    expect(s['--hp-meter']).toBe(
+      'linear-gradient(90deg, var(--danger) 0 50%, var(--surface-sunken) 50% 100%)',
+    )
+    expect(s['--hp-tint']).toBe(hpStageTint('Bloodied'))
+  })
+
+  it('has no temp slice — temp is not in the snapshot for a monster', () => {
+    expect(hpStageStyle('Injured', 75)['--hp-meter']).not.toContain('var(--magic)')
   })
 })
