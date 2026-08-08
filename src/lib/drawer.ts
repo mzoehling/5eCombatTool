@@ -38,9 +38,36 @@ export const TRACKER_MIN_WIDTH = 720
 /** Rows that stay visible in portrait — enough to see the turn order around you. */
 export const TRACKER_MIN_ROWS = 5
 
+/**
+ * What the tracker's parts cost in portrait, used only to derive the drawer's
+ * upper bound ("five rows stay visible"). Measuring the real row would tie the
+ * bound to whether the tracker happens to be empty, so these are stated.
+ *
+ * They must follow the CSS, and `ROW_HEIGHT` is what a row costs *the list*, not
+ * how tall the row is: `.combatant-row` is 88px above the 700px breakpoint —
+ * which portrait always is — and carries an 8px `margin-bottom` under it. A
+ * bound built from the height alone comes up one row short, because the five
+ * gaps are 40px nobody counted.
+ *
+ * These sat in `Drawer.tsx` and were left at 118 when the row went to 88: five
+ * rows' worth of error, about 150px of drawer the DM could not open. Being a few
+ * pixels out genuinely costs nothing here — the bound is a floor on readability,
+ * not a layout value — but being a row and a half out does. They live beside the
+ * function that consumes them now, and `drawer.test.ts` reads these same
+ * constants instead of repeating the numbers, which is what let the old value
+ * stay green.
+ */
+export const ROW_HEIGHT = 88 + 8
+
+/** The dock below the list: a 48px button between two 8px paddings, plus the rule. */
+export const DOCK_HEIGHT = 64
+
+/** `.combatant-list`'s own padding, top and bottom. */
+export const LIST_PADDING = 16
+
 /** Portrait equivalent of `TRACKER_MIN_WIDTH`: N rows plus the dock below them. */
-export function trackerMinHeight(rowHeight: number, dockHeight: number): number {
-  return TRACKER_MIN_ROWS * rowHeight + dockHeight
+export function trackerMinHeight(rowHeight: number = ROW_HEIGHT, dockHeight: number = DOCK_HEIGHT): number {
+  return TRACKER_MIN_ROWS * rowHeight + dockHeight + LIST_PADDING
 }
 
 export interface DrawerBounds {

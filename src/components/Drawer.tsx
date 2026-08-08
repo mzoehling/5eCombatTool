@@ -15,15 +15,6 @@ import {
 } from '../lib/drawer'
 import { Icon } from './Icon'
 
-/**
- * Rough row and dock heights, used only to derive the portrait drawer's upper
- * bound ("five rows stay visible"). Measuring the real row would tie the bound
- * to whether the tracker happens to be empty, and being a few pixels out here
- * costs nothing — the bound is a floor on readability, not a layout value.
- */
-const ROW_HEIGHT = 118
-const DOCK_HEIGHT = 72
-
 /** Landscape → from the right, portrait → from the bottom. Derived from the
  *  media query rather than stored, so rotating the iPad is not a state change. */
 function useDrawerSide(): DrawerSide {
@@ -96,7 +87,10 @@ export function useDrawer(host: HTMLElement | null): DrawerState {
     }
   }, [side])
 
-  const trackerMin = side === 'right' ? TRACKER_MIN_WIDTH : trackerMinHeight(ROW_HEIGHT, DOCK_HEIGHT)
+  // The portrait bound's row and dock heights live in `lib/drawer.ts` beside the
+  // function that consumes them — kept here, they drifted a row and a half out
+  // of step with the CSS without anything noticing.
+  const trackerMin = side === 'right' ? TRACKER_MIN_WIDTH : trackerMinHeight()
   const bounds = drawerBounds(extent, trackerMin)
   const dockedSize = docked ?? defaultDrawerSize(extent, trackerMin)
   const size = sizeForMode(mode, dockedSize, bounds)
