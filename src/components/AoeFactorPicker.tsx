@@ -1,5 +1,5 @@
 import { mdiChevronDown } from '@mdi/js'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { AoeFactor } from '../store/trackerUi'
 import { Icon } from './Icon'
@@ -31,6 +31,10 @@ interface AoeFactorPickerProps {
   onPick: (factor: AoeFactor) => void
 }
 
+/** Roughly how tall the popover is, used to decide which side of the chip it
+ *  opens on before it has been laid out and can be measured. */
+const POPOVER_HEIGHT = 60
+
 /**
  * A row's factor chip, and the popover behind it.
  *
@@ -43,15 +47,18 @@ interface AoeFactorPickerProps {
  * centred dialog would put the DM's own selection behind a backdrop at the exact
  * moment they are reading it.
  */
-/** Roughly how tall the popover is, used to decide which side of the chip it
- *  opens on before it has been laid out and can be measured. */
-const POPOVER_HEIGHT = 60
-
 export function AoeFactorPicker({ value, combatantName, onPick }: AoeFactorPickerProps) {
   const [open, setOpen] = useState(false)
   const [at, setAt] = useState<{ left: number; top: number } | null>(null)
   const chipRef = useRef<HTMLButtonElement>(null)
   const popRef = useRef<HTMLDivElement>(null)
+  const popId = useId()
+
+  /** Closes and puts the focus back where it came from. */
+  const close = useCallback(() => {
+    setOpen(false)
+    chipRef.current?.focus()
+  }, [])
 
   // Positioned against the viewport, from the chip's own rect, and rendered into
   // `document.body`. Anchoring it to the chip with `position: absolute` is the
@@ -80,14 +87,37 @@ export function AoeFactorPicker({ value, combatantName, onPick }: AoeFactorPicke
     }
   }, [open])
 
+  // The focus goes into the popover on open and back to the chip on close.
+  // Without it the chip was a 44px touch target that a keyboard could open and
+  // then not reach into — tab order carried on past it to the next row.
+  //
+  // It waits for `at`, because the first render has no position yet and hides
+  // the popover to avoid a flash in the corner — and `focus()` on a
+  // `visibility: hidden` element silently does nothing. The flag is what keeps
+  // a reposition from stealing the focus back on every scroll event.
+  const focused = useRef(false)
+  useEffect(() => {
+    if (!open) {
+      focused.current = false
+      return
+    }
+    if (!at || focused.current) return
+    focused.current = true
+    popRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus()
+  }, [open, at])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') close()
     }
     // The chip counts as inside: it is the toggle, and treating a press on it as
     // "outside" meant dismissing the popover closed it and the chip's own
     // handler reopened it in the same gesture.
+    //
+    // A press outside does not pull the focus back — the DM is already
+    // somewhere else, and yanking it would fight them. Escape does, because
+    // that is a deliberate "never mind".
     const onOutside = (e: PointerEvent) => {
       const t = e.target as Node
       if (!popRef.current?.contains(t) && !chipRef.current?.contains(t)) setOpen(false)
@@ -98,16 +128,19 @@ export function AoeFactorPicker({ value, combatantName, onPick }: AoeFactorPicke
       document.removeEventListener('keydown', onKey)
       document.removeEventListener('pointerdown', onOutside)
     }
-  }, [open])
+  }, [open, close])
 
   return (
     <>
+      {/* `dialog`, not the `menu` that a bare `aria-haspopup` means: what opens
+          is a set of choices that stays put, not a command list. */}
       <button
         ref={chipRef}
         type="button"
         className="aoe-factor-chip"
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-expanded={open}
+        aria-controls={open ? popId : undefined}
         aria-label={`Factor for ${combatantName}: ${labelFor(value)}`}
         onClick={() => setOpen((o) => !o)}
       >
@@ -116,10 +149,15 @@ export function AoeFactorPicker({ value, combatantName, onPick }: AoeFactorPicke
       </button>
       {open &&
         createPortal(
+          /* A radiogroup, because that is what it is: five values, exactly one
+             of them in force. It was a `group` of `aria-pressed` buttons, which
+             says five independent toggles that happen to be near each other —
+             a screen reader could not tell that picking ×2 unpicks ×½. */
           <div
             ref={popRef}
+            id={popId}
             className="aoe-factor-popover"
-            role="group"
+            role="radiogroup"
             aria-label={`Factor for ${combatantName}`}
             style={at ? { left: at.left, top: at.top } : { visibility: 'hidden' }}
           >
@@ -127,12 +165,13 @@ export function AoeFactorPicker({ value, combatantName, onPick }: AoeFactorPicke
               <button
                 key={f.value}
                 type="button"
+                role="radio"
                 className={f.value === value ? 'aoe-factor-option primary' : 'aoe-factor-option'}
                 title={f.title}
-                aria-pressed={f.value === value}
+                aria-checked={f.value === value}
                 onClick={() => {
                   onPick(f.value)
-                  setOpen(false)
+                  close()
                 }}
               >
                 {f.label}

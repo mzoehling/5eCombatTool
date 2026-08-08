@@ -252,7 +252,7 @@ export function TrackerPane({
                   aoeResult={checked.has(c.id) ? resultFor(c.id) : undefined}
                   aoeFactor={factorOf(c.id)}
                   onFactorChange={(f) => onAoeFactor(c.id, f)}
-                  aoeSave={multiSelect && checked.has(c.id) ? aoeResults[c.id] : undefined}
+                  aoeSave={checked.has(c.id) ? aoeResults[c.id] : undefined}
                   onToggleSave={() => onFlipAoeResult(c.id)}
                   onSelect={() => onSelect(c.id)}
                   onToggleCheck={() => toggleCheck(c.id)}

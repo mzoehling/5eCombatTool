@@ -25,16 +25,18 @@ interface CombatantRowProps {
   groupColor?: string
   groupOut: boolean
   /** Which of the three AoE steps the bar is on; only read while `multiSelect`. */
-  aoeStep?: AoeStep
+  aoeStep: AoeStep
   /** On the Apply step: what this row would receive, `null` until it is known.
-   *  Dice notation has no number until it is rolled, so it stays null there. */
+   *  Dice notation has no number until it is rolled, so it stays null there.
+   *  `undefined` for a row that is not in the area. */
   aoeResult?: number | null
-  /** This row's factor, and the arithmetic behind the number above. */
-  aoeFactor?: AoeFactor
-  onFactorChange?: (factor: AoeFactor) => void
+  /** This row's factor, and the arithmetic behind the number above. Defaulted by
+   *  the tracker, next to the seeding logic it belongs to — not here as well. */
+  aoeFactor: AoeFactor
+  onFactorChange: (factor: AoeFactor) => void
   /** Set once the AoE bar has rolled: this row's total and how it read. */
   aoeSave?: { total: number; verdict: 'saved' | 'failed' }
-  onToggleSave?: () => void
+  onToggleSave: () => void
   onSelect: () => void
   onToggleCheck: () => void
   onEditConditions: () => void
@@ -50,9 +52,9 @@ export function CombatantRow({
   groupName,
   groupColor,
   groupOut,
-  aoeStep = 'select',
+  aoeStep,
   aoeResult,
-  aoeFactor = 1,
+  aoeFactor,
   onFactorChange,
   aoeSave,
   onToggleSave,
@@ -229,10 +231,10 @@ export function CombatantRow({
               <AoeFactorPicker
                 value={aoeFactor}
                 combatantName={c.name}
-                onPick={(f) => onFactorChange?.(f)}
+                onPick={onFactorChange}
               />
               <span className="aoe-hp-result num">
-                {aoeResult === null || aoeResult === undefined ? '—' : `±${aoeResult} hp`}
+                {aoeResult == null ? '—' : `±${aoeResult} hp`}
               </span>
             </>
           )}
