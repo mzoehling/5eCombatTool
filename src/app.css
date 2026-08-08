@@ -514,14 +514,16 @@ textarea {
   display: none;
 }
 
+/* 2px, not 1: this rule is now the drag target's only visible sign, so it has
+   to read as an edge you can take hold of rather than as a divider. */
 .drawer-right {
   flex-direction: row;
-  border-left: 1px solid var(--gold);
+  border-left: 2px solid var(--gold);
 }
 
 .drawer-bottom {
   flex-direction: column;
-  border-top: 1px solid var(--gold);
+  border-top: 2px solid var(--gold);
 }
 
 .drawer.dragging {
@@ -575,37 +577,97 @@ textarea {
   height: 2px;
 }
 
-/* The grab area is a full-height strip, not a hairline: this is a touch target
-   first. `touch-action: none` is required — the list's dnd-kit TouchSensor is
-   listening on the same surface, and without it the browser's own scrolling
-   would win the gesture before either got it. */
-.drawer-handle {
-  display: grid;
-  place-items: center;
-  flex: none;
-  touch-action: none;
-  color: var(--text-dim);
-  background: var(--surface-sunken);
-  cursor: grab;
-}
+/* The whole edge is the grab, not a strip beside it.
 
-.drawer-handle:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
+   This was a 56px surface, which is an honest touch target and cost the tracker
+   56px of width for a control used a handful of times a session. The edge is
+   already there — the 2px gold rule on `.drawer-right` / `.drawer-bottom` — so
+   the target is an invisible 24px zone straddling it, running the full length,
+   with a pill marking where it is. Nothing is spent on chrome and there is more
+   of it to hit than before.
+
+   The wrapper is a zero-size flex item: it must take no room, and the zone
+   inside positions against it. It cannot position against `.drawer` itself,
+   which is deliberately not a containing block — `.drawer-preview` has to
+   escape over the tracker, and it can only do that by resolving against
+   `.panes`. */
+.drawer-handle {
+  position: relative;
+  flex: none;
 }
 
 .drawer-right .drawer-handle {
-  width: var(--target-pencil);
-  cursor: col-resize;
+  width: 0;
 }
 
 .drawer-bottom .drawer-handle {
-  height: var(--target-pencil);
+  height: 0;
+}
+
+/* `touch-action: none` is required — the list's dnd-kit TouchSensor is
+   listening on the same surface, and without it the browser's own scrolling
+   would win the gesture before either got it. */
+.drawer-grab {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  z-index: 1;
+}
+
+.drawer-right .drawer-grab {
+  top: 0;
+  bottom: 0;
+  left: -12px;
+  width: 24px;
+  cursor: col-resize;
+}
+
+.drawer-bottom .drawer-grab {
+  left: 0;
+  right: 0;
+  top: -12px;
+  height: 24px;
   cursor: row-resize;
 }
 
-.drawer-bottom .drawer-handle .icon {
+.drawer-pill {
+  display: grid;
+  place-items: center;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+}
+
+/* Straddling the edge rather than sitting beside it: the pill is a marker for a
+   target centred on the rule, and one that sat to either side would point at
+   the wrong place to press. */
+.drawer-right .drawer-pill {
+  width: 30px;
+  height: 56px;
+  margin: 0 -16px 0 -15px;
+}
+
+.drawer-bottom .drawer-pill {
+  width: 56px;
+  height: 30px;
+  margin: -15px auto 0;
+}
+
+.drawer-bottom .drawer-pill .icon {
   transform: rotate(90deg);
+}
+
+/* On the pill, not the zone: the zone is invisible, so a ring on it would be a
+   rectangle floating in the gap between two panes. */
+.drawer-grab:focus-visible {
+  outline: none;
+}
+
+.drawer-grab:focus-visible .drawer-pill {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .drawer-body {

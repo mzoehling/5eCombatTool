@@ -222,23 +222,33 @@ export function Drawer({ state, title, ownClose = true, children }: DrawerProps)
           <span className="drawer-preview-edge" />
         </div>
       )}
-      <div
-        className="drawer-handle"
-        role="separator"
-        tabIndex={0}
-        aria-label={`Resize ${title}`}
-        aria-orientation={side === 'right' ? 'vertical' : 'horizontal'}
-        onPointerDown={state.startDrag}
-        onKeyDown={(e) => {
-          const grow = side === 'right' ? 'ArrowLeft' : 'ArrowUp'
-          const shrink = side === 'right' ? 'ArrowRight' : 'ArrowDown'
-          if (e.key === grow) state.nudge(48)
-          else if (e.key === shrink) state.nudge(-48)
-          else return
-          e.preventDefault()
-        }}
-      >
-        <Icon path={mdiUnfoldMoreVertical} />
+      {/* The whole edge is the drag target. The wrapper takes no room in the
+          flex row — that is the width the old 56px strip was costing the
+          tracker — and the hit zone straddles the edge from an absolute
+          position inside it. */}
+      <div className="drawer-handle">
+        <div
+          className="drawer-grab"
+          role="separator"
+          tabIndex={0}
+          aria-label={`Resize ${title}`}
+          aria-orientation={side === 'right' ? 'vertical' : 'horizontal'}
+          onPointerDown={state.startDrag}
+          onKeyDown={(e) => {
+            const grow = side === 'right' ? 'ArrowLeft' : 'ArrowUp'
+            const shrink = side === 'right' ? 'ArrowRight' : 'ArrowDown'
+            if (e.key === grow) state.nudge(48)
+            else if (e.key === shrink) state.nudge(-48)
+            else return
+            e.preventDefault()
+          }}
+        >
+          {/* Marks where the edge is; it is not itself the target, so it can be
+              small without costing anyone a grab. */}
+          <span className="drawer-pill" aria-hidden="true">
+            <Icon path={mdiUnfoldMoreVertical} />
+          </span>
+        </div>
       </div>
       <div className="drawer-body">
         {ownClose && (
