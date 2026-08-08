@@ -97,7 +97,7 @@ function EntryList({ entries, title, actions }: { entries: StatblockEntry[]; tit
   )
 }
 
-/** Italic provenance line, shared by the sticky header and the creature sheet. */
+/** Italic provenance line, shared by the header band and the creature sheet. */
 function metaLine(sb: Statblock, origin?: Origin): string {
   const kind = `${sb.size.map((s) => SIZE_NAMES[s] ?? s).join(' or ')} ${sb.type}${
     sb.typeTags.length > 0 ? ` (${sb.typeTags.join(', ')})` : ''
@@ -478,8 +478,11 @@ export function StatblockPanel({
 
   return (
     <div className="statblock">
-      {/* Name, provenance, the compact stat line and the tabs stay put; only
-          the tab content below scrolls with the pane. */}
+      {/* The header band: name, provenance, the compact stat line and the tabs.
+          It is a fixed row of the flex column, not a `position: sticky` element
+          — the class name is older than that change and kept only because
+          renaming it would move markup and CSS across three files for no
+          behaviour. `.sb-content` below is the one thing that scrolls. */}
       <div className="sb-sticky">
         <header className="sb-header">
           <h2>{sb?.name ?? combatant.name}</h2>

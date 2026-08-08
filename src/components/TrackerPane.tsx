@@ -331,7 +331,7 @@ export function TrackerPane({
            the DM's hand and never carries more than one decision's worth of
            controls. It carries no recap either: how many are selected and how
            each one rolled is written on the rows themselves. */
-        <div className={`aoe-bar aoe-bar-${aoeStep}`}>
+        <div className="aoe-bar">
           <button type="button" className="ghost aoe-back icon-label" onClick={stepBack}>
             <Icon path={mdiChevronLeft} /> Back
           </button>

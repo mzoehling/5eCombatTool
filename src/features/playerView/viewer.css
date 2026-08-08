@@ -487,11 +487,14 @@
   overflow: hidden;
 }
 
+/* No colour here: every `.hp-meter` on this screen is also a
+   `.pv-spotlight-meter`, and that rule paints the fill `currentColor` so it
+   takes the status the meter is tagged with. A flat colour would either be
+   overridden or, if it ever won, draw a Bloodied creature's bar green. */
 .pv-app .hp-meter-fill {
   display: block;
   height: 100%;
   border-radius: var(--radius-pill);
-  background: var(--ok);
 }
 
 /* Temp HP hangs past the fill, in the same violet the tracker gives it.

@@ -81,12 +81,6 @@ button.icon-only {
   padding: 0;
 }
 
-button.size-primary {
-  min-height: var(--target-primary);
-  padding: 0 var(--space-5);
-  font-size: 1.05rem;
-}
-
 button:disabled {
   opacity: 0.4;
   cursor: default;
@@ -1005,8 +999,9 @@ textarea {
   color: var(--text-dim);
 }
 
-/* The row's one button. Edit moved to the statblock header and took `.edit-btn`
-   with it — the statblock's controls are plain `.icon-only` buttons. */
+/* The row's one button. Editing a combatant is not a mid-combat action, so it
+   moved to the statblock header, where it is a plain `.icon-only` button beside
+   Pin and Close. */
 .cond-btn {
   min-width: var(--target-icon);
   min-height: var(--target-icon);
@@ -1866,7 +1861,10 @@ label.check {
    band could never own its own edge: the gold rule and the padding around it
    belong to the header, not to the surface it happens to be floating over. As a
    flex column the band is simply a fixed row, and `.sb-content` below it is the
-   one thing that scrolls. */
+   one thing that scrolls.
+
+   `.sb-sticky` is therefore a misnomer, kept on purpose: renaming it would move
+   markup and CSS across three files and change nothing. */
 .statblock {
   display: flex;
   flex-direction: column;
