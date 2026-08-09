@@ -12,8 +12,10 @@ import {
   startBroadcastHost,
   startPeerHost,
   SUPERVISE_MS,
+  WAKE_GRACE_MS,
   type ViewerFailure,
   type ViewerStatus,
+  type ViewerTransport,
 } from './transport'
 
 vi.mock('peerjs', async () => {
@@ -456,6 +458,69 @@ describe('PeerJS viewer', () => {
       const before = FakePeer.instances.length
       second.emit('close')
       await vi.advanceTimersByTimeAsync(SUPERVISE_MS + 1100)
+      expect(FakePeer.instances.length).toBe(before + 1)
+    } finally {
+      transport.close()
+    }
+  })
+
+  // The suites run in node, where there is no document to dispatch a
+  // visibilitychange on, so the hook the browser would call is called directly.
+  const wake = (transport: ViewerTransport) => (transport as unknown as { wake(): void }).wake()
+
+  it('does not tear down a live channel just because the screen was off', async () => {
+    const { conn, peer, transport } = await connectedViewer()
+    try {
+      conn.deliver(controlMessage('ping'))
+
+      // What a screen being off for a minute actually is: the wall clock jumped
+      // and no callback ran in between. Judged on elapsed time alone the channel
+      // always looks dead at this point, which meant a needless rebuild on every
+      // single unlock.
+      vi.setSystemTime(Date.now() + 60_000)
+      wake(transport)
+      expect(peer.destroyed).toBe(false)
+
+      // A live host clears the grace window with one beat, and keeps the channel.
+      await vi.advanceTimersByTimeAsync(WAKE_GRACE_MS - 2000)
+      conn.deliver(controlMessage('ping'))
+      await vi.advanceTimersByTimeAsync(4000)
+      expect(peer.destroyed).toBe(false)
+      expect(FakePeer.instances).toHaveLength(1)
+    } finally {
+      transport.close()
+    }
+  })
+
+  it('still rebuilds after waking if the host never answers', async () => {
+    const { conn, peer, statuses, transport } = await connectedViewer()
+    try {
+      conn.deliver(controlMessage('ping'))
+      wake(transport)
+
+      // Nothing comes back: the channel really did die while the app was away,
+      // and the grace window is a delay, not a reprieve.
+      await vi.advanceTimersByTimeAsync(WAKE_GRACE_MS + SUPERVISE_MS + 100)
+      expect(peer.destroyed).toBe(true)
+      expect(statuses.at(-1)).toEqual(['reconnecting', 'stalled'])
+    } finally {
+      transport.close()
+    }
+  })
+
+  it('dials immediately on waking when the backoff elapsed while away', async () => {
+    const rec = recorder()
+    const transport = connectPeerViewer('ABC234', rec.handlers)
+    await flush()
+    try {
+      FakePeer.last().failWith('network')
+      await flush()
+      const before = FakePeer.instances.length
+
+      // The app was away far longer than any backoff, so coming back should dial
+      // now rather than sit out a timer that expired during the gap.
+      vi.setSystemTime(Date.now() + 300_000)
+      wake(transport)
       expect(FakePeer.instances.length).toBe(before + 1)
     } finally {
       transport.close()

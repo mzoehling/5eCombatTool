@@ -60,6 +60,18 @@ export const STALE_MS = 20_000
  */
 export const STABLE_MS = 10_000
 /**
+ * How long a channel has to prove itself after the app comes back to the
+ * foreground.
+ *
+ * Waking is not the same as noticing a fault. The clock ran while the receive
+ * path did not, so the time since the last message is stale by definition — a
+ * phone whose screen was off for a minute would fail the ordinary staleness test
+ * every single time, however healthy its channel. So the channel is given a
+ * shorter window instead of the full one, which a live host clears inside a
+ * single beat.
+ */
+export const WAKE_GRACE_MS = 8000
+/**
  * Re-registering under a fresh code is a last resort: it invalidates the QR the
  * DM has already shown the table. Give the broker this many tries to reap the
  * socket holding our own id first.
@@ -212,7 +224,13 @@ export function connectBroadcastViewer(handlers: ViewerHandlers): ViewerTranspor
   }, SUPERVISE_MS)
 
   const stopWaking = onWake(() => {
-    if (!ended && !closed) hello()
+    if (ended || closed) return
+    // Same reasoning as the peer viewer's wake: the gap the second window spent
+    // hidden is not evidence about the host. Re-ask, and give the answer a window
+    // to arrive before calling the screen stale.
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
+    if (!hidden) lastMessageAt = Date.now() - Math.max(0, STALE_MS - WAKE_GRACE_MS)
+    hello()
   })
 
   return {
@@ -426,7 +444,14 @@ class PeerHost implements PeerHostSession {
       throw new Error(this.detail || 'the join server did not answer')
     }
     this.supervisor = setInterval(() => this.check(), SUPERVISE_MS)
-    this.stopWaking = onWake(() => this.check())
+    this.stopWaking = onWake(() => {
+      this.check()
+      // Beat at once rather than waiting for the next scheduled one. A DM who
+      // switched apps for a minute left every viewer counting down a grace window
+      // against a host whose own timers were throttled to a standstill; this is
+      // the proof they are waiting for, and it costs one message.
+      this.beat()
+    })
   }
 
   /**
@@ -594,7 +619,22 @@ class PeerViewer implements ViewerTransport {
     this.Peer = Peer
     this.dial()
     this.supervisor = setInterval(() => this.check(), SUPERVISE_MS)
-    this.stopWaking = onWake(() => this.check())
+    this.stopWaking = onWake(() => this.wake())
+  }
+
+  /**
+   * The app came back to the foreground, or the network came back. Both mean the
+   * same thing here: what this transport believes about its connection was
+   * recorded before a gap it could not observe, so it has to be re-earned rather
+   * than re-checked. See WAKE_GRACE_MS.
+   */
+  wake(): void {
+    if (this.closed || this.ended) return
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden'
+    if (!hidden && this.conn?.open) {
+      this.lastMessageAt = Date.now() - Math.max(0, STALE_MS - WAKE_GRACE_MS)
+    }
+    this.check()
   }
 
   private dial(): void {
