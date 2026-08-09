@@ -91,7 +91,14 @@ export class FakePeer extends FakeEmitter {
   readonly id: string | undefined
   readonly options: { config?: RTCConfiguration } & Record<string, unknown>
   destroyed = false
-  disconnected = true
+  /**
+   * Faithful to real PeerJS, and the detail that matters most here: a peer that
+   * has only just been constructed is NOT `disconnected` — it is *connecting*,
+   * with `open` still false. Starting this at `true` is what hid a host that
+   * called itself live while it was unregistered.
+   */
+  disconnected = false
+  open = false
   reconnectCount = 0
   connections: FakeConnection[] = []
 
@@ -112,28 +119,41 @@ export class FakePeer extends FakeEmitter {
     return conn
   }
 
+  /**
+   * Real `reconnect()` only re-opens the socket; the broker's answer arrives
+   * later as another `open`. So this leaves the peer *connecting*, and a test
+   * decides what comes back with `openBroker()` or `dropBroker()`.
+   */
   reconnect(): void {
     if (this.destroyed) throw new Error('cannot reconnect a destroyed peer')
     this.reconnectCount += 1
+    this.disconnected = false
   }
 
   destroy(): void {
     this.destroyed = true
     this.disconnected = true
+    this.open = false
     this.emit('close')
   }
 
   // ---- test controls ----
 
-  /** The broker registers this peer's id. */
+  /**
+   * The broker registers this peer's id. PeerJS emits `open` every time the
+   * server answers — including after each `reconnect()`, not only the first
+   * time, which is the behaviour that made the viewer dial twice.
+   */
   openBroker(): void {
     this.disconnected = false
+    this.open = true
     this.emit('open', this.id)
   }
 
   /** The broker socket drops, leaving any data channels untouched. */
   dropBroker(): void {
     this.disconnected = true
+    this.open = false
     this.emit('disconnected', this.id)
   }
 

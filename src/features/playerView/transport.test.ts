@@ -114,6 +114,9 @@ describe('BroadcastChannel transport', () => {
 
 const flush = () => vi.advanceTimersByTimeAsync(0)
 
+/** The transport's own backoff shape, so the tests wait for what it waits for. */
+const backoffFor = (attempt: number) => Math.min(15_000, 1000 * 2 ** Math.min(attempt, 4))
+
 function recorder() {
   const statuses: [ViewerStatus, ViewerFailure | undefined][] = []
   const snapshots: PlayerSnapshot[] = []
@@ -195,10 +198,96 @@ describe('PeerJS host', () => {
     const host = await startedHost()
     const peer = FakePeer.last()
     try {
-      peer.dropBroker()
-      // 1s, then 2s, then 4s: three attempts inside the first eight seconds.
-      await vi.advanceTimersByTimeAsync(8000)
+      // Each reconnect leaves the peer connecting; the broker refusing to answer
+      // shows up as another drop, exactly as PeerJS reports it.
+      for (let round = 0; round < 3; round++) {
+        peer.dropBroker()
+        await vi.advanceTimersByTimeAsync(backoffFor(round) + SUPERVISE_MS)
+      }
       expect(peer.reconnectCount).toBeGreaterThanOrEqual(3)
+    } finally {
+      host.stop()
+    }
+  })
+
+  it('does not call itself live before the broker has registered the id', async () => {
+    const host = await startedHost()
+    const peer = FakePeer.last()
+    const seen: string[] = []
+    host.onStatus((status) => seen.push(status))
+    try {
+      expect(seen).toEqual(['live']) // replayed on subscribe, before the drop
+
+      peer.dropBroker()
+      await vi.advanceTimersByTimeAsync(SUPERVISE_MS + 100)
+      expect(peer.reconnectCount).toBe(1)
+      expect(seen.at(-1)).toBe('reconnecting')
+
+      // reconnect() only re-opens the socket. Until the broker answers, the peer
+      // is connecting — and PeerJS reports `disconnected === false` throughout,
+      // which is not evidence of anything. Reading that as registered told the DM
+      // a session was joinable while its id was registered nowhere.
+      expect(peer.open).toBe(false)
+      await vi.advanceTimersByTimeAsync(SUPERVISE_MS * 2)
+      expect(seen.at(-1)).toBe('reconnecting')
+
+      peer.openBroker()
+      await vi.advanceTimersByTimeAsync(SUPERVISE_MS + 100)
+      expect(seen.at(-1)).toBe('live')
+    } finally {
+      host.stop()
+    }
+  })
+
+  it('escalates to a fresh code when the broker will not give the old one back', async () => {
+    const host = await startedHost()
+    const original = host.code
+    try {
+      // The broker holding our own previous registration. Waiting is the first
+      // answer, but it cannot be the only one, or the session never recovers.
+      for (let round = 0; round < 10; round++) {
+        FakePeer.last().dropBroker()
+        FakePeer.last().failWith('unavailable-id')
+        await vi.advanceTimersByTimeAsync(20_000)
+        if (host.code !== original) break
+      }
+      expect(host.code).not.toBe(original)
+      expect(FakePeer.last().id).toBe(peerIdForCode(host.code))
+    } finally {
+      host.stop()
+    }
+  })
+
+  it('tells the DM when the code changed underneath them', async () => {
+    const host = await startedHost()
+    const original = host.code
+    const codes: string[] = []
+    // The QR on the table is now wrong; a status that did not change must not
+    // dedupe that away.
+    host.onStatus(() => codes.push(host.code))
+    try {
+      for (let round = 0; round < 10; round++) {
+        FakePeer.last().dropBroker()
+        FakePeer.last().failWith('unavailable-id')
+        await vi.advanceTimersByTimeAsync(20_000)
+        if (host.code !== original) break
+      }
+      expect(codes).toContain(host.code)
+    } finally {
+      host.stop()
+    }
+  })
+
+  it('does not rebuild a destroyed peer faster than the backoff allows', async () => {
+    const host = await startedHost()
+    try {
+      // A peer PeerJS destroys on every attempt — what a server-error or a closed
+      // socket does. Rebuilding it per tick is the rate-limit hammering itself.
+      for (let tick = 0; tick < 20; tick++) {
+        FakePeer.last().destroy()
+        await vi.advanceTimersByTimeAsync(SUPERVISE_MS)
+      }
+      expect(FakePeer.instances.length).toBeLessThanOrEqual(6)
     } finally {
       host.stop()
     }
@@ -307,6 +396,37 @@ describe('PeerJS viewer', () => {
     } finally {
       transport.close()
     }
+  })
+
+  it('does not dial a second time when the broker re-opens', async () => {
+    const { conn, peer, snapshots, transport } = await connectedViewer()
+    try {
+      peer.dropBroker()
+      await vi.advanceTimersByTimeAsync(SUPERVISE_MS + 100)
+      expect(peer.reconnectCount).toBe(1)
+
+      // PeerJS emits 'open' again once the socket is back. Treating that as a
+      // fresh start built a second channel and left the transport holding the
+      // unopened one, which the watchdog then destroyed along with the good one.
+      peer.openBroker()
+      expect(peer.connections).toHaveLength(1)
+
+      conn.deliver(wrapSnapshot(snapshot))
+      expect(snapshots).toEqual([snapshot])
+      await vi.advanceTimersByTimeAsync(SUPERVISE_MS * 3)
+      expect(peer.destroyed).toBe(false)
+    } finally {
+      transport.close()
+    }
+  })
+
+  it('stays quiet when it is closed, rather than blaming the DM', async () => {
+    const { statuses, transport } = await connectedViewer()
+    transport.close()
+    // 'ended' means the DM closed the Player View. A viewer being replaced —
+    // which a changed code and every StrictMode remount now do — must not claim
+    // that.
+    expect(statuses.map(([s]) => s)).not.toContain('ended')
   })
 
   it('reconnects the broker socket without disturbing a working channel', async () => {

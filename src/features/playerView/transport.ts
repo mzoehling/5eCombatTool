@@ -330,6 +330,7 @@ class PeerHost implements PeerHostSession {
   private attempts = 0
   private staleIdAttempts = 0
   private nextAttemptAt = 0
+  private peerBuiltAt = 0
   private status: HostStatus = 'reconnecting'
   private detail = ''
   code: string
@@ -342,6 +343,7 @@ class PeerHost implements PeerHostSession {
   }
 
   private build(): PeerInstance {
+    this.peerBuiltAt = Date.now()
     const peer = new this.Peer(peerIdForCode(this.code), peerOptions())
     peer.on('open', () => {
       this.attempts = 0
@@ -463,28 +465,47 @@ class PeerHost implements PeerHostSession {
    */
   check(): void {
     if (this.stopped || this.fatal) return
-    if (this.peer.destroyed) {
-      this.rebuild(this.staleIdAttempts > STALE_ID_LIMIT)
-      return
-    }
-    if (!this.peer.disconnected) {
+
+    // `open` is the only thing that means "the broker is holding our id". A peer
+    // that has just been constructed reports `disconnected === false` while it is
+    // still connecting, so reading that as registered made the host call itself
+    // live before it was — which also reset the counters that drive the escalation
+    // below, so the escalation could never fire.
+    if (this.peer.open) {
       this.attempts = 0
       this.staleIdAttempts = 0
       this.report('live')
       return
     }
+
+    // Everything from here on is one recovery attempt, and it has to wait its
+    // turn: a peer that is destroyed as fast as it is built would otherwise be
+    // rebuilt once a second, which is the rate-limit hammering this supervisor
+    // exists to avoid.
     if (Date.now() < this.nextAttemptAt) return
+    const connecting = !this.peer.destroyed && !this.peer.disconnected
+    // A peer still connecting gets until the registration timeout before it is
+    // written off; nothing is wrong yet.
+    if (connecting && Date.now() - this.peerBuiltAt < START_TIMEOUT_MS) return
+
     this.nextAttemptAt = Date.now() + backoff(this.attempts)
     this.attempts += 1
+    this.report('reconnecting', this.detail)
+
+    if (this.peer.destroyed || connecting) {
+      // A destroyed peer can neither reconnect nor accept anyone, and one stuck
+      // connecting has had its chance.
+      this.rebuild(this.staleIdAttempts > STALE_ID_LIMIT)
+      return
+    }
     if (this.staleIdAttempts > STALE_ID_LIMIT) {
       this.rebuild(true)
       return
     }
-    this.report('reconnecting', this.detail)
     try {
       this.peer.reconnect()
     } catch {
-      // reconnect() throws on a destroyed peer; the next tick rebuilds it.
+      // reconnect() throws on a destroyed peer; the next turn rebuilds it.
       this.rebuild(false)
     }
   }
@@ -508,6 +529,10 @@ class PeerHost implements PeerHostSession {
     }
     this.report('reconnecting', this.detail)
     this.peer = this.build()
+    // A new code makes the code and QR on the DM's dialog wrong, and the status
+    // it is read alongside has not necessarily changed — which `report` would
+    // dedupe away, leaving the table reading out a code nothing answers to.
+    if (freshCode) this.notifyStatus(this.status, this.detail)
   }
 
   private report(status: HostStatus, detail = ''): void {
@@ -658,9 +683,17 @@ class PeerViewer implements ViewerTransport {
 
     const peer = new Peer(peerOptions(policyForAttempt(attempt)))
     this.peer = peer
+    let dialled = false
 
     peer.on('open', () => {
       if (!current()) return
+      // PeerJS emits 'open' every time the broker answers — including after each
+      // reconnect() of the signalling socket, not just the first time. Dialling
+      // again would build a second data channel and leave `this.conn` pointing at
+      // the unopened one, which the watchdog would then tear down together with
+      // the healthy channel underneath it.
+      if (dialled) return
+      dialled = true
       const conn = peer.connect(peerIdForCode(this.code), { reliable: true })
       this.conn = conn
       conn.on('open', () => {
@@ -774,7 +807,10 @@ class PeerViewer implements ViewerTransport {
     clearInterval(this.supervisor)
     this.stopWaking()
     this.teardown()
-    this.handlers.onStatus('ended')
+    // Deliberately silent. 'ended' means the DM closed the Player View, and it
+    // arrives as a goodbye on the wire. Reporting it here too would put "Your DM
+    // closed the Player View" on screen for a viewer that is merely being
+    // replaced — which a changed join code and every StrictMode remount now do.
   }
 
   retryNow(): void {
