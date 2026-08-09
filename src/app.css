@@ -2413,6 +2413,57 @@ label.check {
   font-weight: 600;
 }
 
+/* The join-server state, in the same shape as the viewer count above it —
+   because the two answer one question between them: whether a player who walks
+   up right now can get in. A dropped broker leaves the count untouched. */
+.pv-host-warn {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  color: var(--warn);
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+/* Collapsed by default: a DM opens this only when something is already wrong. */
+.pv-diagnostics {
+  margin-top: var(--space-3);
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.pv-diagnostics summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.pv-diagnostics dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.pv-diagnostics dt {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pv-diagnostics dd {
+  margin: 0;
+}
+
+/* One line per viewer, so a table of four reads as four paths. */
+.pv-diagnostics dd span {
+  display: block;
+}
+
 .pv-divider {
   border: none;
   border-top: 1px solid var(--gold);

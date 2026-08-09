@@ -4,7 +4,7 @@ import { renderSVG } from 'uqr'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
 import { playerViewHost } from './broadcaster'
-import { LOCAL_CODE } from './transport'
+import { LOCAL_CODE, type HostDiagnostics, type HostStatus } from './transport'
 
 function viewerUrl(code: string): string {
   return `${location.origin}${location.pathname}#/play/${code}`
@@ -13,7 +13,76 @@ function viewerUrl(code: string): string {
 function useHostState() {
   return useSyncExternalStore(
     (cb) => playerViewHost.onChange(cb),
-    () => `${playerViewHost.code ?? ''}:${playerViewHost.viewerCount}`,
+    () => `${playerViewHost.code ?? ''}:${playerViewHost.viewerCount}:${playerViewHost.hostStatus}`,
+  )
+}
+
+const JOIN_SERVER_TEXT: Record<HostStatus, string> = {
+  live: 'connected',
+  reconnecting: 'reconnecting',
+  offline: 'not connected',
+}
+
+/**
+ * The state that used to be invisible.
+ *
+ * A host whose broker connection has dropped keeps serving everyone already
+ * watching, so the dialog looked perfectly healthy while no new player could join
+ * — the DM had nothing to go on. This says which of the two is true.
+ */
+function JoinServerNotice({ status }: { status: HostStatus }) {
+  if (status === 'live') return null
+  return (
+    <p className="pv-host-warn" role="status">
+      {status === 'reconnecting'
+        ? 'Reconnecting to the join server. Players already watching are unaffected, but a new player cannot join until this clears.'
+        : 'Not connected to the join server. Players already watching are unaffected; end the session and start it again to let new players in.'}
+    </p>
+  )
+}
+
+/**
+ * What the connection is actually doing, for a DM who has to fix it at a table.
+ *
+ * The candidate path is the line worth having: `relayed` says the relay is
+ * carrying the table because the network forbids anything direct, and a path
+ * stuck on `negotiating` says the network dropped every candidate there was —
+ * two problems that look identical from the outside and have different answers.
+ */
+function ConnectionDetails() {
+  const [info, setInfo] = useState<HostDiagnostics | null>(null)
+
+  useEffect(() => {
+    // Polled rather than pushed: candidate-pair statistics live on the
+    // RTCPeerConnection and change with no event to hang a subscription on.
+    const read = () => {
+      void playerViewHost.diagnostics()?.then(setInfo)
+    }
+    read()
+    const timer = setInterval(read, 2000)
+    return () => clearInterval(timer)
+  }, [])
+
+  if (!info) return null
+  const sentAgo = info.lastSentAt === null ? null : Math.round((Date.now() - info.lastSentAt) / 1000)
+
+  return (
+    <details className="pv-diagnostics">
+      <summary>Connection details</summary>
+      <dl>
+        <dt>Join server</dt>
+        <dd>
+          {JOIN_SERVER_TEXT[info.status]}
+          {info.detail && ` — ${info.detail}`}
+        </dd>
+        <dt>Last update sent</dt>
+        <dd>{sentAgo === null ? 'nothing sent yet' : `${sentAgo}s ago`}</dd>
+        <dt>{info.viewers.length === 1 ? 'Viewer' : 'Viewers'}</dt>
+        <dd>
+          {info.viewers.length === 0 ? 'none connected' : info.viewers.map((path, i) => <span key={i}>{path}</span>)}
+        </dd>
+      </dl>
+    </details>
   )
 }
 
@@ -30,7 +99,7 @@ export function HostControls({ onClose }: { onClose: () => void }) {
       await playerViewHost.startRemote()
     } catch (err) {
       setError(
-        `Could not reach the signaling server (${err instanceof Error ? err.message : String(err)}). ` +
+        `Could not reach the join server (${err instanceof Error ? err.message : String(err)}). ` +
           'Remote viewers need internet; the same-device viewer below works regardless.',
       )
     } finally {
@@ -54,6 +123,8 @@ export function HostControls({ onClose }: { onClose: () => void }) {
           <p className="pv-viewers">
             {playerViewHost.viewerCount} {playerViewHost.viewerCount === 1 ? 'viewer' : 'viewers'} connected
           </p>
+          <JoinServerNotice status={playerViewHost.hostStatus} />
+          <ConnectionDetails />
         </div>
       ) : (
         <div className="pv-host">

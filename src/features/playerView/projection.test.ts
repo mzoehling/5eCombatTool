@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { initialState, type BattleState } from '../../store/battleReducer'
 import type { Combatant } from '../../types'
 import {
+  controlMessage,
   healthStatus,
   parseSnapshotMessage,
   projectSnapshot,
@@ -208,5 +209,24 @@ describe('snapshot envelope', () => {
   it('reads a snapshot of its own version', () => {
     const snapshot = projectSnapshot(stateWith([makeCombatant({})]))
     expect(readMessage(wrapSnapshot(snapshot))).toEqual({ kind: 'snapshot', snapshot })
+  })
+
+  it('reads control messages whatever version they claim', () => {
+    expect(readMessage(controlMessage('ping'))).toEqual({ kind: 'ping' })
+    expect(readMessage(controlMessage('bye'))).toEqual({ kind: 'bye' })
+
+    // The point of keeping these outside the version check: a beat and a goodbye
+    // carry no payload to misread, and a player whose phone is a release behind
+    // still has to learn that the DM closed the table.
+    expect(readMessage({ v: PROTOCOL_VERSION + 1, type: 'bye' })).toEqual({ kind: 'bye' })
+    expect(readMessage({ v: PROTOCOL_VERSION - 1, type: 'ping' })).toEqual({ kind: 'ping' })
+    expect(readMessage({ type: 'bye' })).toEqual({ kind: 'bye' })
+  })
+
+  it('still reports a mismatched snapshot, and still ignores unknown types', () => {
+    // Adding message types must not have turned a snapshot it cannot read into
+    // something dropped in silence.
+    expect(readMessage({ v: PROTOCOL_VERSION + 1, type: 'snapshot', payload: {} }).kind).toBe('mismatch')
+    expect(readMessage({ v: PROTOCOL_VERSION, type: 'pong' }).kind).toBe('ignore')
   })
 })

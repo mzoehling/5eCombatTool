@@ -18,11 +18,23 @@ Install to the home screen on iPadOS: open the URL in Safari → Share → **Add
 - Content (a tab of Encounters): one place for the built-in Homebrew pack — custom monsters and lightweight PC entries, edited in the app — and imported content packs (JSON). Backup export/import lives in Settings
 - Dice roller: a dice pad or free-form expressions, tappable to-hit/damage buttons from statblocks, ADV/DIS/CRIT — send a rolled total to the AoE bar to apply it to whichever combatants you pick
 - History: what just happened, with one tap to undo the last of it, over a persistent combat log that survives reloads
-- Player View: broadcast a read-only, player-safe second screen (PeerJS join code + QR, or same-device `BroadcastChannel`)
+- Player View: broadcast a read-only, player-safe second screen. Players scan the QR or type the six-character code; both ends reconnect on their own after the drops a phone at a table actually takes, and the DM's dialog says whether a player arriving right now could get in. On a network that forbids direct connections — most phone hotspots, every guest Wi-Fi — the connection falls back to a relay reached over TLS on 443. A second window on the DM's own device (AirPlay, external display) needs no network at all
 
 ## Tech
 
 Vite + React + TypeScript PWA, IndexedDB (Dexie) persistence, deployed to GitHub Pages via GitHub Actions on push to `main`. No backend, no accounts, no telemetry — all data stays on the device; Player View is the only feature that leaves it, and only as an opt-in, player-safe broadcast.
+
+That broadcast is peer-to-peer (WebRTC via PeerJS), but it does need third-party
+help to get started: a signalling broker to introduce the two devices, and a TURN
+relay to carry the traffic on networks that allow no direct path. Both default to
+free shared services, which is fine for a table and not something to depend on —
+set `VITE_ICE_SERVERS` or `VITE_PEER_SERVER` to use your own instead. See
+`.env.example`.
+
+To try the Player View on a second device while developing, `npm run dev` binds to
+the LAN. Note that a LAN address is not a secure context, so Safari will refuse the
+WebRTC path there and no service worker registers — the same-device viewer works,
+but a real two-device test wants an HTTPS build.
 
 ```bash
 npm ci             # install

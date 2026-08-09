@@ -61,6 +61,28 @@ export interface SnapshotMessage {
 }
 
 /**
+ * A liveness beat and a goodbye.
+ *
+ * `ping` exists because a dead WebRTC data channel does not always announce
+ * itself — an iPad that slept or a PWA the system suspended leaves the viewer
+ * holding a channel that will never deliver again, and without a beat to miss
+ * the viewer has no way to tell that from a quiet battle.
+ *
+ * `bye` exists because ending the session used to look exactly like losing it.
+ *
+ * Neither carries a payload, which is why both are read without regard to the
+ * protocol version: there is no shape a mismatched build could misread, and a
+ * player whose phone is a release behind still has to learn that the DM closed
+ * the table.
+ */
+export interface ControlMessage {
+  v: number
+  type: 'ping' | 'bye'
+}
+
+export type OutgoingMessage = SnapshotMessage | ControlMessage
+
+/**
  * What arrived on the wire.
  *
  * `mismatch` is kept apart from `ignore` on purpose: an unreadable message is
@@ -71,6 +93,8 @@ export interface SnapshotMessage {
 export type IncomingMessage =
   | { kind: 'snapshot'; snapshot: PlayerSnapshot }
   | { kind: 'mismatch'; theirs: number; ours: number }
+  | { kind: 'ping' }
+  | { kind: 'bye' }
   | { kind: 'ignore' }
 
 export function projectSnapshot(state: BattleState): PlayerSnapshot {
@@ -106,6 +130,10 @@ export function wrapSnapshot(payload: PlayerSnapshot): SnapshotMessage {
   return { v: PROTOCOL_VERSION, type: 'snapshot', payload }
 }
 
+export function controlMessage(type: 'ping' | 'bye'): ControlMessage {
+  return { v: PROTOCOL_VERSION, type }
+}
+
 /**
  * Classifies an incoming message. A snapshot of another protocol version is
  * reported rather than dropped, so the viewer can name the problem; anything
@@ -113,11 +141,15 @@ export function wrapSnapshot(payload: PlayerSnapshot): SnapshotMessage {
  */
 export function readMessage(data: unknown): IncomingMessage {
   if (typeof data !== 'object' || data === null) return { kind: 'ignore' }
-  const msg = data as Partial<SnapshotMessage>
+  const msg = data as { v?: unknown; type?: unknown; payload?: unknown }
+  // Control messages are read before the version is even looked at — see
+  // `ControlMessage` for why they are deliberately version-independent.
+  if (msg.type === 'ping') return { kind: 'ping' }
+  if (msg.type === 'bye') return { kind: 'bye' }
   if (msg.type !== 'snapshot' || typeof msg.payload !== 'object' || msg.payload === null) return { kind: 'ignore' }
   if (typeof msg.v !== 'number') return { kind: 'ignore' }
   if (msg.v !== PROTOCOL_VERSION) return { kind: 'mismatch', theirs: msg.v, ours: PROTOCOL_VERSION }
-  return { kind: 'snapshot', snapshot: msg.payload }
+  return { kind: 'snapshot', snapshot: msg.payload as PlayerSnapshot }
 }
 
 /** Parses an incoming message; null for anything that isn't a readable snapshot. */

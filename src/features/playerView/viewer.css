@@ -541,4 +541,57 @@
   color: var(--text-dim);
 }
 
+/* ---------- code entry ---------- */
+
+/* A player who cannot scan the QR types six characters instead of being read a
+   URL across the table. It lives on the viewer's page, so it wears the viewer's
+   type scale rather than the DM app's. */
+.pv-join-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6em;
+  margin: auto;
+  padding: 1em 0;
+  max-width: 22em;
+  text-align: center;
+}
+
+.pv-join-form label {
+  font-size: 0.8em;
+}
+
+/* Same treatment as the code on the DM's dialog: this is the one thing on the
+   page, and the two screens are being compared character by character. */
+.pv-join-input {
+  width: 100%;
+  min-height: 44px;
+  font-family: var(--font-num);
+  font-size: 1.6em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-align: center;
+  text-transform: uppercase;
+  padding: 0.3em 0.2em 0.3em 0.36em; /* left pad balances the tracking */
+  color: var(--gold);
+  background: var(--bg-panel);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-md);
+}
+
+.pv-join-form .dim {
+  margin: 0;
+  font-size: 0.62em;
+}
+
+.pv-join-form button {
+  min-height: 44px;
+  padding: 0 1.2em;
+  font: inherit;
+  font-size: 0.8em;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
 }
