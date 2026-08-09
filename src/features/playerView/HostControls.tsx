@@ -50,38 +50,43 @@ function JoinServerNotice({ status }: { status: HostStatus }) {
  * two problems that look identical from the outside and have different answers.
  */
 function ConnectionDetails() {
+  const [open, setOpen] = useState(false)
   const [info, setInfo] = useState<HostDiagnostics | null>(null)
 
   useEffect(() => {
     // Polled rather than pushed: candidate-pair statistics live on the
-    // RTCPeerConnection and change with no event to hang a subscription on.
+    // RTCPeerConnection and change with no event to hang a subscription on. Only
+    // while the disclosure is open, though — `getStats()` per viewer every couple
+    // of seconds is not something to run behind a summary nobody has opened.
+    if (!open) return
     const read = () => {
       void playerViewHost.diagnostics()?.then(setInfo)
     }
     read()
     const timer = setInterval(read, 2000)
     return () => clearInterval(timer)
-  }, [])
+  }, [open])
 
-  if (!info) return null
-  const sentAgo = info.lastSentAt === null ? null : Math.round((Date.now() - info.lastSentAt) / 1000)
+  const sentAgo = info?.lastSentAt == null ? null : Math.round((Date.now() - info.lastSentAt) / 1000)
 
   return (
-    <details className="pv-diagnostics">
+    <details className="pv-diagnostics" onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary>Connection details</summary>
-      <dl>
-        <dt>Join server</dt>
-        <dd>
-          {JOIN_SERVER_TEXT[info.status]}
-          {info.detail && ` — ${info.detail}`}
-        </dd>
-        <dt>Last update sent</dt>
-        <dd>{sentAgo === null ? 'nothing sent yet' : `${sentAgo}s ago`}</dd>
-        <dt>{info.viewers.length === 1 ? 'Viewer' : 'Viewers'}</dt>
-        <dd>
-          {info.viewers.length === 0 ? 'none connected' : info.viewers.map((path, i) => <span key={i}>{path}</span>)}
-        </dd>
-      </dl>
+      {info && (
+        <dl>
+          <dt>Join server</dt>
+          <dd>
+            {JOIN_SERVER_TEXT[info.status]}
+            {info.detail && ` — ${info.detail}`}
+          </dd>
+          <dt>Last update sent</dt>
+          <dd>{sentAgo === null ? 'nothing sent yet' : `${sentAgo}s ago`}</dd>
+          <dt>{info.viewers.length === 1 ? 'Viewer' : 'Viewers'}</dt>
+          <dd>
+            {info.viewers.length === 0 ? 'none connected' : info.viewers.map((path, i) => <span key={i}>{path}</span>)}
+          </dd>
+        </dl>
+      )}
     </details>
   )
 }

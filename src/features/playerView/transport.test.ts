@@ -7,6 +7,7 @@ import {
   generateJoinCode,
   isJoinCode,
   peerIdForCode,
+  STABLE_MS,
   STALE_MS,
   startBroadcastHost,
   startPeerHost,
@@ -298,7 +299,8 @@ describe('PeerJS viewer', () => {
       await flush()
 
       expect(FakePeer.instances).toHaveLength(1)
-      await vi.advanceTimersByTimeAsync(1100)
+      // One new attempt when the backoff is up, not one per event.
+      await vi.advanceTimersByTimeAsync(2100)
       expect(FakePeer.instances).toHaveLength(2)
     } finally {
       transport.close()
@@ -402,6 +404,59 @@ describe('PeerJS viewer', () => {
       // The DM has not started the session, or the code is wrong. Neither is
       // fixed by waiting, so the copy has to say which to go and check.
       expect(rec.statuses.at(-1)).toEqual(['reconnecting', 'no-session'])
+    } finally {
+      transport.close()
+    }
+  })
+
+  it('backs off a link that keeps flapping instead of dialling once a second', async () => {
+    const { conn, transport } = await connectedViewer()
+    try {
+      // A channel that opens and dies straight away is not a success. Treating it
+      // as one reset the backoff to its floor, so a flapping link dialled once a
+      // second for ever — back into the per-IP rate limit all of this exists to
+      // stay clear of.
+      let previous = FakePeer.instances.length
+      let channel = conn
+      const waits: number[] = []
+      for (let round = 0; round < 3; round++) {
+        channel.emit('close')
+        let waited = 0
+        while (FakePeer.instances.length === previous && waited < 30_000) {
+          await vi.advanceTimersByTimeAsync(SUPERVISE_MS)
+          waited += SUPERVISE_MS
+        }
+        waits.push(waited)
+        previous = FakePeer.instances.length
+        const peer = FakePeer.last()
+        peer.openBroker()
+        channel = peer.connections[0]
+        channel.accept()
+      }
+      expect(waits[1]).toBeGreaterThan(waits[0])
+      expect(waits[2]).toBeGreaterThan(waits[1])
+    } finally {
+      transport.close()
+    }
+  })
+
+  it('forgives a link that stayed up, so a later drop retries promptly', async () => {
+    const { conn, transport } = await connectedViewer()
+    try {
+      conn.emit('close')
+      await vi.advanceTimersByTimeAsync(2000)
+      const peer = FakePeer.last()
+      peer.openBroker()
+      const second = peer.connections[0]
+      second.accept()
+
+      // A channel that lasted is a success, and the next drop starts from the
+      // floor again rather than inheriting a punishing backoff.
+      await vi.advanceTimersByTimeAsync(STABLE_MS + SUPERVISE_MS)
+      const before = FakePeer.instances.length
+      second.emit('close')
+      await vi.advanceTimersByTimeAsync(SUPERVISE_MS + 1100)
+      expect(FakePeer.instances.length).toBe(before + 1)
     } finally {
       transport.close()
     }

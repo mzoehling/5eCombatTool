@@ -52,6 +52,14 @@ const DIAL_TIMEOUT_MS = 12_000
 /** How long a viewer keeps believing a channel that has gone quiet. */
 export const STALE_MS = 20_000
 /**
+ * How long a channel has to last before it counts as a success rather than a
+ * flap. Until it does, the attempt counter keeps climbing — a link that connects
+ * and dies a second later must not reset the backoff to its floor, or it dials
+ * once a second for ever and walks straight back into the per-IP rate limit this
+ * whole supervisor exists to stay clear of.
+ */
+export const STABLE_MS = 10_000
+/**
  * Re-registering under a fresh code is a last resort: it invalidates the QR the
  * DM has already shown the table. Give the broker this many tries to reap the
  * socket holding our own id first.
@@ -567,6 +575,7 @@ class PeerViewer implements ViewerTransport {
   private attempts = 0
   private nextAttemptAt = 0
   private lastMessageAt = 0
+  private connectedAt = 0
   private sawBeat = false
   private supervisor: ReturnType<typeof setInterval> | undefined
   private stopWaking: () => void = () => {}
@@ -617,7 +626,9 @@ class PeerViewer implements ViewerTransport {
       conn.on('open', () => {
         if (!current()) return
         this.lastMessageAt = Date.now()
-        this.attempts = 0
+        this.connectedAt = Date.now()
+        // The attempt counter is deliberately not cleared here. Opening is not
+        // yet success — see STABLE_MS.
         this.report('connected')
       })
       conn.on('data', (data) => {
@@ -675,6 +686,7 @@ class PeerViewer implements ViewerTransport {
       // still on an older build never will, and tearing down a healthy channel
       // over that would be a regression rather than a fix.
       if (this.sawBeat && Date.now() - this.lastMessageAt > STALE_MS) this.fail('stalled')
+      else if (this.attempts > 0 && Date.now() - this.connectedAt >= STABLE_MS) this.attempts = 0
       return
     }
     if (Date.now() >= this.nextAttemptAt) this.dial()
@@ -684,13 +696,11 @@ class PeerViewer implements ViewerTransport {
     const msg = readMessage(data)
     switch (msg.kind) {
       case 'snapshot':
-        this.attempts = 0
         this.report('connected')
         this.handlers.onSnapshot(msg.snapshot)
         return
       case 'ping':
         this.sawBeat = true
-        this.attempts = 0
         this.report('connected')
         return
       case 'bye':
@@ -700,9 +710,8 @@ class PeerViewer implements ViewerTransport {
         clearInterval(this.supervisor)
         return
       case 'mismatch':
-        // The link works, so this is not a retry case: reset the attempt counter
-        // as for a good message and let the viewer explain itself.
-        this.attempts = 0
+        // The link works, so this is not a retry case at all — the channel stays
+        // up and lets the viewer explain itself.
         this.report('connected')
         this.handlers.onProtocolMismatch?.(msg.theirs, msg.ours)
         return
