@@ -16,6 +16,7 @@ import {
   connectBroadcastViewer,
   connectPeerViewer,
   LOCAL_CODE,
+  type ViewerFailure,
   type ViewerStatus,
   type ViewerTransport,
 } from './transport'
@@ -143,14 +144,29 @@ function Spotlight({
  * above it so nothing looks crashed, and reconnecting keeps the last state on
  * screen — stale information still beats a blank page.
  */
+/**
+ * What to tell the player, per reason the link is down. Naming the layer that
+ * failed is worth the extra copy: turning the wifi off and on fixes one of these
+ * and none of the others, and a player who cannot tell them apart will try it
+ * for all four.
+ */
+const FAILURE_TEXT: Record<ViewerFailure, string> = {
+  broker: 'Cannot reach the server that introduces the two devices — check this device’s internet.',
+  'no-session': 'No table is running under this code. Ask your DM to start the Player View, or check the code.',
+  network: 'Lost the connection — trying again automatically.',
+  stalled: 'The battle stopped updating, so this screen is reconnecting.',
+}
+
 function ConnectionState({
   status,
+  failure,
   code,
   snapshot,
   activeName,
   onRetry,
 }: {
   status: ViewerStatus
+  failure: ViewerFailure | null
   code: string
   snapshot: PlayerSnapshot | null
   activeName: string | null
@@ -182,11 +198,23 @@ function ConnectionState({
   return (
     <>
       <div className="pv-state warn" role="status">
-        <p>Lost the connection — trying again automatically.</p>
+        <p>{failure ? FAILURE_TEXT[failure] : FAILURE_TEXT.network}</p>
         {/* Never ask the player to re-enter the code: the app already has it. */}
         <button type="button" onClick={onRetry}>
           Retry now
         </button>
+        {/* Unless the code is what is in doubt, which is the one case where the
+            app knowing it is the problem rather than the convenience. */}
+        {failure === 'no-session' && code.toLowerCase() !== LOCAL_CODE && (
+          <button
+            type="button"
+            onClick={() => {
+              location.hash = '#/play'
+            }}
+          >
+            Change code
+          </button>
+        )}
       </div>
       {snapshot && (
         <p className="pv-stale">
@@ -201,6 +229,7 @@ function ConnectionState({
 export function ViewerApp({ code }: { code: string }) {
   const [snapshot, setSnapshot] = useState<PlayerSnapshot | null>(null)
   const [status, setStatus] = useState<ViewerStatus>('connecting')
+  const [failure, setFailure] = useState<ViewerFailure | null>(null)
   const [showDice, setShowDice] = useState(false)
   const [conditionInfo, setConditionInfo] = useState<string | null>(null)
   const [theme, toggleTheme] = useTheme()
@@ -223,7 +252,10 @@ export function ViewerApp({ code }: { code: string }) {
         setMismatch(null)
         setSnapshot(s)
       },
-      onStatus: setStatus,
+      onStatus: (s: ViewerStatus, f?: ViewerFailure) => {
+        setStatus(s)
+        setFailure(f ?? null)
+      },
       onProtocolMismatch: (theirs: number, ours: number) => setMismatch({ theirs, ours }),
     }
     const transport =
@@ -310,6 +342,7 @@ export function ViewerApp({ code }: { code: string }) {
 
       <ConnectionState
         status={status}
+        failure={failure}
         code={code}
         snapshot={snapshot}
         activeName={active?.name ?? null}

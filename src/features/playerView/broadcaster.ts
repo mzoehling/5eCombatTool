@@ -7,20 +7,31 @@ import {
   generateJoinCode,
   startBroadcastHost,
   startPeerHost,
+  type HostDiagnostics,
+  type HostStatus,
   type HostTransport,
   type PeerHostSession,
 } from './transport'
 
 const THROTTLE_MS = 250 // ~4 snapshots/s max
+/**
+ * How often the host proves it is still there. A quiet battle and a dead channel
+ * look identical to a viewer otherwise — see `ControlMessage` in ./projection.
+ */
+const HEARTBEAT_MS = 5000
 
 class PlayerViewHost {
   private broadcast: HostTransport | null = null
   private peer: PeerHostSession | null = null
   private unsubscribe: (() => void) | null = null
   private timer: ReturnType<typeof setTimeout> | undefined
+  private heartbeat: ReturnType<typeof setInterval> | undefined
   private pending = false
   private listeners = new Set<() => void>()
   viewerCount = 0
+  /** What the broker connection is doing, for the DM's connection details. */
+  hostStatus: HostStatus = 'offline'
+  hostDetail = ''
 
   get isRunning(): boolean {
     return this.peer !== null
@@ -28,6 +39,10 @@ class PlayerViewHost {
 
   get code(): string | null {
     return this.peer?.code ?? null
+  }
+
+  diagnostics(): Promise<HostDiagnostics> | null {
+    return this.peer?.diagnostics() ?? null
   }
 
   onChange(listener: () => void): () => void {
@@ -55,6 +70,14 @@ class PlayerViewHost {
       this.viewerCount = count
       this.emit()
     })
+    // The code can change under the session's feet when the broker refuses to
+    // give it back after a drop, so status and code are both read through the
+    // same notification.
+    session.onStatus((status, detail) => {
+      this.hostStatus = status
+      this.hostDetail = detail
+      this.emit()
+    })
     this.peer = session
     this.subscribe()
     this.push()
@@ -67,11 +90,20 @@ class PlayerViewHost {
     this.peer?.stop()
     this.peer = null
     this.viewerCount = 0
+    this.hostStatus = 'offline'
+    this.hostDetail = ''
     this.emit()
   }
 
   private subscribe(): void {
     this.unsubscribe ??= battleStore.subscribe(() => this.schedule())
+    // One beat serves both transports, and it has to keep running while the
+    // battle is idle — a round nobody has advanced for a minute is exactly when
+    // a viewer would otherwise start doubting a channel that is perfectly fine.
+    this.heartbeat ??= setInterval(() => {
+      this.broadcast?.beat()
+      this.peer?.beat()
+    }, HEARTBEAT_MS)
   }
 
   private schedule(): void {

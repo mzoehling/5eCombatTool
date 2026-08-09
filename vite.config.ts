@@ -6,6 +6,11 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vite.dev/config/
 export default defineConfig({
   base: '/5eCombatTool/',
+  // Bind the dev server to the LAN, so the Player View can be opened on a second
+  // device without a deploy. Note that a LAN address is not a secure context:
+  // Safari refuses RTCPeerConnection and no service worker registers there, so
+  // the WebRTC path itself still has to be tested against an HTTPS build.
+  server: { host: true },
   plugins: [
     react(),
     VitePWA({
