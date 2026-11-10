@@ -3,5 +3,9 @@
   { "code": "XDMG", "packId": "xdmg-2024", "name": "Dungeon Master's Guide (2024)" },
   { "code": "XMM", "packId": "xmm-2024", "name": "Monster Manual (2024)" },
   { "code": "EFA", "packId": "efa", "name": "Forge of the Artificer" },
-  { "code": "FRHoF", "packId": "frhof", "name": "Heroes of Faerûn" }
+  { "code": "FRHoF", "packId": "frhof", "name": "Heroes of Faerûn" },
+  { "code": "FRAiF", "packId": "fraif", "name": "Adventures in Faerûn" },
+  { "code": "RHW", "packId": "rhw", "name": "Ravenloft: The Horrors Within" },
+  { "code": "AU", "packId": "au", "name": "Arcana Unleashed" },
+  { "code": "AUD", "packId": "aud", "name": "Arcana Unleashed: Deadfall" }
 ]
